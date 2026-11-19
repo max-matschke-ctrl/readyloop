@@ -1,9 +1,12 @@
 import { redirect } from 'next/navigation';
-import { holeSitzung } from '@/server/data';
+import { holeAnmeldestatus, holeSitzung } from '@/server/data';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Startseite() {
+  const status = await holeAnmeldestatus();
+  if (status === 'unkonfiguriert' || status === 'abgemeldet') redirect('/login');
+  if (status === 'ohne_mitgliedschaft') redirect('/kein-zugang');
   const sitzung = await holeSitzung();
   if (!sitzung) redirect('/login');
   redirect(sitzung.rolle === 'pruefer' ? '/pruefer' : '/geraete');

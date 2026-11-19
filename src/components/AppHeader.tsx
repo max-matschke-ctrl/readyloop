@@ -3,19 +3,29 @@ import { can } from '@/domain/rechte';
 import { ROLLE_LABEL, type Sitzung } from '@/domain/types';
 import { abmelden } from '@/server/actions';
 
+export type NavSchluessel = 'geraete' | 'pruefer' | 'maengel' | 'verwaltung';
+
 interface Props {
   sitzung: Sitzung;
-  aktiv?: 'geraete' | 'pruefer';
+  aktiv?: NavSchluessel;
 }
 
+/** Navigation nach Rechten. Nur Anzeige – die Seiten prüfen die Rechte serverseitig selbst. */
 export function AppHeader({ sitzung, aktiv }: Props) {
-  const nav: { href: string; label: string; key: 'geraete' | 'pruefer' }[] = [];
+  const nav: { href: string; label: string; key: NavSchluessel }[] = [];
   if (can(sitzung.rolle, 'geraet.lesen') && sitzung.rolle !== 'pruefer') {
     nav.push({ href: '/geraete', label: 'Geräte', key: 'geraete' });
   }
   if (can(sitzung.rolle, 'pruefaufgaben.lesen')) {
     nav.push({ href: '/pruefer', label: 'Prüfaufgaben', key: 'pruefer' });
   }
+  if (can(sitzung.rolle, 'mangel.lesen')) {
+    nav.push({ href: '/maengel', label: 'Mängel', key: 'maengel' });
+  }
+  if (can(sitzung.rolle, 'bereich.verwalten')) {
+    nav.push({ href: '/admin/mitglieder', label: 'Verwaltung', key: 'verwaltung' });
+  }
+  const mehrereOrganisationen = sitzung.organisationen.length > 1;
 
   return (
     <header className="border-b border-steel/20 bg-white">
@@ -25,7 +35,7 @@ export function AppHeader({ sitzung, aktiv }: Props) {
         </Link>
         {nav.length > 0 && (
           <nav aria-label="Hauptnavigation">
-            <ul className="flex gap-4 text-sm">
+            <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
               {nav.map((n) => (
                 <li key={n.href}>
                   <Link
@@ -45,12 +55,20 @@ export function AppHeader({ sitzung, aktiv }: Props) {
           </nav>
         )}
         <div className="ml-auto flex items-center gap-3 text-sm">
-          <p className="text-right leading-tight">
-            <span className="block font-medium">{sitzung.benutzer.name}</span>
-            <span className="block text-xs text-steel">
-              {ROLLE_LABEL[sitzung.rolle]} · {sitzung.organisation.name}
-            </span>
-          </p>
+          <div className="text-right leading-tight">
+            <p className="font-medium">{sitzung.benutzer.name}</p>
+            <p className="text-xs text-steel">
+              {ROLLE_LABEL[sitzung.rolle]} · <span className="text-ink">{sitzung.organisation.name}</span>
+              {mehrereOrganisationen && (
+                <>
+                  {' · '}
+                  <Link href="/organisation" className="link">
+                    Betrieb wechseln
+                  </Link>
+                </>
+              )}
+            </p>
+          </div>
           <form action={abmelden}>
             <button type="submit" className="btn btn-sekundaer">
               Abmelden
