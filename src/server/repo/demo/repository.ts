@@ -1,5 +1,5 @@
 // In-Memory-Repository für den Demo-Modus (BE-5). Gibt Kopien heraus, damit Aufrufer den Store nicht verändern.
-import type { Id } from '@/domain/types';
+import type { Anlass, Id, Mangel } from '@/domain/types';
 import type { Repository } from '../types';
 import { erzeugeDemoStand, type DemoStand } from './daten';
 
@@ -75,6 +75,7 @@ export class DemoRepository implements Repository {
     this.stand.ereignisse.push(kopie(ereignis));
   }
 
+  /** nachweisId nur für Supabase (Trigger-Kontext); in der Demo steht der Bezug im Ereignis. */
   async setzeFrist({ pruefartId, frist, ereignis }: Parameters<Repository['setzeFrist']>[0]) {
     const p = this.stand.pruefarten.find((x) => x.id === pruefartId);
     if (!p) throw new Error('Prüfart nicht gefunden');
@@ -98,6 +99,73 @@ export class DemoRepository implements Repository {
     }
     this.stand.ereignisse.push(kopie(ereignis));
   }
+
+  // ---- Inkrement 2: Stubs bis BE-10 ----
+
+  async listeAnlaesse(organisationId: Id): Promise<Anlass[]> {
+    void organisationId;
+    throw nichtImplementiert();
+  }
+  async holeAnlass(id: Id): Promise<Anlass | null> {
+    void id;
+    throw nichtImplementiert();
+  }
+  async listeMaengel(organisationId: Id): Promise<Mangel[]> {
+    void organisationId;
+    throw nichtImplementiert();
+  }
+  async holeMangel(id: Id): Promise<Mangel | null> {
+    void id;
+    throw nichtImplementiert();
+  }
+  async speichereBereich(daten: Parameters<Repository['speichereBereich']>[0]): Promise<void> {
+    void daten;
+    throw nichtImplementiert();
+  }
+  async ladeBenutzerEin(daten: Parameters<Repository['ladeBenutzerEin']>[0]): Promise<{ benutzerId: Id; neu: boolean }> {
+    void daten;
+    throw nichtImplementiert();
+  }
+  async speichereMitgliedschaft(daten: Parameters<Repository['speichereMitgliedschaft']>[0]): Promise<void> {
+    void daten;
+    throw nichtImplementiert();
+  }
+  async setzePruefer(daten: Parameters<Repository['setzePruefer']>[0]): Promise<void> {
+    void daten;
+    throw nichtImplementiert();
+  }
+  async setzeGbuDokument(daten: Parameters<Repository['setzeGbuDokument']>[0]): Promise<void> {
+    void daten;
+    throw nichtImplementiert();
+  }
+  async verschiebeGeraet(daten: Parameters<Repository['verschiebeGeraet']>[0]): Promise<void> {
+    void daten;
+    throw nichtImplementiert();
+  }
+  async setzeBetriebsstatus(daten: Parameters<Repository['setzeBetriebsstatus']>[0]): Promise<void> {
+    void daten;
+    throw nichtImplementiert();
+  }
+  async erfasseAnlaesse(daten: Parameters<Repository['erfasseAnlaesse']>[0]): Promise<void> {
+    void daten;
+    throw nichtImplementiert();
+  }
+  async hebeAnlassAuf(daten: Parameters<Repository['hebeAnlassAuf']>[0]): Promise<void> {
+    void daten;
+    throw nichtImplementiert();
+  }
+  async erfasseMangel(daten: Parameters<Repository['erfasseMangel']>[0]): Promise<void> {
+    void daten;
+    throw nichtImplementiert();
+  }
+  async aktualisiereMangel(daten: Parameters<Repository['aktualisiereMangel']>[0]): Promise<void> {
+    void daten;
+    throw nichtImplementiert();
+  }
+}
+
+function nichtImplementiert(): Error {
+  return new Error('nicht implementiert (BE-10)');
 }
 
 export function erzeugeDemoRepository(heute: string): DemoRepository {

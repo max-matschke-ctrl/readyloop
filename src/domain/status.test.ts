@@ -80,17 +80,18 @@ describe('naechsteFaelligkeit / prueferGruppe', () => {
   });
   it('nur ok ist später', () => {
     expect(prueferGruppe('ok')).toBe('spaeter');
-    for (const s of ['ueberfaellig', 'unbekannt', 'gbu', 'bald_faellig'] as const) expect(prueferGruppe(s)).toBe('faellig');
+    for (const s of ['ueberfaellig', 'vor_nutzung_pruefen', 'unbekannt', 'gbu', 'bald_faellig'] as const) expect(prueferGruppe(s)).toBe('faellig');
   });
 });
 
 describe('statusRang', () => {
   it('ordnet nach Schwere: überfällig zuerst, ok zuletzt', () => {
     expect(statusRang('ueberfaellig')).toBe(0);
-    expect(statusRang('unbekannt')).toBe(1);
-    expect(statusRang('gbu')).toBe(2);
-    expect(statusRang('bald_faellig')).toBe(3);
-    expect(statusRang('ok')).toBe(4);
+    expect(statusRang('vor_nutzung_pruefen')).toBe(1); // F-9
+    expect(statusRang('unbekannt')).toBe(2);
+    expect(statusRang('gbu')).toBe(3);
+    expect(statusRang('bald_faellig')).toBe(4);
+    expect(statusRang('ok')).toBe(5);
   });
 
   it('sortiert eine Liste vom schlechtesten zum besten Status', () => {

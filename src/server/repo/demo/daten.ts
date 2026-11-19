@@ -181,6 +181,8 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
     benutzerId,
     rolle,
     bereichIds,
+    prueferTypen: [], // Demo-Qualifikationen folgen mit BE-10
+    aktiv: true,
   });
   const mitgliedschaften: Mitgliedschaft[] = [
     m(1, b.katrin, 'admin'),
@@ -283,6 +285,7 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
         letztePruefung: letzte,
         letztePruefungHerkunft: letzte === null ? 'unbekannt' : p.altbestand ? 'pruefbericht' : 'nachweis',
         zugewiesenerPrueferId: p.zugewiesen ? b.tobias : null,
+        gbuDokument: null,
       });
       if (frist) {
         ereignis({
@@ -313,6 +316,7 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
           unterschriftImPdf: true,
           pdfDateiname: `${g.inv}_${datum}.pdf`,
           pdfSha256: sha256Hex(pdf),
+          fristEmpfehlungMonate: null,
           erfasstVon,
           erfasstAm: zeit(datum, '15:00'),
         };

@@ -60,6 +60,7 @@ export async function sitzungFuerDemoRolle(repo: Repository, rolle: DemoRolle): 
     mitgliedschaftId: mitgliedschaft.id,
     rolle: mitgliedschaft.rolle,
     bereichIds: mitgliedschaft.bereichIds,
+    organisationen: [{ id: organisation.id, name: organisation.name, rolle: mitgliedschaft.rolle }], // BE-10/11: alle aktiven
     demo: true,
   };
 }
@@ -136,6 +137,21 @@ function baueAnsicht(pruefart: GeraetPruefart, geraet: Geraet, ctx: Kontext, heu
     zugewiesenerPrueferName: pruefart.zugewiesenerPrueferId
       ? (ctx.benutzerName.get(pruefart.zugewiesenerPrueferId) ?? null)
       : null,
+    letzterNachweis: letzter
+      ? {
+          id: letzter.id,
+          pruefdatum: letzter.pruefdatum,
+          ergebnis: letzter.ergebnis,
+          fristEmpfehlungMonate: letzter.fristEmpfehlungMonate,
+          erfasstAm: letzter.erfasstAm,
+        }
+      : null,
+    // I2-Felder: Platzhalter bis BE-8/BE-10 (Qualifikation, Anlässe, Mängel, Hinweise).
+    qualifikationsWarnung: null,
+    offeneAnlaesse: [],
+    offeneMaengel: 0,
+    fristHinweis: null,
+    maengelErfassenFuerNachweisId: null,
   };
 }
 
@@ -187,6 +203,7 @@ export async function listeGeraete(
       bereichName: ctx.bereiche.get(g.bereichId)?.name ?? '',
       gesamtStatus: gesamt,
       naechsteFaelligkeit: naechsteFaelligkeit(ergebnisse.map((e) => e.s)),
+      offeneMaengel: 0, // BE-10
       pruefarten: ergebnisse.map(({ p, s }) => ({ id: p.id, bezeichnung: p.bezeichnung, status: s.status, faelligAm: s.faelligAm })),
     });
   }
@@ -250,9 +267,12 @@ export async function holeGeraetDetail(
     bereich,
     einsatzort: wirksamerEinsatzort(geraet, bereich),
     gesamtStatus: gesamtStatus(ansichten.map((a) => a.status.status)),
+    gesamtStatusGrund: null, // BE-10 (F-9)
     naechsteFaelligkeit: naechsteFaelligkeit(ansichten.map((a) => a.status)),
     pruefarten: ansichten,
     nachweise,
+    maengel: [], // BE-10
+    anlaesse: [], // BE-10
     verlauf,
   };
 }
@@ -425,6 +445,7 @@ export async function geraetAnlegen(
     letztePruefung: p.letztePruefung,
     letztePruefungHerkunft: p.letztePruefung === null ? 'unbekannt' : p.letztePruefungHerkunft,
     zugewiesenerPrueferId: null,
+    gbuDokument: null,
   }));
   await repo.legeGeraetAn({
     geraet,
@@ -458,6 +479,8 @@ export async function fristFreigeben(
   jetzt: Date,
 ): Promise<DienstErgebnis<{ geraetId: Id; pruefartId: Id }>> {
   if (!can(sitzung.rolle, 'frist.freigeben')) return fehler('Keine Berechtigung, Fristen freizugeben.');
+  // F-13 (Nachweisbezug, Richtung) folgt mit BE-10; bis dahin nicht still verwerfen.
+  if (eingabe.nachweisId !== null) return fehler('Fristfestlegung mit Nachweisbezug ist noch nicht verfügbar.', 'nachweisId');
   const geladen = await ladePruefartImBereich(sitzung, repo, eingabe.geraetPruefartId);
   if (!geladen) return fehler('Prüfart nicht gefunden.');
   const { pruefart, geraet } = geladen;
@@ -485,6 +508,7 @@ export async function fristFreigeben(
   await repo.setzeFrist({
     pruefartId: pruefart.id,
     frist,
+    nachweisId: null,
     ereignis: {
       id: randomUUID(),
       organisationId: sitzung.organisation.id,
@@ -507,6 +531,7 @@ export interface NachweisDienstEingabe {
   prueferName: string;
   unterschriftImPdf: true;
   pdf: { name: string; inhalt: Uint8Array };
+  fristEmpfehlungMonate?: number | null; // F-13, wirkt nie selbst
 }
 
 const PDF_SIGNATUR = [0x25, 0x50, 0x44, 0x46, 0x2d]; // %PDF-
@@ -551,6 +576,7 @@ export async function nachweisErfassen(
     unterschriftImPdf: true,
     pdfDateiname: dateiname,
     pdfSha256: sha256Hex(eingabe.pdf.inhalt),
+    fristEmpfehlungMonate: eingabe.fristEmpfehlungMonate ?? null,
     erfasstVon: sitzung.benutzer.id,
     erfasstAm: zeitpunkt,
   };

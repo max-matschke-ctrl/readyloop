@@ -119,7 +119,8 @@ describe('Migration init', () => {
     ['frist_quelle', FRIST_QUELLEN],
     ['ergebnis', PRUEF_ERGEBNISSE],
     ['letzte_pruefung_herkunft', DATUMSHERKUNFT],
-    ['typ', EREIGNIS_TYPEN],
+    // I1-Migration kennt nur die I1-Typen; die I2-Typen prüft BE-9 gegen die I2-Migration.
+    ['typ', EREIGNIS_TYPEN.filter((t) => ['geraet_angelegt', 'frist_freigegeben', 'nachweis_erfasst'].includes(t))],
   ] as const)('Check %s enthält genau die Werte aus types.ts', (spalte, werte) => {
     expect([...checkWerte(spalte)].sort()).toEqual([...werte].sort());
   });

@@ -209,6 +209,7 @@ describe('fristFreigeben', () => {
     monate,
     fundstelle: 'GBU Produktion 2026',
     begruendung: 'Einsatz im Einschichtbetrieb bewertet',
+    nachweisId: null,
   });
 
   it('als ADM → Fehler', async () => {
@@ -241,8 +242,8 @@ describe('fristFreigeben', () => {
 
   it('Modus vorschlag bei Entwurf → Fehler; bei Herstellerfrist → ok', async () => {
     const sif = await sitzung('sifa');
-    expect((await fristFreigeben(sif, repo, { modus: 'vorschlag', geraetPruefartId: await pruefartVon('P-006') }, JETZT)).ok).toBe(false);
-    expect((await fristFreigeben(sif, repo, { modus: 'vorschlag', geraetPruefartId: await pruefartVon('L-005') }, JETZT)).ok).toBe(true);
+    expect((await fristFreigeben(sif, repo, { modus: 'vorschlag', geraetPruefartId: await pruefartVon('P-006'), nachweisId: null }, JETZT)).ok).toBe(false);
+    expect((await fristFreigeben(sif, repo, { modus: 'vorschlag', geraetPruefartId: await pruefartVon('L-005'), nachweisId: null }, JETZT)).ok).toBe(true);
   });
 
   it('VER nur im eigenen Bereich', async () => {

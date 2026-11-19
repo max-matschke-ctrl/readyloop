@@ -1,4 +1,4 @@
-// Vertrag §3.4 – Statusampel (F-5, F-6).
+// Vertrag §3.4/§5.7 – Statusampel (F-5, F-6; Rangfolge F-9 über FRIST_STATUS).
 import { addMonate, tageZwischen } from './datum';
 import { FRIST_STATUS } from './types';
 import type { FristStatus, GeraetPruefart, IsoDate, StatusErgebnis } from './types';
@@ -19,7 +19,7 @@ export function berechneStatus(
   return { status, faelligAm, restTage };
 }
 
-/** F-6: schlechtester Status; leere Liste → gbu. */
+/** F-6/F-9: schlechtester Status nach FRIST_STATUS (ueberfaellig > vor_nutzung_pruefen > …); leere Liste → gbu. */
 export function gesamtStatus(status: readonly FristStatus[]): FristStatus {
   if (status.length === 0) return 'gbu';
   return status.reduce((schlechtester, s) =>
@@ -36,6 +36,7 @@ export function naechsteFaelligkeit(ergebnisse: readonly StatusErgebnis[]): IsoD
   return frueheste;
 }
 
+/** 'ok' → 'spaeter', alles andere (inkl. vor_nutzung_pruefen) → 'faellig'. */
 export function prueferGruppe(status: FristStatus): 'faellig' | 'spaeter' {
   return status === 'ok' ? 'spaeter' : 'faellig';
 }

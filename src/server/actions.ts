@@ -1,5 +1,5 @@
 'use server';
-// Vertrag §3.6 – Server Actions (BE-6).
+// Vertrag §3.6/§5.5 – Server Actions (BE-6; I2-Signaturen BE-7, Umsetzung BE-11/BE-12).
 // 'use server': nur async-Funktionen exportieren (keine Konstanten/Typen).
 // Jede Action prüft Sitzung und Recht (can) serverseitig selbst; die Dienste prüfen zusätzlich den Geltungsbereich.
 
@@ -102,7 +102,7 @@ export async function fristFreigeben(prev: ActionState, formData: FormData): Pro
   const sitzung = await sitzungMitRecht('frist.freigeben');
   if (!sitzung) return KEIN_RECHT;
   const geprueft = fristFreigebenSchema.safeParse(
-    felder(formData, ['modus', 'geraetPruefartId', 'monate', 'fundstelle', 'begruendung']),
+    felder(formData, ['modus', 'geraetPruefartId', 'monate', 'fundstelle', 'begruendung', 'nachweisId']),
   );
   if (!geprueft.success) return validierungsfehler(geprueft.error);
 
@@ -126,7 +126,16 @@ export async function nachweisErfassen(prev: ActionState, formData: FormData): P
   const sitzung = await sitzungMitRecht('nachweis.erfassen');
   if (!sitzung) return KEIN_RECHT;
   const geprueft = nachweisErfassenSchema.safeParse(
-    felder(formData, ['geraetPruefartId', 'pruefdatum', 'ergebnis', 'pruefumfang', 'prueferName', 'unterschriftImPdf', 'pdf']),
+    felder(formData, [
+      'geraetPruefartId',
+      'pruefdatum',
+      'ergebnis',
+      'pruefumfang',
+      'prueferName',
+      'unterschriftImPdf',
+      'pdf',
+      'fristEmpfehlungMonate',
+    ]),
   );
   if (!geprueft.success) return validierungsfehler(geprueft.error);
   const { pdf, ...rest } = geprueft.data;
@@ -149,4 +158,131 @@ export async function nachweisErfassen(prev: ActionState, formData: FormData): P
   revalidatePath('/geraete');
   revalidatePath('/pruefer');
   redirect(sitzung.rolle === 'pruefer' ? '/pruefer' : `/geraete/${geraetId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Inkrement 2 (§5.5) – Signaturen; Rümpfe folgen mit BE-11 (Fachaktionen) bzw. BE-12 (Auth).
+// fristFreigeben/nachweisErfassen oben lesen bereits nachweisId bzw. fristEmpfehlungMonate;
+// abmelden (Supabase signOut, rl_org löschen) und der Redirect zur Mängelerfassung folgen mit BE-11/BE-12.
+// ---------------------------------------------------------------------------
+
+/** Nur Modus supabase. signInWithPassword; Fehler immer 'E-Mail oder Passwort ist falsch.' (keine Unterscheidung). Erfolg: redirect('/'). */
+export async function anmelden(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-12)');
+}
+
+/** Nur Modus supabase. resetPasswordForEmail mit redirectTo SITE_URL + '/api/auth/confirm?next=/passwort-neu'.
+ *  Antwort immer { status: 'ok', meldung: 'Wenn ein Konto existiert, ist eine E-Mail unterwegs.' }. */
+export async function passwortVergessen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-12)');
+}
+
+/** Verlangt Auth-Sitzung (aus Einladungs- oder Reset-Link). updateUser({ password }). Erfolg: redirect('/'). */
+export async function passwortSetzen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-12)');
+}
+
+/** Nur eigene aktive Mitgliedschaft; setzt Cookie rl_org (httpOnly, sameSite lax, path '/'). Erfolg: redirect('/'). */
+export async function waehleOrganisation(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-12)');
+}
+
+/** bereich.verwalten. Neu oder ändern (Name, Einsatzort). Erfolg: revalidatePath('/admin/bereiche'),
+ *  { status: 'ok', meldung: 'Bereich gespeichert', id: bereichId }. */
+export async function bereichSpeichern(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-11)');
+}
+
+/** mitglied.verwalten. F-17. Erfolg: revalidatePath('/admin/mitglieder'),
+ *  { status: 'ok', id: mitgliedschaftId, meldung: 'Einladung an … versendet.' | '… hat bereits ein Konto; Zugang angelegt.' }.
+ *  Doppelte Mitgliedschaft → feldfehler.email. */
+export async function mitgliedEinladen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-11)');
+}
+
+/** mitglied.verwalten. F-17 (letzter Admin, eigene Mitgliedschaft). Erfolg: { status: 'ok', meldung: 'Gespeichert', id }. */
+export async function mitgliedAendern(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-11)');
+}
+
+/** pruefer.zuweisen + Geltungsbereich; F-15. Erfolg: revalidatePath(`/geraete/${geraetId}`), '/pruefer';
+ *  { status: 'ok', meldung: 'Prüfer zugewiesen' | 'Zuweisung entfernt', id: geraetPruefartId }. Warnung blockiert nicht. */
+export async function prueferZuweisen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-11)');
+}
+
+/** frist.freigeben + Geltungsbereich; F-18. Erfolg: { status: 'ok', meldung: 'GBU-Verweis gespeichert', id: geraetPruefartId }. */
+export async function gbuDokumentSetzen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-11)');
+}
+
+/** geraet.bearbeiten + Geltungsbereich; F-11. Erfolg: { status: 'ok', meldung: 'Betriebsstatus geändert', id: geraetId }. */
+export async function betriebsstatusSetzen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-11)');
+}
+
+/** geraet.bearbeiten + darfVerschieben; F-16. Erfolg: revalidatePath('/geraete'), redirect(`/geraete/${geraetId}`).
+ *  (Redirect, weil VER das Gerät nach dem Verschieben evtl. nicht mehr sieht → dann redirect('/geraete').) */
+export async function geraetVerschieben(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-11)');
+}
+
+/** anlass.erfassen + Geltungsbereich; F-10; datum ≤ heute; alle Prüfarten gehören zum Gerät.
+ *  Erfolg: { status: 'ok', meldung: 'Anlass erfasst', id: geraetId }. */
+export async function anlassErfassen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-11)');
+}
+
+/** anlass.erfassen + Geltungsbereich; nur offene, nicht aufgehobene Anlässe. Erfolg: { status: 'ok', meldung: 'Anlass aufgehoben', id: anlassId }. */
+export async function anlassAufheben(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-11)');
+}
+
+/** mangel.erfassen + Geltungsbereich; F-14. Erfolg: revalidatePath('/maengel', `/geraete/${geraetId}`),
+ *  redirect(zurueck ?? (pruefer ? '/pruefer' : `/maengel/${mangelId}`)). */
+export async function mangelErfassen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-11)');
+}
+
+/** mangel.bearbeiten + Geltungsbereich; nur Status 'offen'; verantwortlichId aus listeMangelVerantwortliche.
+ *  Erfolg: { status: 'ok', meldung: 'Zur Kenntnis genommen', id: mangelId }. */
+export async function mangelKenntnisNehmen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-11)');
+}
+
+/** mangel.bearbeiten + Geltungsbereich; Status 'offen' oder 'in_bearbeitung'. Erfolg: { status: 'ok', meldung: 'Mangel behoben', id: mangelId }. */
+export async function mangelBeheben(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-11)');
 }
