@@ -6,17 +6,19 @@ Stand 19.11.2026 · Anforderungen: `docs/requirements.md` (IDs R-xx, P-xx, F-x, 
 
 | Inkr. | Inhalt | Anforderungen | Ergebnis |
 |---|---|---|---|
-| **I1** | Datenmodell + RLS, Domäne (Regel-Engine, Status, Rechte), Katalog-Entwurf, Büro-Web-App, Prüfer-Ansicht minimal, Demo-Modus | R-01, R-02 (Teil), R-04, R-05, R-08 (Teil), R-09 (Teil), R-16 (Teil), R-18 (Teil), R-19, R-22 (Teil), R-23, R-24 (Teil), R-28 (Teil), R-31 (Teil), R-40 (Entwurf), P-01–P-06 | lauffähige Demo ohne Datenbank, `npm run build` grün |
-| I2 | Supabase-Betrieb: Supabase-Repository, Login E-Mail/Passwort, Verwaltung Bereiche/Mitglieder, Prüfer einladen/zuweisen, Mängel, Frist nach Ergebnis, Anlassprüfung, außer Betrieb, Gerät verschieben, Prüferqualifikation, GBU-Dokument, pgTAP-Tests für RLS | R-06, R-07, R-08, R-10, R-11, R-12, R-18, R-22, R-24, R-28 | Pilotfähiges Büro mit echter DB |
+| **I1** | Datenmodell + RLS, Domäne (Regel-Engine, Status, Rechte), Katalog-Entwurf, Büro-Web-App, Prüfer-Ansicht minimal, Demo-Modus | R-01, R-02 (Teil), R-04, R-05, R-08 (Teil), R-09 (Teil), R-16 (Teil), R-18 (Teil), R-19, R-22 (Teil), R-23, R-24 (Teil), R-28 (Teil), R-31 (Teil), R-40 (Entwurf), P-01–P-06 | lauffähige Demo ohne Datenbank, `npm run build` grün · **erledigt (auf main)** |
+| **I2** | Supabase-Betrieb: Supabase-Repository, Login E-Mail/Passwort, Verwaltung Bereiche/Mitglieder, Prüfer einladen/zuweisen, Mängel, Frist nach Ergebnis, Anlassprüfung, außer Betrieb, Gerät verschieben, Prüferqualifikation (Warnung), GBU-Verweis je Prüfart, Demo-Schutz (Q-9), pgTAP-Tests für RLS | R-06, R-07, R-08, R-10, R-11, R-12, R-22, R-24, R-28 | Pilotfähiges Büro mit echter DB · Pakete §4, Vertrag §5 |
 | I3 | E-Mail-Erinnerungen (Resend) 90/60/30, Eskalation VER → SIF → GF, Versandprotokoll | R-16, R-17 | |
 | I4 | Export (Excel, PDF, ZIP zum Stichtag), Excel/CSV-Import mit Vorschau, Aufbewahrungs-Nachfrist | R-25, R-27, R-02 | |
 | I5 | Mitarbeiter-PWA, QR/NFC-Token, öffentliche Statusseite, Etiketten/Prüfplakette drucken, Offline-Lesen | R-03, R-09, R-20, R-21, R-38, R-45 | Gate G-4 vorher |
 | I6 | KI-Import (Excel/PDF/Typenschild) hinter Adapter, Sammelupload Prüfdienstleister, Import Prüfgeräte-Dateien | R-28, R-29, R-43 | |
 | I7 | Should/Could-Rest: überwachungsbedürftige Anlagen, ISO-Berichte, Kontrollen, Elektro-Messwerte, API, Mehrsprachigkeit | R-13, R-14, R-15, R-26, R-33, R-41 | |
 
-Pilot-Gates G-1 bis G-4 siehe `docs/requirements.md` §4.
+Pilot-Gates G-1 bis G-5 siehe `docs/requirements.md` §4.
 
-## 2. Inkrement 1 – Pakete
+## 2. Inkrement 1 – Pakete (erledigt, auf main)
+
+Alle Pakete BE-1 bis BE-6, FE-1 bis FE-5 und QA-1 abgeschlossen. Abschnitt bleibt als Referenz; der Vertrag §3 gilt weiter, soweit §5 ihn nicht ändert.
 
 ### Dateibesitz (keine gemeinsamen Dateien → parallel möglich)
 
@@ -875,9 +877,1018 @@ export async function nachweisErfassen(prev: ActionState, formData: FormData): P
 | `/nachweise/neu/[pruefartId]` | FE | `nachweis.erfassen` + Geltungsbereich |
 | `GET /api/nachweise/[id]` | BE | `nachweis.lesen` + Geltungsbereich |
 
-## 4. Spätere Inkremente (Pakete grob)
+## 4. Inkrement 2 – Pakete
 
-**I2 Supabase-Betrieb** – BE: Supabase-Repository hinter `Repository`-Interface; Login E-Mail/Passwort (`@supabase/ssr`); Organisationswahl für Prüfer mit mehreren Mitgliedschaften; pgTAP-Tests der RLS gegen lokale Supabase; Mängel-Tabelle + Dienste; Fristneufestlegung nach Ergebnis (R-06); Anlass (R-07); Betriebsstatus + „vor Nutzung prüfen“ (R-08); Gerät verschieben mit Ereignis; Prüferqualifikation (R-10); GBU-Dokument (R-11); Demo-Schutz in Produktion (Q-9). FE: Login-Formular, Admin-Seiten Bereiche/Mitglieder, Prüfer einladen/zuweisen, Mängelliste und -formular, Anlass erfassen, Webfonts lokal (Q-10).
+Fachregeln F-8 bis F-19, Rechte-Matrix und User Stories US-10 bis US-13, US-21 bis US-26: `docs/requirements.md`. Vertrag: §5 unten.
+
+Nicht in I2: E-Mail-Erinnerungen (I3), Export/Import (I4), PWA/QR (I5), KI (I6), Betriebsanleitung-Upload (R-18 Rest → I4), Ausmustern (→ I4 mit Nachfrist), Webfonts (entfällt, Q-10), neue Abhängigkeiten (`@supabase/ssr` und `@supabase/supabase-js` sind installiert).
+
+### Dateibesitz
+
+| Besitzer | Dateien |
+|---|---|
+| backend-dev | `src/domain/**`, `src/server/**`, `src/app/api/**`, `src/middleware.ts`, `supabase/**`, `tests/**`, `.env.example` |
+| frontend-dev | `src/app/**` außer `src/app/api/**`, `src/components/**` |
+| niemand ohne Absprache | `package.json`, `tsconfig.json`, `next.config.*`, `eslint.config.*` |
+
+Innerhalb eines Besitzers laufen die Pakete nacheinander (gemeinsame Dateien, z. B. `dienste.ts`, `geraete/[id]/page.tsx`). BE und FE laufen parallel.
+
+### Reihenfolge
+
+```
+BE-7 ──┬── BE-8 ── BE-10 ── BE-11 ── BE-12 ── BE-13 ── BE-14 ──┐
+       └── BE-9 ─────────────────────────────┘ (vor BE-13)     ├── QA-2
+BE-7 ── FE-6 ── FE-7 ── FE-8 ── FE-9 ── FE-10 ─────────────────┘
+```
+
+- Nach BE-7 ist `npm run typecheck` erst wieder grün, wenn FE-6 fertig ist (neuer Status `vor_nutzung_pruefen` macht `Record<FristStatus, …>` im FE unvollständig). FE-6 deshalb sofort nach BE-7.
+- FE-7 bis FE-10 kompilieren gegen die Stubs aus BE-7; Daten im Demo-Modus ab BE-11, mit Supabase ab BE-14.
+
+| Paket | Besitzer | Inhalt | Hängt ab von |
+|---|---|---|---|
+| BE-7 | backend-dev | Vertrag I2: `types.ts`, `schemas.ts`, `rechte.ts` (+ Tests), Stubs in `data.ts`/`actions.ts`, `Repository`-Interface erweitert, Demo-Repository mit Stub-Methoden, `status.ts` an neuen Status angepasst | – |
+| BE-8 | backend-dev | Domäne: Status im Kontext (F-9), Anlass offen (F-10), Mängel-Übergänge (F-14), Qualifikation (F-15), Fristrichtung (F-13) + Tests | BE-7 |
+| BE-9 | backend-dev | Migration I2, RLS, Trigger, RPCs, pgTAP-Tests, statischer Migrationstest | BE-7 |
+| BE-10 | backend-dev | Demo-Daten I2, Demo-Repository I2, Dienste I2 (Geräte, Anlass, Mängel, Verwaltung) + Tests | BE-8 |
+| BE-11 | backend-dev | `data.ts`/`actions.ts` für alle I2-Funktionen im Demo-Modus; Betriebsmodus (F-8, Q-9) | BE-10 |
+| BE-12 | backend-dev | Supabase-Clients, Auth (Login, Logout, Passwort vergessen/setzen), Sitzung aus Supabase, Organisationswahl, Middleware, Route `/api/auth/confirm` | BE-11 |
+| BE-13 | backend-dev | Supabase-Repository Teil 1: alle Lesemethoden + I1-Schreibmethoden, PDF-Storage, Mapping + Tests | BE-12, BE-9 |
+| BE-14 | backend-dev | Supabase-Repository Teil 2: I2-Schreibmethoden, Einladung per Service-Role | BE-13 |
+| FE-6 | frontend-dev | Neuer Status, Betriebsstatus-Badge, Ereignis-Texte, Mängelzähler in der Liste | BE-7 |
+| FE-7 | frontend-dev | Login (Demo/Supabase/unkonfiguriert), Passwort vergessen/neu, Organisationswahl, Kein Zugang, Header-Navigation | FE-6 |
+| FE-8 | frontend-dev | Verwaltung: Bereiche, Mitglieder einladen/ändern | FE-7 |
+| FE-9 | frontend-dev | Gerätedetail: Prüfer zuweisen, GBU-Verweis, Frist nach Ergebnis, Betriebsstatus, Verschieben, Anlass; Nachweisformular Frist-Empfehlung | FE-6 |
+| FE-10 | frontend-dev | Mängel: Übersicht, Erfassen, Kenntnisnahme, Behebung; Mängel in der Geräteakte | FE-9 |
+| QA-2 | test-runner | typecheck, lint, test, build (ohne Env und mit Dummy-Env); Demo-Durchlauf; Supabase-Durchlauf soweit lokal möglich | alle |
+
+---
+
+### BE-7 Vertrag I2
+
+Dateien: `src/domain/types.ts`, `src/domain/schemas.ts`, `src/domain/rechte.ts` (wörtlich §5.1–5.3), `src/domain/status.ts` (nur `FRIST_STATUS`-Anpassung, `prueferGruppe`), `src/server/repo/types.ts` (§5.6), `src/server/repo/demo/repository.ts` (neue Methoden als `throw new Error('nicht implementiert (BE-10)')`), `src/server/data.ts` und `src/server/actions.ts` (neue Signaturen §5.4/§5.5, Rümpfe `throw new Error('nicht implementiert (BE-11)')` bzw. `(BE-12)` für Auth), `tests/rechte.test.ts`.
+
+Abnahme:
+- `npm run typecheck` grün für `src/domain`, `src/server`, `tests` (FE-Fehler nur wegen `vor_nutzung_pruefen` erlaubt, behebt FE-6).
+- `tests/rechte.test.ts` prüft die vollständige Matrix aus `requirements.md` §6 (jede Aktion × jede Rolle) und `darfVerschieben`.
+- Bestehende Tests bleiben grün; Demo-Daten liefern weiter `pruefer_typen: []`, `aktiv: true`, `gbuDokument: null`, `fristEmpfehlungMonate: null`.
+
+### BE-8 Domäne I2
+
+Dateien: `src/domain/status.ts`, `src/domain/anlass.ts`, `src/domain/maengel.ts`, `src/domain/qualifikation.ts`, `src/domain/fristen.ts` (nur `fristRichtung`), Tests daneben. Signaturen §5.7.
+
+Abnahme (je Fall ein Test):
+- F-9: offener Anlass + Status ok → `vor_nutzung_pruefen`/`anlass`, `faelligAm` bleibt berechnet; letzter Nachweis `nicht_bestanden` → `vor_nutzung_pruefen`/`nicht_bestanden`; Anlass ohne Frist → `vor_nutzung_pruefen` (nicht `gbu`); außer Betrieb + Resttage −1 → `vor_nutzung_pruefen`/`ausser_betrieb`; außer Betrieb + Resttage 10 → `bald_faellig`; außer Betrieb + unbekannt → `unbekannt`; ohne Kontext identisch zu `berechneStatus`.
+- Gesamtstatus: `['vor_nutzung_pruefen','ueberfaellig']` → `ueberfaellig`; `['ok']` + gefährlicher Mangel → `vor_nutzung_pruefen`; `[]` + gefährlicher Mangel → `vor_nutzung_pruefen`.
+- F-10: Anlass 2026-11-10; Nachweis `ohne_maengel` am 2026-11-10 → erledigt; am 2026-11-09 → offen; `nicht_bestanden` am 2026-11-12 → offen; aufgehoben → nicht offen; Nachweis anderer Prüfart → offen.
+- F-14: `offen→in_bearbeitung` ok; `offen→behoben` ok; `behoben→*` Fehler; `in_bearbeitung→offen` Fehler; `terminVorschlag` gefährlich = heute, erheblich = +30, gering = +90.
+- F-15: Prüfer `['efk']`, gefordert `['zbp']` → Warnung mit beiden Labels; gefordert leer oder kein Eintrag → `null`; Prüfer ohne Typen bei gefordertem Typ → Warnung „keine Qualifikation hinterlegt“.
+- F-13: `fristRichtung(null, 12)` = `erstmalig`; 12→6 `kuerzer`; 12→24 `laenger`; 12→12 `gleich`.
+
+### BE-9 Migration I2
+
+Dateien: `supabase/migrations/20261126000000_inkrement2.sql`, `supabase/tests/rls_inkrement2.test.sql` (pgTAP), `tests/migration.test.ts` (erweitert). I1-Migration bleibt unverändert.
+
+Inhalt:
+- `mitgliedschaft`: `email text not null default ''`, `aktiv boolean not null default true`, `pruefer_typen text[] not null default '{}'` (Werte aus `PRUEFER_TYPEN`). Hilfsfunktionen `app.ist_mitglied`, `app.hat_rolle`, `app.verantwortet_bereich`, `app.ist_zugewiesen` per `create or replace` um `and m.aktiv` ergänzen.
+- `geraet_pruefart`: `gbu_dokument_titel text`, `gbu_dokument_url text check (gbu_dokument_url is null or gbu_dokument_url like 'https://%')`, Check: URL nur mit Titel. Spalten-Grants UPDATE zusätzlich auf `zugewiesener_pruefer_id`, `gbu_dokument_titel`, `gbu_dokument_url`. Neue UPDATE-Policy für admin (ganze Organisation). BEFORE-UPDATE-Trigger `app.pruefart_spaltenrechte`: Frist- und GBU-Spalten nur sifa oder VER (Bereich); `zugewiesener_pruefer_id` nur admin oder VER (Bereich) und nur aktives Mitglied mit Rolle `pruefer` derselben Organisation oder null.
+- `geraet`: Spalten-Grants UPDATE nur `bereich_id`, `betriebsstatus`. Policy UPDATE: USING admin oder VER(alter Bereich); WITH CHECK admin oder VER(neuer Bereich). Trigger: `betriebsstatus = 'ausgemustert'` in I2 abgelehnt; Ereignisse `geraet_verschoben`, `betriebsstatus_geaendert`.
+- `nachweis`: `pdf_dateiname text not null default 'nachweis.pdf'`, `frist_empfehlung_monate integer check (between 1 and 120)`.
+- Neue Tabellen `anlass`, `mangel` (Felder §5.1, snake_case, `organisation_id`, zusammengesetzte FKs wie I1), RLS, keine DELETE-Policy, Indizes. `anlass`: INSERT sifa/VER(Bereich), Datum ≤ heute; UPDATE nur Spalten `aufgehoben_*` (Trigger stempelt `aufgehoben_von = auth.uid()`, `aufgehoben_am = now()`, einmalig). `mangel`: INSERT sifa/VER(Bereich)/Prüfer (nur mit zugewiesener Prüfart, ohne Verantwortlichen); UPDATE nur Status-/Kenntnis-/Behebungs-Spalten; Trigger erzwingt Übergänge F-14 und stempelt `kenntnis_*`, `behebung_erfasst_*`. SELECT: admin/sifa, VER(Bereich), Prüfer(zugewiesene Prüfart).
+- `bereich`: INSERT/UPDATE admin. `mitgliedschaft`: INSERT/UPDATE admin; Trigger „letzter aktiver Admin“ (nicht deaktivieren, nicht herabstufen). `bereich_verantwortung`: INSERT und **DELETE** für admin (einzige DELETE-Policy, Q-19).
+- `ereignis.typ`-Check um alle Typen aus §5.1 erweitern. Trigger für alle neuen Ereignisse (Daten laut `requirements.md` F-19). Zusatzdaten (Begründung, `nachweisId`) liest der Trigger aus `current_setting('readyloop.kontext', true)::jsonb`, gesetzt per `set_config(…, true)` in den RPCs.
+- RPCs `security invoker` (RLS greift, eine Transaktion): `public.geraet_anlegen(p_geraet jsonb, p_pruefarten jsonb)`, `public.frist_setzen(p_pruefart uuid, p_frist jsonb, p_nachweis uuid)`, `public.geraet_verschieben(p_geraet uuid, p_bereich uuid, p_begruendung text)`, `public.betriebsstatus_setzen(p_geraet uuid, p_status text, p_begruendung text)`, `public.mitglied_speichern(p_mitgliedschaft jsonb, p_bereich_ids uuid[])` (ersetzt Bereichsmenge atomar). `grant execute … to authenticated`.
+
+Abnahme:
+- `tests/migration.test.ts`: jede neue Tabelle mit `enable row level security`; einzige `for delete`-Policy ist `bereich_verantwortung`; keine UPDATE-Policy auf `nachweis`/`ereignis`; alle Werte aus `ANLASS_ARTEN`, `MANGEL_SCHWEREN`, `MANGEL_STATUS`, `EREIGNIS_TYPEN` kommen in Checks vor; jede RPC ist `security invoker`.
+- pgTAP (`supabase test db`, läuft nur mit lokaler Supabase; im Agentenlauf nicht ausführbar → Pilot-Gate G-5): VER Lager sieht keine Produktion-Mängel; Prüfer sieht nur Mängel zugewiesener Prüfarten; admin kann keine Frist setzen; VER kann Gerät nicht in fremden Bereich verschieben; deaktiviertes Mitglied sieht nichts; letzter Admin nicht deaktivierbar; `mangel` `behoben → offen` scheitert.
+
+### BE-10 Demo und Dienste I2
+
+Dateien: `src/server/repo/demo/daten.ts`, `src/server/repo/demo/repository.ts`, `src/server/dienste.ts` (Lesemodelle, Zuweisung, GBU-Verweis, Betriebsstatus, Verschieben, Anlass, Frist mit Nachweis-Bezug), `src/server/dienste-maengel.ts`, `src/server/dienste-verwaltung.ts`, Tests `tests/dienste-i2.test.ts`.
+
+Demo-Daten (Ergänzung zu §2 BE-5):
+
+| Gerät | Änderung | Neuer Ziel-Status |
+|---|---|---|
+| P-001 Brückenkran | offener Anlass `unfall_schadensfall` vor 3 Tagen („Anfahrschaden am Katzfahrwerk“) | vor_nutzung_pruefen |
+| P-004 Winkelschleifer | zusätzlicher Nachweis −10 Tage `nicht_bestanden`; Mangel gefährlich, offen, „Schutzhaube gebrochen“, Verantwortliche Sabine Krüger, Termin heute | vor_nutzung_pruefen |
+| V-003 Firmenwagen | `ausser_betrieb` (Ereignis vorhanden) | vor_nutzung_pruefen |
+| L-006 Anschlagkette | Mangel erheblich, in Bearbeitung, Termin +20, Verantwortlicher Marco Lindner | gbu (unverändert) |
+| L-008 Stehleiter | Mangel gering aus älterem Nachweis, behoben | ueberfaellig (unverändert) |
+| L-003 Regal Reihe A | Mangel gering, offen, Termin −5 (Termin überschritten); GBU-Verweis „GBU Lager 2025, Abschn. 3 Regale“ | ok (unverändert) |
+| L-001 Gabelstapler | Nachweis-Empfehlung 6 Monate beim letzten Nachweis | ueberfaellig (unverändert) |
+
+- Prüfer Tobias Berger: `prueferTypen ['efk', 'sachkundiger']` → Qualifikationswarnung bei P-001/P-002 (Kran: zbp).
+- Zweite Organisation „Muster Metallbau GmbH“ (fiktiv), Standort „Werk“, Bereich „Werkstatt“ (`werkstatt_fertigung`), 2 Geräte (Säulenbohrmaschine, Hallenkran 2 t) mit Prüfarten, beide Tobias Berger zugewiesen; Berger hat dort eine Prüfer-Mitgliedschaft. Andere Demo-Rollen sind nur Mitglied der ersten Organisation.
+- Statusverteilung erste Organisation danach: ueberfaellig 2 (L-001, L-008), vor_nutzung_pruefen 3, unbekannt 2, gbu 3, bald_faellig 3, ok ≥ 2.
+- `ladeBenutzerEin` im Demo: unbekannte E-Mail → neuer Benutzer mit `randomUUID()`, `neu: true`; bekannte → vorhandene ID, `neu: false`. Kein Versand.
+
+Abnahme (Tests gegen Dienste mit Demo-Repository):
+- Statusverteilung wie oben; Liste der ersten Organisation unverändert 20 Geräte.
+- `prueferZuweisen` als VER Lager für Produktion-Prüfart → Fehler; als ADM → ok + Ereignis `pruefer_zugewiesen`; Zuweisung an Sifa-Benutzer → Fehler; an deaktivierten Prüfer → Fehler.
+- `geraetVerschieben` VER Lager → Produktion: Fehler; ADM L-007 → Produktion: Bereich geändert, Frist unverändert, Ereignis mit beiden Bereichsnamen; Lager-VER sieht L-007 danach nicht mehr.
+- `betriebsstatusSetzen` V-003 → `in_betrieb` → Status `ueberfaellig`; `ausgemustert` → Validierungsfehler.
+- `anlassErfassen` für L-003 → `vor_nutzung_pruefen`; danach `nachweisErfassen` `ohne_maengel` heute → `ok`, Anlass erledigt; `anlassAufheben` mit Grund < 10 Zeichen → Fehler.
+- `mangelErfassen` als PRF ohne Prüfart → Fehler; als PRF für zugewiesene Prüfart → ok, `verantwortlichId = null`; aus Nachweis eines anderen Geräts → Fehler; Termin gestern → Fehler.
+- `mangelKenntnisNehmen` → `in_bearbeitung`, Kenntnis gestempelt; `mangelBeheben` mit `behobenAm` in der Zukunft → Fehler; zweites Beheben → Fehler.
+- `mitgliedEinladen` bekannte E-Mail in derselben Organisation → Fehler am Feld `email`; VER ohne Bereich → Fehler am Feld `bereichIds`; `mitgliedAendern` letzter Admin auf `sifa` → Fehler; eigene Mitgliedschaft deaktivieren → Fehler.
+- `fristFreigeben` mit `nachweisId` → Ereignis enthält `nachweisId` und `richtung`; `nachweisId` einer anderen Prüfart → Fehler.
+- Prüfer Berger: `holeSitzung` mit Organisation 2 → nur 2 Aufgaben; mit Organisation 1 → 6 wie in I1.
+
+### BE-11 Datenzugriff und Actions I2
+
+Dateien: `src/server/data.ts`, `src/server/actions.ts`, `src/server/sitzung.ts`.
+
+- `betriebsmodus()` nach F-8; `istDemoModus()` = `betriebsmodus() === 'demo'`. `holeRepository()` wird `async` (Supabase braucht `await cookies()`).
+- Demo-Sitzung: Organisation aus Cookie `rl_org`, sonst alphabetisch erste aktive Mitgliedschaft; `Sitzung.organisationen` befüllt.
+- Alle neuen Funktionen aus §5.4/§5.5 für den Demo-Modus; Mehrfachfelder (`bereichIds`, `prueferTypen`, `geraetPruefartIds`) über `formData.getAll`.
+- `zurueck`-Feld bei `mangelErfassen`: nur relative Pfade (`/^\/[a-z0-9\/\-?=&]*$/i`, kein `//`), sonst Default.
+
+Abnahme: `npm run build` ohne Env grün; mit `NODE_ENV=production` ohne Env und ohne `READYLOOP_DEMO` liefert `betriebsmodus()` `'unkonfiguriert'` (Unit-Test über Env-Stubs); jede neue Action prüft Recht und gibt `feldfehler` mit Formularfeldnamen zurück.
+
+### BE-12 Supabase-Auth und Sitzung
+
+Dateien: `src/server/supabase/server.ts` (`erzeugeServerClient()` mit `@supabase/ssr`, Cookie-Set in Server Components per try/catch), `src/server/supabase/admin.ts` (Service-Role-Client, nur `ladeBenutzerEin`), `src/middleware.ts` (Session-Refresh nur im Modus `supabase`; Matcher ohne `_next/static`, `_next/image`, `favicon.ico`), `src/app/api/auth/confirm/route.ts`, `src/server/sitzung.ts`, `src/server/actions.ts` (Auth-Actions), `.env.example`.
+
+- Env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (nur Server, nur Einladung), `NEXT_PUBLIC_SITE_URL` (Links in Mails), `READYLOOP_DEMO`.
+- `/api/auth/confirm?token_hash&type&next`: `verifyOtp` für `invite` und `recovery`, dann Redirect auf `next` (nur relative Pfade, Default `/passwort-neu`); Fehler → `/login?fehler=link`.
+- E-Mail-Vorlagen (Invite, Reset) in `supabase/config.toml` auf `{{ .SiteURL }}/api/auth/confirm?token_hash={{ .TokenHash }}&type=invite|recovery&next=/passwort-neu`.
+- `leseSitzung()` im Modus `supabase`: `auth.getUser()`, aktive Mitgliedschaften, Organisation nach `rl_org`; Benutzername = `mitgliedschaft.anzeigename`.
+- `abmelden`: `signOut`, Cookies `rl_org` und `rl_demo_rolle` löschen.
+
+Abnahme: Build mit Dummy-Env (`NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co`, Anon-Key `x`) grün; Service-Role-Key kommt in keiner Datei unter `src/app/**` und keinem `NEXT_PUBLIC_*` vor (Test per Grep in `tests/`); `passwortVergessen` liefert für bekannte und unbekannte E-Mail dieselbe Antwort.
+
+### BE-13 Supabase-Repository Teil 1
+
+Dateien: `src/server/repo/supabase/repository.ts`, `src/server/repo/supabase/mapping.ts`, `tests/supabase-mapping.test.ts`.
+
+- Fabrik `supabaseRepository(client, organisationId)`; alle Lesemethoden mit Spaltenauswahl, Mapping snake_case ↔ Vertrag in `mapping.ts` (reine Funktionen).
+- `legeGeraetAn` über RPC `geraet_anlegen` (Prüfarten ohne Frist; eine Transaktion). `setzeFrist` über RPC `frist_setzen`.
+- `erfasseNachweis`: **erst** PDF nach `nachweise/{org}/{geraet}/{pruefart}/{nachweisId}.pdf` hochladen (`contentType: application/pdf`, `upsert: false`), **dann** Nachweis-Zeile mit derselben ID einfügen; schlägt das Einfügen fehl, bleibt die Datei verwaist (kein Löschrecht) und wird geloggt. Parameter `ereignis` und `letztePruefung` ignorieren (Trigger).
+- `holeNachweisPdf`: Download über den Benutzer-Client (Storage-RLS).
+- Fehler aus Postgres (`23514`, `42501`, `23505`) auf `DienstErgebnis`-Fehler mit deutscher Meldung abbilden (`mapping.ts: pgFehlerText`).
+
+Abnahme: Mapping-Tests je Entität hin und zurück (inkl. `FestgelegteFrist`-Snapshot, `GbuDokument`, `Mangel`, `Anlass`); `pgFehlerText('23505')` → „bereits vorhanden“; typecheck grün.
+
+### BE-14 Supabase-Repository Teil 2
+
+Dateien: `src/server/repo/supabase/repository.ts`, `src/server/supabase/admin.ts`, Tests.
+
+- `speichereBereich` (insert/update), `speichereMitgliedschaft` über RPC `mitglied_speichern`, `setzePruefer`/`setzeGbuDokument` (UPDATE Prüfart), `verschiebeGeraet`/`setzeBetriebsstatus` über RPCs, `erfasseAnlaesse` (ein INSERT mit n Zeilen), `hebeAnlassAuf`, `erfasseMangel`, `aktualisiereMangel`.
+- `ladeBenutzerEin`: Service-Role `auth.admin.inviteUserByEmail(email, { redirectTo: SITE_URL + '/api/auth/confirm?next=/passwort-neu', data: { name } })`; existiert die E-Mail bereits → vorhandene ID, `neu: false`, keine Mail.
+
+Abnahme: typecheck/test grün; manuelle Prüfung gegen lokale Supabase als Teil von QA-2 bzw. Gate G-5.
+
+### FE-6 Status und Listen
+
+Dateien: `src/components/{StatusAmpel,Pruefplakette,StatusZaehler,GeraeteFilter,GeraeteTabelle,VerlaufListe,BetriebsstatusBadge}.tsx`.
+
+- `vor_nutzung_pruefen`: Farbe brick, Symbol „!“ (nicht nur Farbe), Label aus `STATUS_LABEL`, bei vorhandenem `grund` Zusatz aus `VOR_NUTZUNG_GRUND_LABEL`. Prüfplakette: wie überfällig; ohne `faelligAm` Mitte „!“.
+- Zähler und Filter iterieren `FRIST_STATUS` (neuer Status automatisch dabei).
+- Geräteliste: Spalte „Mängel“ mit `offeneMaengel` (nur > 0 anzeigen), `BetriebsstatusBadge` bei `ausser_betrieb`.
+- `VerlaufListe`: Text aus `EREIGNIS_LABEL`, bei bekannten Daten Zusatz (z. B. „Lager → Produktion“, „12 → 6 Monate (kürzer)“).
+
+### FE-7 Anmeldung und Navigation
+
+Dateien: `src/app/page.tsx`, `src/app/login/page.tsx`, `src/app/passwort-vergessen/page.tsx`, `src/app/passwort-neu/page.tsx`, `src/app/organisation/page.tsx`, `src/app/kein-zugang/page.tsx`, `src/components/{LoginForm,PasswortVergessenForm,PasswortNeuForm,OrganisationWahl,AppHeader}.tsx`.
+
+- `/`: nach `holeAnmeldestatus()`: `unkonfiguriert`/`abgemeldet` → `/login`; `ohne_mitgliedschaft` → `/kein-zugang`; sonst PRF → `/pruefer`, andere → `/geraete`.
+- `/login`: Modus `demo` → Rollenwahl wie I1; `supabase` → E-Mail, Passwort, Link „Passwort vergessen“, Meldung bei `?fehler=link`; `unkonfiguriert` → Hinweis „Readyloop ist nicht konfiguriert“ ohne Formular.
+- `/passwort-neu`: Passwort + Wiederholung (min. 10 Zeichen); ohne Auth-Sitzung → Hinweis + Link `/passwort-vergessen`.
+- `/organisation`: Liste aus `listeMeineOrganisationen()` mit Rolle, aktuelle markiert, Auswahl per `waehleOrganisation`.
+- Header: Organisationsname; Wechsel-Link nur bei `sitzung.organisationen.length > 1`; Navigation: Geräte (ADM/SIF/VER), Prüfaufgaben (PRF), Mängel (`mangel.lesen`), Verwaltung (`bereich.verwalten`).
+
+### FE-8 Verwaltung
+
+Dateien: `src/app/admin/bereiche/page.tsx`, `src/app/admin/mitglieder/page.tsx`, `src/app/admin/mitglieder/neu/page.tsx`, `src/app/admin/mitglieder/[id]/page.tsx`, `src/components/{BereichForm,BereicheTabelle,MitgliedForm,MitgliederTabelle}.tsx`.
+
+- Seiten nur mit `bereich.verwalten` bzw. `mitglied.verwalten` (`erfordereSitzung(aktion)`).
+- Bereiche: Tabelle (Name, Einsatzort, Geräte, Verantwortliche) mit Inline-Bearbeiten; Formular neu. Hinweis bei Einsatzort-Änderung: „Fristvorschläge der Geräte können sich ändern“.
+- Mitglieder: Tabelle (Name, E-Mail, Rolle, Bereiche, Qualifikation, aktiv); Einladen: E-Mail, Name, Rolle (`EINLADBARE_ROLLEN`), Bereiche (Checkboxen, nur bei VER), Prüfertypen (Checkboxen, nur bei PRF). Erfolgsmeldung aus `meldung`. Ändern: zusätzlich „aktiv“; bei `istEigeneMitgliedschaft` Rolle und aktiv gesperrt.
+
+### FE-9 Gerätedetail I2
+
+Dateien: `src/app/geraete/[id]/page.tsx`, `src/app/nachweise/neu/[pruefartId]/page.tsx`, `src/components/{PruefartKarte,FristFreigabeForm,NachweisForm,PrueferZuweisungForm,GbuVerweisForm,BetriebsstatusForm,GeraetVerschiebenForm,AnlassForm,AnlassListe}.tsx`.
+
+- Kopf: `BetriebsstatusBadge`; bei `geraet.bearbeiten`: Betriebsstatus umschalten (Begründung optional; beim Zurücksetzen auf „in Betrieb“ Warnung, wenn eine Prüfart `grund = 'ausser_betrieb'` hat) und Verschieben (Ziele aus `listeBereiche()` ohne aktuellen Bereich).
+- Anlass (bei `anlass.erfassen`): Art, Datum (Default heute), Beschreibung, Prüfarten als Checkboxen; Liste offener und erledigter Anlässe mit „Aufheben“ (Begründung).
+- Prüfart-Karte: Prüfer-Auswahl aus `listePrueferOptionen()` (bei `pruefer.zuweisen`) mit Warnung über `qualifikationsWarnung(...)` aus `@/domain/qualifikation` vor dem Speichern und `ansicht.qualifikationsWarnung` danach; GBU-Verweis anzeigen/setzen (bei `frist.freigeben`); `fristHinweis` als Kasten mit Button „Frist nach Prüfung festlegen“, der `FristFreigabeForm` mit `nachweisId` = `ansicht.letzterNachweis.id` und Monate = Empfehlung vorbelegt; `offeneMaengel`-Zähler.
+- Nachweisformular: optionales Feld „Empfohlene Frist (Monate)“ mit Hinweis „Empfehlung, wirkt erst nach Freigabe“.
+
+### FE-10 Mängel
+
+Dateien: `src/app/maengel/page.tsx`, `src/app/maengel/neu/page.tsx`, `src/app/maengel/[id]/page.tsx`, `src/app/geraete/[id]/page.tsx` (Abschnitt Mängel einbinden), `src/components/{MaengelTabelle,MaengelFilter,MangelForm,MangelKenntnisForm,MangelBehebenForm,MangelStatusBadge}.tsx`.
+
+- `/maengel`: Filter Status (Default offen), Bereich, Schwere als URL-Parameter; Spalten Gerät (Link), Bereich, Prüfart, Beschreibung, Schwere, Verantwortlich, Termin (rot bei `terminUeberschritten`), Status. Keine Auswertung je Person (R-45).
+- `/maengel/neu?geraet=&pruefart=&nachweis=&zurueck=`: `holeMangelFormular()`; `notFound()` bei `null`; Termin vorbelegt mit `terminVorschlag(schwere, heute)` beim Wechsel der Schwere; Verantwortlich-Auswahl nur, wenn `verantwortliche` nicht leer.
+- `/maengel/[id]`: Details, Verlauf (Erfassung, Kenntnis, Behebung je mit Name und Datum); Kenntnisnahme-Formular (Verantwortlich, Termin) bei `offen`; Behebungs-Formular bei `offen`/`in_bearbeitung`; beides nur bei `mangel.bearbeiten`.
+- Geräteakte: Abschnitt „Mängel“ (offene zuerst), Button „Mangel erfassen“ bei `mangel.erfassen`; Hinweis „Mängel aus Nachweis vom … noch nicht erfasst“ bei `maengelErfassenFuerNachweisId`.
+
+### QA-2
+
+`npm run typecheck`, `npm run lint`, `npm test`, `npm run build` (a) ohne Env, (b) mit Dummy-Supabase-Env. Demo-Durchlauf: ADM lädt Prüferin ein und weist ihr L-003 zu (Warnung prüfen); ADM verschiebt L-007 nach Produktion; VER erfasst Anlass für L-005 → „vor Nutzung prüfen“; PRF (Berger) wechselt Organisation, erfasst Nachweis `maengel_weiterbetrieb` mit Empfehlung 6 für L-001 → Mängelformular → Mangel; VER nimmt Kenntnis und behebt; SIF legt Frist nach Ergebnis fest (Ereignis mit Richtung `kuerzer`); V-003 zurück in Betrieb → überfällig. Supabase-Durchlauf und `supabase test db` nur, wenn lokale Supabase verfügbar; sonst als offen melden (Gate G-5).
+
+---
+
+## 5. TypeScript-Vertrag Inkrement 2
+
+Verbindlich für BE und FE. Ergänzt/ändert §3. Nicht aufgeführte Teile von §3 gelten unverändert. „GEÄNDERT“ ersetzt die I1-Definition vollständig.
+
+### 5.1 `src/domain/types.ts`
+
+```ts
+// Vertrag Inkrement 2 – siehe docs/backlog.md §5.1 (ergänzt §3.1)
+
+// ---------- Status ----------
+
+// GEÄNDERT: neuer Status; Reihenfolge = Schwere absteigend (F-9)
+export const FRIST_STATUS = ['ueberfaellig', 'vor_nutzung_pruefen', 'unbekannt', 'gbu', 'bald_faellig', 'ok'] as const;
+export type FristStatus = (typeof FRIST_STATUS)[number];
+
+// GEÄNDERT
+export const STATUS_LABEL: Record<FristStatus, string> = {
+  ueberfaellig: 'Überfällig – nicht verwenden',
+  vor_nutzung_pruefen: 'Vor Nutzung prüfen – nicht verwenden',
+  unbekannt: 'Prüfdatum unbekannt – Prüfung veranlassen',
+  gbu: 'Frist über GBU festlegen',
+  bald_faellig: 'Bald fällig',
+  ok: 'In Ordnung',
+};
+
+export const VOR_NUTZUNG_GRUENDE = ['anlass', 'nicht_bestanden', 'ausser_betrieb', 'gefaehrlicher_mangel'] as const;
+export type VorNutzungGrund = (typeof VOR_NUTZUNG_GRUENDE)[number];
+
+export const VOR_NUTZUNG_GRUND_LABEL: Record<VorNutzungGrund, string> = {
+  anlass: 'Anlassprüfung offen',
+  nicht_bestanden: 'Letzte Prüfung nicht bestanden',
+  ausser_betrieb: 'Außer Betrieb, Frist abgelaufen',
+  gefaehrlicher_mangel: 'Gefährlicher Mangel offen',
+};
+
+// GEÄNDERT: grund ergänzt
+export interface StatusErgebnis {
+  status: FristStatus;
+  faelligAm: IsoDate | null;
+  restTage: number | null; // faelligAm − heute; negativ = überfällig
+  grund?: VorNutzungGrund; // nur bei status 'vor_nutzung_pruefen'
+}
+
+// ---------- Betrieb, Rollen ----------
+
+export const BETRIEBSSTATUS_LABEL: Record<Betriebsstatus, string> = {
+  in_betrieb: 'In Betrieb',
+  ausser_betrieb: 'Außer Betrieb',
+  ausgemustert: 'Ausgemustert',
+};
+
+/** In I2 setzbar; 'ausgemustert' folgt in I4. */
+export const WAEHLBARER_BETRIEBSSTATUS = ['in_betrieb', 'ausser_betrieb'] as const;
+export type WaehlbarerBetriebsstatus = (typeof WAEHLBARER_BETRIEBSSTATUS)[number];
+
+/** 'mitarbeiter' ab I5. */
+export const EINLADBARE_ROLLEN = ['admin', 'sifa', 'verantwortlicher', 'pruefer'] as const;
+export type EinladbareRolle = (typeof EINLADBARE_ROLLEN)[number];
+
+export type Betriebsmodus = 'demo' | 'supabase' | 'unkonfiguriert';
+export type Anmeldestatus = 'unkonfiguriert' | 'abgemeldet' | 'ohne_mitgliedschaft' | 'angemeldet';
+
+// ---------- Anlass (F-10) ----------
+
+export const ANLASS_ARTEN = [
+  'inbetriebnahme',
+  'aenderung_instandsetzung',
+  'unfall_schadensfall',
+  'laengere_nichtbenutzung',
+  'naturereignis',
+  'sonstiges',
+] as const;
+export type AnlassArt = (typeof ANLASS_ARTEN)[number];
+
+export const ANLASS_ART_LABEL: Record<AnlassArt, string> = {
+  inbetriebnahme: 'Vor (Wieder-)Inbetriebnahme',
+  aenderung_instandsetzung: 'Prüfpflichtige Änderung/Instandsetzung',
+  unfall_schadensfall: 'Unfall oder Schadensfall',
+  laengere_nichtbenutzung: 'Längere Nichtbenutzung',
+  naturereignis: 'Naturereignis',
+  sonstiges: 'Sonstiges außergewöhnliches Ereignis',
+};
+
+// ---------- Mängel (F-14) ----------
+
+/** Reihenfolge = Schwere absteigend. */
+export const MANGEL_SCHWEREN = ['gefaehrlich', 'erheblich', 'gering'] as const;
+export type MangelSchwere = (typeof MANGEL_SCHWEREN)[number];
+
+export const MANGEL_SCHWERE_LABEL: Record<MangelSchwere, string> = {
+  gefaehrlich: 'Gefährlich – Weiterbetrieb nicht zulässig',
+  erheblich: 'Erheblich – zeitnah beheben',
+  gering: 'Gering – bis Termin beheben',
+};
+
+/** Vorschlag Termin = heute + Tage (Q-16). */
+export const MANGEL_TERMIN_TAGE: Record<MangelSchwere, number> = { gefaehrlich: 0, erheblich: 30, gering: 90 };
+
+export const MANGEL_STATUS = ['offen', 'in_bearbeitung', 'behoben'] as const;
+export type MangelStatus = (typeof MANGEL_STATUS)[number];
+
+export const MANGEL_STATUS_LABEL: Record<MangelStatus, string> = {
+  offen: 'Offen',
+  in_bearbeitung: 'In Bearbeitung',
+  behoben: 'Behoben',
+};
+
+// ---------- Ereignisse und Aktionen ----------
+
+// GEÄNDERT
+export const EREIGNIS_TYPEN = [
+  'geraet_angelegt',
+  'frist_freigegeben',
+  'nachweis_erfasst',
+  'pruefer_zugewiesen',
+  'gbu_dokument_gesetzt',
+  'geraet_verschoben',
+  'betriebsstatus_geaendert',
+  'anlass_erfasst',
+  'anlass_aufgehoben',
+  'mangel_erfasst',
+  'mangel_kenntnis',
+  'mangel_behoben',
+  'bereich_gespeichert',
+  'mitglied_gespeichert',
+] as const;
+export type EreignisTyp = (typeof EREIGNIS_TYPEN)[number];
+
+export const EREIGNIS_LABEL: Record<EreignisTyp, string> = {
+  geraet_angelegt: 'Gerät angelegt',
+  frist_freigegeben: 'Frist freigegeben',
+  nachweis_erfasst: 'Nachweis erfasst',
+  pruefer_zugewiesen: 'Prüfer zugewiesen',
+  gbu_dokument_gesetzt: 'GBU-Verweis gesetzt',
+  geraet_verschoben: 'Gerät verschoben',
+  betriebsstatus_geaendert: 'Betriebsstatus geändert',
+  anlass_erfasst: 'Anlass erfasst',
+  anlass_aufgehoben: 'Anlass aufgehoben',
+  mangel_erfasst: 'Mangel erfasst',
+  mangel_kenntnis: 'Mangel zur Kenntnis genommen',
+  mangel_behoben: 'Mangel behoben',
+  bereich_gespeichert: 'Bereich gespeichert',
+  mitglied_gespeichert: 'Mitglied gespeichert',
+};
+
+// GEÄNDERT
+export const AKTIONEN = [
+  'geraet.lesen',
+  'geraet.anlegen',
+  'geraet.bearbeiten', // verschieben, Betriebsstatus
+  'frist.freigeben', // inkl. GBU-Verweis
+  'nachweis.lesen',
+  'nachweis.erfassen',
+  'pruefaufgaben.lesen',
+  'pruefer.zuweisen',
+  'anlass.erfassen', // inkl. aufheben
+  'mangel.lesen',
+  'mangel.erfassen',
+  'mangel.bearbeiten', // Kenntnisnahme, Behebung
+  'verlauf.lesen',
+  'katalog.lesen',
+  'katalog.freigeben',
+  'bereich.verwalten',
+  'mitglied.verwalten',
+] as const;
+export type Aktion = (typeof AKTIONEN)[number];
+
+// ---------- Stammdaten ----------
+
+// GEÄNDERT
+export interface Mitgliedschaft {
+  id: Id;
+  organisationId: Id;
+  benutzerId: Id;
+  rolle: Rolle;
+  bereichIds: Id[]; // nur für 'verantwortlicher' befüllt
+  prueferTypen: PrueferTyp[]; // nur für 'pruefer' befüllt (R-10)
+  aktiv: boolean;
+}
+
+export interface OrganisationOption {
+  id: Id;
+  name: string;
+  rolle: Rolle;
+}
+
+// GEÄNDERT
+export interface Sitzung {
+  benutzer: Benutzer;
+  organisation: Organisation;
+  mitgliedschaftId: Id;
+  rolle: Rolle;
+  bereichIds: Id[];
+  organisationen: OrganisationOption[]; // alle aktiven Mitgliedschaften, alphabetisch
+  demo: boolean;
+}
+
+// ---------- Prüfarten, Nachweise ----------
+
+/** R-11: Verweis auf die Gefährdungsbeurteilung, kein Upload in I2. */
+export interface GbuDokument {
+  titel: string; // z. B. 'GBU Lager 2025, Abschn. 3'
+  url: string | null; // nur https://
+}
+
+// GEÄNDERT: gbuDokument ergänzt
+export interface GeraetPruefart {
+  id: Id;
+  organisationId: Id;
+  geraetId: Id;
+  katalogSchluessel: string | null;
+  bezeichnung: string;
+  herstellerfristMonate: number | null;
+  herstellerfristQuelle: string | null;
+  frist: FestgelegteFrist | null;
+  letztePruefung: IsoDate | null;
+  letztePruefungHerkunft: Datumsherkunft;
+  zugewiesenerPrueferId: Id | null;
+  gbuDokument: GbuDokument | null;
+}
+
+// GEÄNDERT: fristEmpfehlungMonate ergänzt
+export interface Nachweis {
+  id: Id;
+  organisationId: Id;
+  geraetId: Id;
+  geraetPruefartId: Id;
+  pruefdatum: IsoDate;
+  ergebnis: PruefErgebnis;
+  pruefumfang: string;
+  prueferName: string;
+  prueferBenutzerId: Id | null;
+  unterschriftImPdf: boolean;
+  pdfDateiname: string;
+  pdfSha256: string;
+  fristEmpfehlungMonate: number | null; // Empfehlung des Prüfers, wirkt nie selbst (F-13)
+  erfasstVon: Id;
+  erfasstAm: IsoDateTime;
+}
+
+export interface Anlass {
+  id: Id;
+  organisationId: Id;
+  geraetId: Id;
+  geraetPruefartId: Id;
+  art: AnlassArt;
+  datum: IsoDate;
+  beschreibung: string;
+  erfasstVon: Id;
+  erfasstVonName: string;
+  erfasstAm: IsoDateTime;
+  aufgehobenVon: Id | null;
+  aufgehobenVonName: string | null;
+  aufgehobenAm: IsoDateTime | null;
+  aufhebungsgrund: string | null;
+}
+
+export interface AnlassAnsicht extends Anlass {
+  pruefartBezeichnung: string;
+  offen: boolean; // F-10
+  erledigtDurchNachweisId: Id | null;
+}
+
+export interface Mangel {
+  id: Id;
+  organisationId: Id;
+  geraetId: Id;
+  geraetPruefartId: Id | null; // null = freier Mangel am Gerät
+  nachweisId: Id | null;
+  beschreibung: string;
+  schwere: MangelSchwere;
+  termin: IsoDate;
+  status: MangelStatus;
+  verantwortlichId: Id | null; // Benutzer-ID; null bis Kenntnisnahme, wenn vom Prüfer erfasst
+  erfasstVon: Id;
+  erfasstVonName: string;
+  erfasstAm: IsoDateTime;
+  kenntnisVon: Id | null;
+  kenntnisVonName: string | null;
+  kenntnisAm: IsoDateTime | null;
+  behobenAm: IsoDate | null; // Datum der Behebung
+  behobenDurch: string | null; // Person oder Firma, die behoben hat
+  behebung: string | null; // Maßnahme
+  behebungErfasstVon: Id | null;
+  behebungErfasstVonName: string | null;
+  behebungErfasstAm: IsoDateTime | null;
+}
+
+export interface MangelAnsicht extends Mangel {
+  geraetBezeichnung: string;
+  inventarnummer: string | null;
+  bereichId: Id;
+  bereichName: string;
+  pruefartBezeichnung: string | null;
+  verantwortlichName: string | null;
+  terminUeberschritten: boolean; // status ≠ behoben und termin < heute
+}
+
+export interface MangelFilter {
+  status?: 'offen' | 'behoben' | 'alle'; // Default 'offen' = offen + in_bearbeitung
+  bereichId?: Id;
+  schwere?: MangelSchwere;
+}
+
+export interface PersonOption {
+  benutzerId: Id;
+  name: string;
+  rolle: Rolle;
+}
+
+export interface PrueferOption {
+  benutzerId: Id;
+  name: string;
+  prueferTypen: PrueferTyp[];
+}
+
+export interface MangelFormularKontext {
+  geraet: Pick<Geraet, 'id' | 'bezeichnung' | 'inventarnummer'>;
+  bereichName: string;
+  pruefarten: { id: Id; bezeichnung: string }[]; // im Geltungsbereich; Prüfer: nur zugewiesene
+  nachweis: Pick<Nachweis, 'id' | 'geraetPruefartId' | 'pruefdatum' | 'ergebnis'> | null;
+  vorbelegtePruefartId: Id | null;
+  verantwortliche: PersonOption[]; // leer für Prüfer → Feld ausblenden
+  heute: IsoDate;
+}
+
+// ---------- Verwaltung ----------
+
+export interface BereichAnsicht {
+  bereich: Bereich;
+  geraeteAnzahl: number;
+  verantwortliche: PersonOption[];
+}
+
+export interface MitgliedAnsicht {
+  mitgliedschaftId: Id;
+  benutzer: Benutzer;
+  rolle: Rolle;
+  bereichIds: Id[];
+  bereichNamen: string[];
+  prueferTypen: PrueferTyp[];
+  aktiv: boolean;
+  istEigeneMitgliedschaft: boolean;
+}
+
+// ---------- Lesemodelle ----------
+
+// GEÄNDERT: I2-Felder ergänzt
+export interface PruefartAnsicht {
+  pruefart: GeraetPruefart;
+  vorschlag: FristVorschlag;
+  status: StatusErgebnis; // nach F-9 (Kontext: Betriebsstatus, Anlass, nicht bestanden)
+  katalogEintrag: KatalogEintrag | null;
+  weiterbetriebUnzulaessig: boolean; // letzter Nachweis 'nicht_bestanden'
+  zugewiesenerPrueferName: string | null;
+  qualifikationsWarnung: string | null; // F-15
+  offeneAnlaesse: AnlassAnsicht[];
+  offeneMaengel: number; // offen + in_bearbeitung an dieser Prüfart
+  letzterNachweis: Pick<Nachweis, 'id' | 'pruefdatum' | 'ergebnis' | 'fristEmpfehlungMonate' | 'erfasstAm'> | null;
+  fristHinweis: 'empfehlung_abweichend' | 'kuerzerer_vorschlag' | null; // F-13, F-16
+  maengelErfassenFuerNachweisId: Id | null; // F-12: letzter Nachweis ≠ ohne_maengel ohne verknüpften Mangel
+}
+
+// GEÄNDERT: offeneMaengel ergänzt
+export interface GeraetListenEintrag {
+  geraet: Geraet;
+  bereichName: string;
+  gesamtStatus: FristStatus;
+  naechsteFaelligkeit: IsoDate | null;
+  offeneMaengel: number;
+  pruefarten: { id: Id; bezeichnung: string; status: FristStatus; faelligAm: IsoDate | null }[];
+}
+
+// GEÄNDERT: maengel, anlaesse, gesamtStatusGrund ergänzt
+export interface GeraetDetail {
+  geraet: Geraet;
+  bereich: Bereich;
+  einsatzort: Einsatzort;
+  gesamtStatus: FristStatus;
+  gesamtStatusGrund: VorNutzungGrund | null; // gesetzt bei gesamtStatus 'vor_nutzung_pruefen'
+  naechsteFaelligkeit: IsoDate | null;
+  pruefarten: PruefartAnsicht[];
+  nachweise: NachweisAnsicht[];
+  maengel: MangelAnsicht[]; // offene zuerst, dann nach termin; leer ohne 'mangel.lesen'
+  anlaesse: AnlassAnsicht[]; // absteigend nach datum
+  verlauf: Ereignis[];
+}
+```
+
+### 5.2 `src/domain/schemas.ts` (Ergänzungen, Zod 4)
+
+```ts
+import {
+  ANLASS_ARTEN, EINLADBARE_ROLLEN, EINSATZORTE, MANGEL_SCHWEREN, PRUEFER_TYPEN, WAEHLBARER_BETRIEBSSTATUS,
+} from './types';
+
+const pflichtId = z.string().min(1);
+const optId = z.preprocess(leerZuNull, z.string().min(1).nullable());
+const checkbox = z.preprocess((v) => v === 'on', z.boolean());
+const email = z.preprocess(
+  (v) => (typeof v === 'string' ? v.trim().toLowerCase() : v),
+  z.email({ error: 'Bitte eine gültige E-Mail-Adresse angeben.' }),
+);
+export const PASSWORT_MIN = 10;
+
+// Auth
+export const anmeldenSchema = z.object({ email, passwort: z.string().min(1, 'Passwort fehlt') });
+export const passwortVergessenSchema = z.object({ email });
+export const passwortSetzenSchema = z
+  .object({ passwort: z.string().min(PASSWORT_MIN, `Mindestens ${PASSWORT_MIN} Zeichen`).max(72), passwortWiederholung: z.string() })
+  .refine((d) => d.passwort === d.passwortWiederholung, { message: 'Passwörter stimmen nicht überein.', path: ['passwortWiederholung'] });
+export const organisationWaehlenSchema = z.object({ organisationId: pflichtId });
+
+// Verwaltung
+export const bereichSpeichernSchema = z.object({
+  bereichId: optId, // null = neu
+  name: z.string().trim().min(2).max(80),
+  einsatzort: z.enum(EINSATZORTE),
+});
+export const mitgliedEinladenSchema = z
+  .object({
+    email,
+    name: z.string().trim().min(2).max(120),
+    rolle: z.enum(EINLADBARE_ROLLEN),
+    bereichIds: z.array(pflichtId).max(50), // formData.getAll
+    prueferTypen: z.array(z.enum(PRUEFER_TYPEN)).max(PRUEFER_TYPEN.length), // formData.getAll
+  })
+  .refine((d) => d.rolle !== 'verantwortlicher' || d.bereichIds.length > 0, {
+    message: 'Verantwortliche brauchen mindestens einen Bereich.',
+    path: ['bereichIds'],
+  });
+export const mitgliedAendernSchema = z
+  .object({
+    mitgliedschaftId: pflichtId,
+    name: z.string().trim().min(2).max(120),
+    rolle: z.enum(EINLADBARE_ROLLEN),
+    bereichIds: z.array(pflichtId).max(50),
+    prueferTypen: z.array(z.enum(PRUEFER_TYPEN)).max(PRUEFER_TYPEN.length),
+    aktiv: checkbox,
+  })
+  .refine((d) => d.rolle !== 'verantwortlicher' || d.bereichIds.length > 0, {
+    message: 'Verantwortliche brauchen mindestens einen Bereich.',
+    path: ['bereichIds'],
+  });
+// Dienst normalisiert: bereichIds nur bei 'verantwortlicher', prueferTypen nur bei 'pruefer', sonst [].
+
+// Geräte und Prüfarten
+export const prueferZuweisenSchema = z.object({ geraetPruefartId: pflichtId, prueferId: optId }); // null = Zuweisung entfernen
+export const gbuDokumentSetzenSchema = z
+  .object({
+    geraetPruefartId: pflichtId,
+    titel: optText(200), // null = Verweis entfernen
+    url: z.preprocess(leerZuNull, z.url({ protocol: /^https$/, error: 'Nur https-Links.' }).max(500).nullable()),
+  })
+  .refine((d) => d.titel !== null || d.url === null, { message: 'Link nur mit Titel.', path: ['titel'] });
+export const betriebsstatusSetzenSchema = z.object({
+  geraetId: pflichtId,
+  betriebsstatus: z.enum(WAEHLBARER_BETRIEBSSTATUS),
+  begruendung: optText(500),
+});
+export const geraetVerschiebenSchema = z.object({ geraetId: pflichtId, bereichId: pflichtId, begruendung: optText(500) });
+
+// Anlass
+export const anlassErfassenSchema = z.object({
+  geraetId: pflichtId,
+  geraetPruefartIds: z.array(pflichtId).min(1, 'Mindestens eine Prüfart wählen.').max(10), // formData.getAll
+  art: z.enum(ANLASS_ARTEN),
+  datum: isoDate, // zusätzlich im Dienst: ≤ heute
+  beschreibung: z.string().trim().min(5).max(1000),
+});
+export const anlassAufhebenSchema = z.object({ anlassId: pflichtId, grund: z.string().trim().min(10).max(500) });
+
+// Mängel
+export const mangelErfassenSchema = z.object({
+  geraetId: pflichtId,
+  geraetPruefartId: optId,
+  nachweisId: optId,
+  beschreibung: z.string().trim().min(5).max(1000),
+  schwere: z.enum(MANGEL_SCHWEREN),
+  termin: isoDate, // zusätzlich im Dienst: ≥ heute
+  verantwortlichId: optId, // Prüfer: immer null
+  zurueck: optText(300), // relativer Pfad für Redirect, sonst Default
+});
+export const mangelKenntnisSchema = z.object({ mangelId: pflichtId, verantwortlichId: pflichtId, termin: isoDate });
+export const mangelBehebenSchema = z.object({
+  mangelId: pflichtId,
+  behobenAm: isoDate, // ≤ heute und ≥ Erfassungsdatum
+  behobenDurch: z.string().trim().min(2).max(120),
+  behebung: z.string().trim().min(5).max(1000),
+});
+
+// GEÄNDERT: fristFreigebenSchema – beide Varianten zusätzlich
+//   nachweisId: optId, // F-13: Bezug auf Nachweis, muss zur selben Prüfart gehören
+// GEÄNDERT: nachweisErfassenSchema – zusätzlich
+//   fristEmpfehlungMonate: z.preprocess(leerZuNull, z.coerce.number().int().min(1).max(120).nullable()),
+```
+
+Formularfelder je neuer/geänderter Action (Mehrfachfelder = mehrere Inputs gleichen Namens):
+
+| Action | Felder |
+|---|---|
+| `anmelden` | `email`, `passwort` |
+| `passwortVergessen` | `email` |
+| `passwortSetzen` | `passwort`, `passwortWiederholung` |
+| `waehleOrganisation` | `organisationId` |
+| `bereichSpeichern` | `bereichId` (leer = neu), `name`, `einsatzort` |
+| `mitgliedEinladen` | `email`, `name`, `rolle`, `bereichIds`*, `prueferTypen`* |
+| `mitgliedAendern` | `mitgliedschaftId`, `name`, `rolle`, `bereichIds`*, `prueferTypen`*, `aktiv` (Checkbox) |
+| `prueferZuweisen` | `geraetPruefartId`, `prueferId` (leer = entfernen) |
+| `gbuDokumentSetzen` | `geraetPruefartId`, `titel` (leer = entfernen), `url` |
+| `betriebsstatusSetzen` | `geraetId`, `betriebsstatus`, `begruendung` |
+| `geraetVerschieben` | `geraetId`, `bereichId`, `begruendung` |
+| `anlassErfassen` | `geraetId`, `geraetPruefartIds`*, `art`, `datum`, `beschreibung` |
+| `anlassAufheben` | `anlassId`, `grund` |
+| `mangelErfassen` | `geraetId`, `geraetPruefartId`, `nachweisId`, `beschreibung`, `schwere`, `termin`, `verantwortlichId`, `zurueck` |
+| `mangelKenntnisNehmen` | `mangelId`, `verantwortlichId`, `termin` |
+| `mangelBeheben` | `mangelId`, `behobenAm`, `behobenDurch`, `behebung` |
+| `fristFreigeben` | wie I1 + `nachweisId` |
+| `nachweisErfassen` | wie I1 + `fristEmpfehlungMonate` |
+
+### 5.3 `src/domain/rechte.ts`
+
+```ts
+// GEÄNDERT
+export const RECHTE: Record<Aktion, readonly Rolle[]> = {
+  'geraet.lesen': ['admin', 'sifa', 'verantwortlicher', 'pruefer'],
+  'geraet.anlegen': ['admin', 'verantwortlicher'],
+  'geraet.bearbeiten': ['admin', 'verantwortlicher'],
+  'frist.freigeben': ['sifa', 'verantwortlicher'],
+  'nachweis.lesen': ['admin', 'sifa', 'verantwortlicher', 'pruefer'],
+  'nachweis.erfassen': ['verantwortlicher', 'pruefer'],
+  'pruefaufgaben.lesen': ['pruefer'],
+  'pruefer.zuweisen': ['admin', 'verantwortlicher'],
+  'anlass.erfassen': ['sifa', 'verantwortlicher'],
+  'mangel.lesen': ['admin', 'sifa', 'verantwortlicher', 'pruefer'],
+  'mangel.erfassen': ['sifa', 'verantwortlicher', 'pruefer'],
+  'mangel.bearbeiten': ['admin', 'sifa', 'verantwortlicher'],
+  'verlauf.lesen': ['admin', 'sifa', 'verantwortlicher'],
+  'katalog.lesen': ['admin', 'sifa', 'verantwortlicher', 'pruefer', 'mitarbeiter'],
+  'katalog.freigeben': [],
+  'bereich.verwalten': ['admin'],
+  'mitglied.verwalten': ['admin'],
+};
+
+export function can(rolle: Rolle, aktion: Aktion): boolean; // unverändert
+export function imGeltungsbereich(/* unverändert */): boolean;
+
+/** F-16: admin immer (Ziel in eigener Organisation); verantwortlicher nur, wenn Quelle und Ziel eigene Bereiche sind; sonst false. */
+export function darfVerschieben(
+  sitzung: Pick<Sitzung, 'rolle' | 'bereichIds'>,
+  vonBereichId: Id,
+  nachBereichId: Id,
+): boolean;
+```
+
+### 5.4 `src/server/data.ts` (Ergänzungen)
+
+```ts
+import type {
+  Anmeldestatus, BereichAnsicht, Betriebsmodus, Id, MangelAnsicht, MangelFilter, MangelFormularKontext,
+  MitgliedAnsicht, OrganisationOption, PersonOption, PrueferOption,
+} from '@/domain/types';
+
+/** F-8: 'supabase' bei URL + Anon-Key; 'demo' wenn beide fehlen und (NODE_ENV ≠ 'production' oder READYLOOP_DEMO === '1'); sonst 'unkonfiguriert'. */
+export function betriebsmodus(): Betriebsmodus;
+
+/** GEÄNDERT: betriebsmodus() === 'demo'. */
+export function istDemoModus(): boolean;
+
+/** Für '/' und Login: 'unkonfiguriert' | 'abgemeldet' | 'ohne_mitgliedschaft' (Supabase-Login ohne aktive Mitgliedschaft) | 'angemeldet'. */
+export async function holeAnmeldestatus(): Promise<Anmeldestatus>;
+
+/** true, wenn ein Supabase-Auth-Benutzer angemeldet ist (auch ohne Mitgliedschaft) – für /passwort-neu. Demo: false. */
+export async function hatAuthSitzung(): Promise<boolean>;
+
+/** Aktive Mitgliedschaften des angemeldeten Benutzers, alphabetisch (= sitzung.organisationen). */
+export async function listeMeineOrganisationen(): Promise<OrganisationOption[]>;
+
+// --- Mängel ---
+
+/** mangel.lesen + Geltungsbereich (Prüfer: Mängel zugewiesener Prüfarten). Sortierung: Schwere, termin aufsteigend, erfasstAm. */
+export async function listeMaengel(filter?: MangelFilter): Promise<MangelAnsicht[]>;
+
+/** null ohne Recht oder außerhalb des Geltungsbereichs. */
+export async function holeMangel(mangelId: Id): Promise<MangelAnsicht | null>;
+
+/** mangel.erfassen + Gerät im Geltungsbereich; nachweisId muss zum Gerät gehören (setzt vorbelegtePruefartId). Sonst null. */
+export async function holeMangelFormular(
+  geraetId: Id,
+  vorbelegung?: { geraetPruefartId?: Id; nachweisId?: Id },
+): Promise<MangelFormularKontext | null>;
+
+/** mangel.bearbeiten: aktive Mitglieder mit Rolle admin, sifa, verantwortlicher; alphabetisch. */
+export async function listeMangelVerantwortliche(): Promise<PersonOption[]>;
+
+// --- Prüfer ---
+
+/** pruefer.zuweisen: aktive Mitglieder mit Rolle pruefer, alphabetisch. Sonst []. */
+export async function listePrueferOptionen(): Promise<PrueferOption[]>;
+
+// --- Verwaltung ---
+
+/** bereich.verwalten, sonst notFound(). Alphabetisch. */
+export async function listeBereicheVerwaltung(): Promise<BereichAnsicht[]>;
+
+/** mitglied.verwalten, sonst notFound(). Aktive zuerst, dann alphabetisch. */
+export async function listeMitglieder(): Promise<MitgliedAnsicht[]>;
+
+/** mitglied.verwalten; null, wenn nicht in der Organisation. */
+export async function holeMitglied(mitgliedschaftId: Id): Promise<MitgliedAnsicht | null>;
+
+// Unverändert in der Signatur, inhaltlich erweitert: holeSitzung (organisationen), listeBereiche,
+// listeGeraete (offeneMaengel, Status F-9), holeGeraetDetail (maengel, anlaesse, PruefartAnsicht I2),
+// listeGeraetegruppen, listePrueferAufgaben (nur aktuelle Organisation), holeNachweisKontext, holeNachweisPdf.
+```
+
+### 5.5 `src/server/actions.ts` (Ergänzungen und Änderungen)
+
+Alle Actions: `(prev: ActionState, formData: FormData) => Promise<ActionState>`, Sitzung + Recht + Geltungsbereich serverseitig, Validierung mit §5.2, `feldfehler` mit Formularfeldnamen.
+
+```ts
+'use server';
+import type { ActionState } from '@/domain/types';
+
+// --- Auth (BE-12) ---
+
+/** Nur Modus supabase. signInWithPassword; Fehler immer 'E-Mail oder Passwort ist falsch.' (keine Unterscheidung).
+ *  Erfolg: redirect('/'). */
+export async function anmelden(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** Nur Modus supabase. resetPasswordForEmail mit redirectTo SITE_URL + '/api/auth/confirm?next=/passwort-neu'.
+ *  Antwort immer { status: 'ok', meldung: 'Wenn ein Konto existiert, ist eine E-Mail unterwegs.' }. */
+export async function passwortVergessen(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** Verlangt Auth-Sitzung (aus Einladungs- oder Reset-Link). updateUser({ password }). Erfolg: redirect('/'). */
+export async function passwortSetzen(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** Nur eigene aktive Mitgliedschaft; setzt Cookie rl_org (httpOnly, sameSite lax, path '/'). Erfolg: redirect('/'). */
+export async function waehleOrganisation(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** GEÄNDERT: Supabase signOut (Modus supabase), Cookies rl_org und rl_demo_rolle löschen; redirect('/login'). */
+export async function abmelden(): Promise<void>;
+
+// --- Verwaltung ---
+
+/** bereich.verwalten. Neu oder ändern (Name, Einsatzort). Erfolg: revalidatePath('/admin/bereiche'),
+ *  { status: 'ok', meldung: 'Bereich gespeichert', id: bereichId }. */
+export async function bereichSpeichern(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** mitglied.verwalten. F-17. Erfolg: revalidatePath('/admin/mitglieder'),
+ *  { status: 'ok', id: mitgliedschaftId, meldung: 'Einladung an … versendet.' | '… hat bereits ein Konto; Zugang angelegt.' }.
+ *  Doppelte Mitgliedschaft → feldfehler.email. */
+export async function mitgliedEinladen(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** mitglied.verwalten. F-17 (letzter Admin, eigene Mitgliedschaft). Erfolg: { status: 'ok', meldung: 'Gespeichert', id }. */
+export async function mitgliedAendern(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+// --- Geräte und Prüfarten ---
+
+/** pruefer.zuweisen + Geltungsbereich; F-15. Erfolg: revalidatePath(`/geraete/${geraetId}`), '/pruefer';
+ *  { status: 'ok', meldung: 'Prüfer zugewiesen' | 'Zuweisung entfernt', id: geraetPruefartId }. Warnung blockiert nicht. */
+export async function prueferZuweisen(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** frist.freigeben + Geltungsbereich; F-18. Erfolg: { status: 'ok', meldung: 'GBU-Verweis gespeichert', id: geraetPruefartId }. */
+export async function gbuDokumentSetzen(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** geraet.bearbeiten + Geltungsbereich; F-11. Erfolg: { status: 'ok', meldung: 'Betriebsstatus geändert', id: geraetId }. */
+export async function betriebsstatusSetzen(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** geraet.bearbeiten + darfVerschieben; F-16. Erfolg: revalidatePath('/geraete'), redirect(`/geraete/${geraetId}`).
+ *  (Redirect, weil VER das Gerät nach dem Verschieben evtl. nicht mehr sieht → dann redirect('/geraete').) */
+export async function geraetVerschieben(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** anlass.erfassen + Geltungsbereich; F-10; datum ≤ heute; alle Prüfarten gehören zum Gerät.
+ *  Erfolg: { status: 'ok', meldung: 'Anlass erfasst', id: geraetId }. */
+export async function anlassErfassen(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** anlass.erfassen + Geltungsbereich; nur offene, nicht aufgehobene Anlässe. Erfolg: { status: 'ok', meldung: 'Anlass aufgehoben', id: anlassId }. */
+export async function anlassAufheben(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** GEÄNDERT: zusätzlich nachweisId (F-13). Rückgabe wie I1. */
+export async function fristFreigeben(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** GEÄNDERT: zusätzlich fristEmpfehlungMonate. Erfolg: Ergebnis ≠ 'ohne_maengel' und can(rolle, 'mangel.erfassen') →
+ *  redirect(`/maengel/neu?geraet=${geraetId}&pruefart=${pruefartId}&nachweis=${nachweisId}&zurueck=${encodeURIComponent(ziel)}`)
+ *  mit ziel = '/pruefer' (pruefer) bzw. `/geraete/${geraetId}`; sonst wie I1. */
+export async function nachweisErfassen(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+// --- Mängel ---
+
+/** mangel.erfassen + Geltungsbereich; F-14. Erfolg: revalidatePath('/maengel', `/geraete/${geraetId}`),
+ *  redirect(zurueck ?? (pruefer ? '/pruefer' : `/maengel/${mangelId}`)). */
+export async function mangelErfassen(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** mangel.bearbeiten + Geltungsbereich; nur Status 'offen'; verantwortlichId aus listeMangelVerantwortliche.
+ *  Erfolg: { status: 'ok', meldung: 'Zur Kenntnis genommen', id: mangelId }. */
+export async function mangelKenntnisNehmen(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** mangel.bearbeiten + Geltungsbereich; Status 'offen' oder 'in_bearbeitung'. Erfolg: { status: 'ok', meldung: 'Mangel behoben', id: mangelId }. */
+export async function mangelBeheben(prev: ActionState, formData: FormData): Promise<ActionState>;
+```
+
+### 5.6 `src/server/repo/types.ts` (intern, BE)
+
+```ts
+// Ergänzungen zum Repository-Interface. Supabase: Ereignisse entstehen per Trigger; der Parameter `ereignis`
+// wird dort ignoriert und dient der Demo. Gleiche Ereignisdaten in beiden Implementierungen (F-19).
+export interface Repository {
+  // … I1-Methoden unverändert, außer:
+  setzeFrist(daten: { pruefartId: Id; frist: FestgelegteFrist; nachweisId: Id | null; ereignis: Ereignis }): Promise<void>;
+
+  // Lesen I2
+  listeAnlaesse(organisationId: Id): Promise<Anlass[]>;
+  holeAnlass(id: Id): Promise<Anlass | null>;
+  listeMaengel(organisationId: Id): Promise<Mangel[]>;
+  holeMangel(id: Id): Promise<Mangel | null>;
+
+  // Schreiben I2 (je Aufruf atomar)
+  speichereBereich(daten: { bereich: Bereich; neu: boolean; ereignis: Ereignis }): Promise<void>;
+  ladeBenutzerEin(daten: { email: string; name: string }): Promise<{ benutzerId: Id; neu: boolean }>;
+  speichereMitgliedschaft(daten: { mitgliedschaft: Mitgliedschaft; benutzer: Benutzer; neu: boolean; ereignis: Ereignis }): Promise<void>;
+  setzePruefer(daten: { pruefartId: Id; prueferId: Id | null; ereignis: Ereignis }): Promise<void>;
+  setzeGbuDokument(daten: { pruefartId: Id; gbuDokument: GbuDokument | null; ereignis: Ereignis }): Promise<void>;
+  verschiebeGeraet(daten: { geraetId: Id; bereichId: Id; begruendung: string | null; ereignis: Ereignis }): Promise<void>;
+  setzeBetriebsstatus(daten: { geraetId: Id; betriebsstatus: WaehlbarerBetriebsstatus; begruendung: string | null; ereignis: Ereignis }): Promise<void>;
+  erfasseAnlaesse(daten: { anlaesse: Anlass[]; ereignisse: Ereignis[] }): Promise<void>;
+  hebeAnlassAuf(daten: { anlass: Anlass; ereignis: Ereignis }): Promise<void>; // anlass mit gesetzten aufgehoben*-Feldern
+  erfasseMangel(daten: { mangel: Mangel; ereignis: Ereignis }): Promise<void>;
+  aktualisiereMangel(daten: { mangel: Mangel; ereignis: Ereignis }): Promise<void>; // nur Übergänge nach F-14
+}
+
+// src/server/sitzung.ts – GEÄNDERT
+export function betriebsmodus(): Betriebsmodus;
+export async function holeRepository(): Promise<Repository>; // war synchron
+export const ORG_COOKIE = 'rl_org';
+```
+
+### 5.7 Domänenfunktionen I2 (BE-8)
+
+```ts
+// src/domain/status.ts
+export interface StatusKontext {
+  betriebsstatus: Betriebsstatus;
+  anlassOffen: boolean;
+  nichtBestanden: boolean; // letzter Nachweis der Prüfart 'nicht_bestanden'
+}
+/** F-9. Ohne Kontext-Abweichung identisch zu berechneStatus. */
+export function berechneStatusImKontext(
+  pruefart: Pick<GeraetPruefart, 'frist' | 'letztePruefung'>,
+  heute: IsoDate,
+  kontext: StatusKontext,
+  vorlaufTage?: number,
+): StatusErgebnis;
+/** GEÄNDERT: optional gefährlicher offener Mangel → mindestens 'vor_nutzung_pruefen'. */
+export function gesamtStatus(status: readonly FristStatus[], gefaehrlicherMangelOffen?: boolean): FristStatus;
+/** GEÄNDERT: 'ok' → 'spaeter', alles andere (inkl. vor_nutzung_pruefen) → 'faellig'. */
+export function prueferGruppe(status: FristStatus): 'faellig' | 'spaeter';
+
+// src/domain/anlass.ts
+/** F-10: nicht aufgehoben und kein bestandener Nachweis derselben Prüfart mit pruefdatum ≥ anlass.datum. */
+export function anlassErledigtDurch(
+  anlass: Pick<Anlass, 'geraetPruefartId' | 'datum' | 'aufgehobenAm'>,
+  nachweise: readonly Pick<Nachweis, 'id' | 'geraetPruefartId' | 'pruefdatum' | 'ergebnis'>[],
+): { offen: boolean; nachweisId: Id | null };
+
+// src/domain/maengel.ts
+export function mangelUebergangErlaubt(von: MangelStatus, nach: MangelStatus): boolean;
+export function terminVorschlag(schwere: MangelSchwere, heute: IsoDate): IsoDate;
+export function istMangelOffen(m: Pick<Mangel, 'status'>): boolean; // offen | in_bearbeitung
+
+// src/domain/qualifikation.ts
+/** F-15. null = passt oder keine Anforderung. Sonst Warntext mit Labels aus PRUEFER_TYP_LABEL. */
+export function qualifikationsWarnung(
+  prueferTypen: readonly PrueferTyp[],
+  gefordert: readonly PrueferTyp[] | null,
+): string | null;
+
+// src/domain/fristen.ts
+export function fristRichtung(altMonate: number | null, neuMonate: number): 'erstmalig' | 'kuerzer' | 'laenger' | 'gleich';
+```
+
+### 5.8 Routen I2
+
+| Route | Besitzer | Zugriff |
+|---|---|---|
+| `/login` | FE | öffentlich (Modus-abhängig) |
+| `/passwort-vergessen` | FE | öffentlich, nur Modus supabase |
+| `/passwort-neu` | FE | Auth-Sitzung (`hatAuthSitzung()`) |
+| `/organisation` | FE | angemeldet |
+| `/kein-zugang` | FE | Auth-Sitzung ohne aktive Mitgliedschaft |
+| `/maengel` | FE | `mangel.lesen` |
+| `/maengel/neu` | FE | `mangel.erfassen` + `holeMangelFormular` ≠ null |
+| `/maengel/[id]` | FE | `mangel.lesen` + Geltungsbereich |
+| `/admin/bereiche` | FE | `bereich.verwalten` |
+| `/admin/mitglieder`, `/admin/mitglieder/neu`, `/admin/mitglieder/[id]` | FE | `mitglied.verwalten` |
+| `GET /api/auth/confirm` | BE | öffentlich (Token im Link) |
+| `src/middleware.ts` | BE | alle Seiten, nur Session-Refresh |
+
+## 6. Spätere Inkremente (Pakete grob)
 
 **I3 Erinnerungen** – BE: Fälligkeitsjob (Supabase Cron oder Vercel Cron), Staffel 90/60/30 je Bereich, Eskalationsregeln, Resend-Adapter, Versandprotokoll, idempotent je (Prüfart, Stufe, Fälligkeit). FE: Einstellungen je Bereich, Protokollansicht.
 
