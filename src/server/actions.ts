@@ -1,5 +1,5 @@
 'use server';
-// Vertrag §3.6/§5.5 – Server Actions (BE-6; I2-Signaturen BE-7, Umsetzung BE-11/BE-12).
+// Vertrag §3.6/§5.5 – Server Actions (BE-6, BE-11; Auth BE-12).
 // 'use server': nur async-Funktionen exportieren (keine Konstanten/Typen).
 // Jede Action prüft Sitzung und Recht (can) serverseitig selbst; die Dienste prüfen zusätzlich den Geltungsbereich.
 
@@ -8,13 +8,39 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { can } from '@/domain/rechte';
-import { demoRolleSchema, fristFreigebenSchema, geraetAnlegenSchema, nachweisErfassenSchema } from '@/domain/schemas';
+import {
+  anlassAufhebenSchema,
+  anlassErfassenSchema,
+  bereichSpeichernSchema,
+  betriebsstatusSetzenSchema,
+  demoRolleSchema,
+  fristFreigebenSchema,
+  gbuDokumentSetzenSchema,
+  geraetAnlegenSchema,
+  geraetVerschiebenSchema,
+  mangelBehebenSchema,
+  mangelErfassenSchema,
+  mangelKenntnisSchema,
+  mitgliedAendernSchema,
+  mitgliedEinladenSchema,
+  nachweisErfassenSchema,
+  organisationWaehlenSchema,
+  prueferZuweisenSchema,
+} from '@/domain/schemas';
 import type { Aktion, ActionState, Sitzung } from '@/domain/types';
+import * as auth from './auth';
 import * as dienste from './dienste';
-import { DEMO_COOKIE, DEMO_COOKIE_OPTIONEN, heute, holeRepository, istDemoModus, leseSitzung } from './sitzung';
+import type { DienstErgebnis } from './dienste-basis';
+import * as maengel from './dienste-maengel';
+import * as verwaltung from './dienste-verwaltung';
+import { sichererRuecksprung } from './pfade';
+import { DEMO_COOKIE, DEMO_COOKIE_OPTIONEN, ORG_COOKIE, ORG_COOKIE_OPTIONEN, heute, holeRepository, istDemoModus, leseSitzung } from './sitzung';
 
-function felder(formData: FormData, namen: readonly string[]): Record<string, FormDataEntryValue | null> {
-  return Object.fromEntries(namen.map((n) => [n, formData.get(n)]));
+function felder(formData: FormData, namen: readonly string[], mehrfach: readonly string[] = []): Record<string, unknown> {
+  return {
+    ...Object.fromEntries(namen.map((n) => [n, formData.get(n)])),
+    ...Object.fromEntries(mehrfach.map((n) => [n, formData.getAll(n).filter((v): v is string => typeof v === 'string' && v !== '')])),
+  };
 }
 
 function validierungsfehler(fehler: z.ZodError): ActionState {
@@ -44,245 +70,366 @@ async function sitzungMitRecht(aktion: Aktion): Promise<Sitzung | null> {
   return can(sitzung.rolle, aktion) ? sitzung : null;
 }
 
+/**
+ * Gemeinsamer Ablauf: Recht → Zod → Dienst (mit Fehlerabfang). Liefert das Dienstergebnis oder einen ActionState.
+ * Redirects stehen bewusst außerhalb, weil redirect() per Exception arbeitet.
+ */
+async function fuehreAus<S extends z.ZodType, T extends object>(
+  aktion: Aktion,
+  schema: S,
+  roh: Record<string, unknown>,
+  dienst: (sitzung: Sitzung, eingabe: z.infer<S>) => Promise<DienstErgebnis<T>>,
+  name: string,
+): Promise<{ ok: true; sitzung: Sitzung; ergebnis: { ok: true } & T } | { ok: false; state: ActionState }> {
+  const sitzung = await sitzungMitRecht(aktion);
+  if (!sitzung) return { ok: false, state: KEIN_RECHT };
+  const geprueft = schema.safeParse(roh);
+  if (!geprueft.success) return { ok: false, state: validierungsfehler(geprueft.error) };
+  try {
+    const ergebnis = await dienst(sitzung, geprueft.data);
+    if (!ergebnis.ok) return { ok: false, state: dienstFehler(ergebnis) };
+    return { ok: true, sitzung, ergebnis };
+  } catch (e) {
+    console.error(name, e);
+    return { ok: false, state: UNERWARTET };
+  }
+}
+
+const zeit = () => ({ heute: heute(), jetzt: new Date() });
+
+// ---------------------------------------------------------------------------
+// Sitzung und Anmeldung
+// ---------------------------------------------------------------------------
+
 /** Nur Demo-Modus. Setzt Cookie rl_demo_rolle; Erfolg: redirect('/pruefer') für pruefer, sonst redirect('/geraete'). */
 export async function setzeDemoRolle(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
   if (!istDemoModus()) return { status: 'fehler', meldung: 'Der Demo-Modus ist nicht aktiv.' };
   const geprueft = demoRolleSchema.safeParse(felder(formData, ['rolle']));
   if (!geprueft.success) return validierungsfehler(geprueft.error);
-  (await cookies()).set(DEMO_COOKIE, geprueft.data.rolle, DEMO_COOKIE_OPTIONEN);
+  const jar = await cookies();
+  jar.set(DEMO_COOKIE, geprueft.data.rolle, DEMO_COOKIE_OPTIONEN);
+  jar.delete({ name: ORG_COOKIE, path: '/' });
   redirect(geprueft.data.rolle === 'pruefer' ? '/pruefer' : '/geraete');
 }
 
-/** Löscht Sitzung bzw. Demo-Cookie; redirect('/login'). */
+/** Supabase signOut (Modus supabase), Cookies rl_org und rl_demo_rolle löschen; redirect('/login'). */
 export async function abmelden(): Promise<void> {
-  (await cookies()).delete({ name: DEMO_COOKIE, path: '/' });
+  await auth.abmeldenSupabase();
+  const jar = await cookies();
+  jar.delete({ name: DEMO_COOKIE, path: '/' });
+  jar.delete({ name: ORG_COOKIE, path: '/' });
   redirect('/login');
 }
+
+/** Nur Modus supabase. Fehler immer 'E-Mail oder Passwort ist falsch.'. Erfolg: redirect('/'). */
+export async function anmelden(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  const ergebnis = await auth.anmelden(felder(formData, ['email', 'passwort']));
+  if (ergebnis.status !== 'ok') return ergebnis;
+  redirect('/');
+}
+
+/** Nur Modus supabase. Antwort immer gleich (keine Kontoaufzählung). */
+export async function passwortVergessen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  return auth.passwortVergessen(felder(formData, ['email']));
+}
+
+/** Verlangt Auth-Sitzung (aus Einladungs- oder Reset-Link). Erfolg: redirect('/'). */
+export async function passwortSetzen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  const ergebnis = await auth.passwortSetzen(felder(formData, ['passwort', 'passwortWiederholung']));
+  if (ergebnis.status !== 'ok') return ergebnis;
+  redirect('/');
+}
+
+/** Nur eigene aktive Mitgliedschaft; setzt Cookie rl_org. Erfolg: redirect('/'). */
+export async function waehleOrganisation(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  const sitzung = await leseSitzung();
+  if (!sitzung) redirect('/login');
+  const geprueft = organisationWaehlenSchema.safeParse(felder(formData, ['organisationId']));
+  if (!geprueft.success) return validierungsfehler(geprueft.error);
+  if (!sitzung.organisationen.some((o) => o.id === geprueft.data.organisationId)) {
+    return dienstFehler({ fehler: 'Organisation nicht verfügbar.', feld: 'organisationId' });
+  }
+  (await cookies()).set(ORG_COOKIE, geprueft.data.organisationId, ORG_COOKIE_OPTIONEN);
+  revalidatePath('/', 'layout');
+  redirect('/');
+}
+
+// ---------------------------------------------------------------------------
+// Geräte, Fristen, Nachweise
+// ---------------------------------------------------------------------------
 
 /** Recht geraet.anlegen + Bereich im Geltungsbereich. Erfolg: redirect(`/geraete/${id}`). */
 export async function geraetAnlegen(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  const sitzung = await sitzungMitRecht('geraet.anlegen');
-  if (!sitzung) return KEIN_RECHT;
-  const geprueft = geraetAnlegenSchema.safeParse(
-    felder(formData, [
-      'bezeichnung',
-      'inventarnummer',
-      'bereichId',
-      'geraetegruppe',
-      'kategorie',
-      'hersteller',
-      'typ',
-      'seriennummer',
-      'baujahr',
-      'einsatzort',
-      'pruefartenJson',
-    ]),
+  const r = await fuehreAus(
+    'geraet.anlegen',
+    geraetAnlegenSchema,
+    felder(formData, ['bezeichnung', 'inventarnummer', 'bereichId', 'geraetegruppe', 'kategorie', 'hersteller', 'typ', 'seriennummer', 'baujahr', 'einsatzort', 'pruefartenJson']),
+    async (s, e) => dienste.geraetAnlegen(s, await holeRepository(s), e, zeit()),
+    'geraetAnlegen',
   );
-  if (!geprueft.success) return validierungsfehler(geprueft.error);
-
-  let id: string;
-  try {
-    const ergebnis = await dienste.geraetAnlegen(sitzung, holeRepository(), geprueft.data, { heute: heute(), jetzt: new Date() });
-    if (!ergebnis.ok) return dienstFehler(ergebnis);
-    id = ergebnis.id;
-  } catch (e) {
-    console.error('geraetAnlegen', e);
-    return UNERWARTET;
-  }
+  if (!r.ok) return r.state;
   revalidatePath('/geraete');
-  redirect(`/geraete/${id}`);
+  redirect(`/geraete/${r.ergebnis.id}`);
 }
 
-/** Recht frist.freigeben + Geltungsbereich; Regeln F-4. Erfolg: revalidatePath(`/geraete/${geraetId}`),
- *  Rückgabe { status: 'ok', meldung: 'Frist freigegeben', id: geraetPruefartId }. */
+/** Recht frist.freigeben + Geltungsbereich; F-4, F-13. Rückgabe { status: 'ok', meldung: 'Frist freigegeben', id }. */
 export async function fristFreigeben(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  const sitzung = await sitzungMitRecht('frist.freigeben');
-  if (!sitzung) return KEIN_RECHT;
-  const geprueft = fristFreigebenSchema.safeParse(
+  const r = await fuehreAus(
+    'frist.freigeben',
+    fristFreigebenSchema,
     felder(formData, ['modus', 'geraetPruefartId', 'monate', 'fundstelle', 'begruendung', 'nachweisId']),
+    async (s, e) => dienste.fristFreigeben(s, await holeRepository(s), e, new Date()),
+    'fristFreigeben',
   );
-  if (!geprueft.success) return validierungsfehler(geprueft.error);
-
-  try {
-    const ergebnis = await dienste.fristFreigeben(sitzung, holeRepository(), geprueft.data, new Date());
-    if (!ergebnis.ok) return dienstFehler(ergebnis);
-    revalidatePath(`/geraete/${ergebnis.geraetId}`);
-    revalidatePath('/geraete');
-    revalidatePath('/pruefer');
-    return { status: 'ok', meldung: 'Frist freigegeben', id: ergebnis.pruefartId };
-  } catch (e) {
-    console.error('fristFreigeben', e);
-    return UNERWARTET;
-  }
+  if (!r.ok) return r.state;
+  revalidatePath(`/geraete/${r.ergebnis.geraetId}`);
+  revalidatePath('/geraete');
+  revalidatePath('/pruefer');
+  return { status: 'ok', meldung: 'Frist freigegeben', id: r.ergebnis.pruefartId };
 }
 
-/** Recht nachweis.erfassen + Geltungsbereich; Regeln F-7; Prüfdatum ≤ heute.
- *  Erfolg: pruefer → redirect('/pruefer'), sonst redirect(`/geraete/${geraetId}`). */
+/** Recht nachweis.erfassen + Geltungsbereich; F-7, F-12, F-13. Ergebnis ≠ ohne_maengel → Mängelformular. */
 export async function nachweisErfassen(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  const sitzung = await sitzungMitRecht('nachweis.erfassen');
-  if (!sitzung) return KEIN_RECHT;
-  const geprueft = nachweisErfassenSchema.safeParse(
-    felder(formData, [
-      'geraetPruefartId',
-      'pruefdatum',
-      'ergebnis',
-      'pruefumfang',
-      'prueferName',
-      'unterschriftImPdf',
-      'pdf',
-      'fristEmpfehlungMonate',
-    ]),
+  const r = await fuehreAus(
+    'nachweis.erfassen',
+    nachweisErfassenSchema,
+    felder(formData, ['geraetPruefartId', 'pruefdatum', 'ergebnis', 'pruefumfang', 'prueferName', 'unterschriftImPdf', 'pdf', 'fristEmpfehlungMonate']),
+    async (s, e) => {
+      const { pdf, ...rest } = e;
+      return dienste.nachweisErfassen(
+        s,
+        await holeRepository(s),
+        { ...rest, unterschriftImPdf: true, pdf: { name: pdf.name, inhalt: new Uint8Array(await pdf.arrayBuffer()) } },
+        zeit(),
+      );
+    },
+    'nachweisErfassen',
   );
-  if (!geprueft.success) return validierungsfehler(geprueft.error);
-  const { pdf, ...rest } = geprueft.data;
-
-  let geraetId: string;
-  try {
-    const ergebnis = await dienste.nachweisErfassen(
-      sitzung,
-      holeRepository(),
-      { ...rest, unterschriftImPdf: true, pdf: { name: pdf.name, inhalt: new Uint8Array(await pdf.arrayBuffer()) } },
-      { heute: heute(), jetzt: new Date() },
-    );
-    if (!ergebnis.ok) return dienstFehler(ergebnis);
-    geraetId = ergebnis.geraetId;
-  } catch (e) {
-    console.error('nachweisErfassen', e);
-    return UNERWARTET;
-  }
+  if (!r.ok) return r.state;
+  const { sitzung, ergebnis } = r;
+  const geraetId = ergebnis.geraetId;
   revalidatePath(`/geraete/${geraetId}`);
   revalidatePath('/geraete');
   revalidatePath('/pruefer');
-  redirect(sitzung.rolle === 'pruefer' ? '/pruefer' : `/geraete/${geraetId}`);
+  const ziel = sitzung.rolle === 'pruefer' ? '/pruefer' : `/geraete/${geraetId}`;
+  if (formData.get('ergebnis') !== 'ohne_maengel' && can(sitzung.rolle, 'mangel.erfassen')) {
+    const pruefartId = String(formData.get('geraetPruefartId'));
+    redirect(
+      `/maengel/neu?geraet=${geraetId}&pruefart=${encodeURIComponent(pruefartId)}&nachweis=${ergebnis.id}&zurueck=${encodeURIComponent(ziel)}`,
+    );
+  }
+  redirect(ziel);
 }
 
-// ---------------------------------------------------------------------------
-// Inkrement 2 (§5.5) – Signaturen; Rümpfe folgen mit BE-11 (Fachaktionen) bzw. BE-12 (Auth).
-// fristFreigeben/nachweisErfassen oben lesen bereits nachweisId bzw. fristEmpfehlungMonate;
-// abmelden (Supabase signOut, rl_org löschen) und der Redirect zur Mängelerfassung folgen mit BE-11/BE-12.
-// ---------------------------------------------------------------------------
-
-/** Nur Modus supabase. signInWithPassword; Fehler immer 'E-Mail oder Passwort ist falsch.' (keine Unterscheidung). Erfolg: redirect('/'). */
-export async function anmelden(prev: ActionState, formData: FormData): Promise<ActionState> {
-  void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-12)');
-}
-
-/** Nur Modus supabase. resetPasswordForEmail mit redirectTo SITE_URL + '/api/auth/confirm?next=/passwort-neu'.
- *  Antwort immer { status: 'ok', meldung: 'Wenn ein Konto existiert, ist eine E-Mail unterwegs.' }. */
-export async function passwortVergessen(prev: ActionState, formData: FormData): Promise<ActionState> {
-  void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-12)');
-}
-
-/** Verlangt Auth-Sitzung (aus Einladungs- oder Reset-Link). updateUser({ password }). Erfolg: redirect('/'). */
-export async function passwortSetzen(prev: ActionState, formData: FormData): Promise<ActionState> {
-  void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-12)');
-}
-
-/** Nur eigene aktive Mitgliedschaft; setzt Cookie rl_org (httpOnly, sameSite lax, path '/'). Erfolg: redirect('/'). */
-export async function waehleOrganisation(prev: ActionState, formData: FormData): Promise<ActionState> {
-  void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-12)');
-}
-
-/** bereich.verwalten. Neu oder ändern (Name, Einsatzort). Erfolg: revalidatePath('/admin/bereiche'),
- *  { status: 'ok', meldung: 'Bereich gespeichert', id: bereichId }. */
-export async function bereichSpeichern(prev: ActionState, formData: FormData): Promise<ActionState> {
-  void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-11)');
-}
-
-/** mitglied.verwalten. F-17. Erfolg: revalidatePath('/admin/mitglieder'),
- *  { status: 'ok', id: mitgliedschaftId, meldung: 'Einladung an … versendet.' | '… hat bereits ein Konto; Zugang angelegt.' }.
- *  Doppelte Mitgliedschaft → feldfehler.email. */
-export async function mitgliedEinladen(prev: ActionState, formData: FormData): Promise<ActionState> {
-  void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-11)');
-}
-
-/** mitglied.verwalten. F-17 (letzter Admin, eigene Mitgliedschaft). Erfolg: { status: 'ok', meldung: 'Gespeichert', id }. */
-export async function mitgliedAendern(prev: ActionState, formData: FormData): Promise<ActionState> {
-  void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-11)');
-}
-
-/** pruefer.zuweisen + Geltungsbereich; F-15. Erfolg: revalidatePath(`/geraete/${geraetId}`), '/pruefer';
- *  { status: 'ok', meldung: 'Prüfer zugewiesen' | 'Zuweisung entfernt', id: geraetPruefartId }. Warnung blockiert nicht. */
+/** pruefer.zuweisen + Geltungsbereich; F-15. Warnung blockiert nicht. */
 export async function prueferZuweisen(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-11)');
+  const r = await fuehreAus(
+    'pruefer.zuweisen',
+    prueferZuweisenSchema,
+    felder(formData, ['geraetPruefartId', 'prueferId']),
+    async (s, e) => dienste.prueferZuweisen(s, await holeRepository(s), e, new Date()),
+    'prueferZuweisen',
+  );
+  if (!r.ok) return r.state;
+  revalidatePath(`/geraete/${r.ergebnis.geraetId}`);
+  revalidatePath('/pruefer');
+  return { status: 'ok', meldung: r.ergebnis.entfernt ? 'Zuweisung entfernt' : 'Prüfer zugewiesen', id: r.ergebnis.pruefartId };
 }
 
-/** frist.freigeben + Geltungsbereich; F-18. Erfolg: { status: 'ok', meldung: 'GBU-Verweis gespeichert', id: geraetPruefartId }. */
+/** frist.freigeben + Geltungsbereich; F-18. */
 export async function gbuDokumentSetzen(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-11)');
+  const r = await fuehreAus(
+    'frist.freigeben',
+    gbuDokumentSetzenSchema,
+    felder(formData, ['geraetPruefartId', 'titel', 'url']),
+    async (s, e) => dienste.gbuDokumentSetzen(s, await holeRepository(s), e, new Date()),
+    'gbuDokumentSetzen',
+  );
+  if (!r.ok) return r.state;
+  revalidatePath(`/geraete/${r.ergebnis.geraetId}`);
+  return { status: 'ok', meldung: 'GBU-Verweis gespeichert', id: r.ergebnis.pruefartId };
 }
 
-/** geraet.bearbeiten + Geltungsbereich; F-11. Erfolg: { status: 'ok', meldung: 'Betriebsstatus geändert', id: geraetId }. */
+/** geraet.bearbeiten + Geltungsbereich; F-11. */
 export async function betriebsstatusSetzen(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-11)');
+  const r = await fuehreAus(
+    'geraet.bearbeiten',
+    betriebsstatusSetzenSchema,
+    felder(formData, ['geraetId', 'betriebsstatus', 'begruendung']),
+    async (s, e) => dienste.betriebsstatusSetzen(s, await holeRepository(s), e, new Date()),
+    'betriebsstatusSetzen',
+  );
+  if (!r.ok) return r.state;
+  revalidatePath(`/geraete/${r.ergebnis.geraetId}`);
+  revalidatePath('/geraete');
+  return { status: 'ok', meldung: 'Betriebsstatus geändert', id: r.ergebnis.geraetId };
 }
 
-/** geraet.bearbeiten + darfVerschieben; F-16. Erfolg: revalidatePath('/geraete'), redirect(`/geraete/${geraetId}`).
- *  (Redirect, weil VER das Gerät nach dem Verschieben evtl. nicht mehr sieht → dann redirect('/geraete').) */
+/** geraet.bearbeiten + darfVerschieben; F-16. Redirect auf das Gerät bzw. die Liste, wenn es nicht mehr sichtbar ist. */
 export async function geraetVerschieben(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-11)');
+  const r = await fuehreAus(
+    'geraet.bearbeiten',
+    geraetVerschiebenSchema,
+    felder(formData, ['geraetId', 'bereichId', 'begruendung']),
+    async (s, e) => dienste.geraetVerschieben(s, await holeRepository(s), e, new Date()),
+    'geraetVerschieben',
+  );
+  if (!r.ok) return r.state;
+  revalidatePath('/geraete');
+  revalidatePath(`/geraete/${r.ergebnis.geraetId}`);
+  redirect(r.ergebnis.nochSichtbar ? `/geraete/${r.ergebnis.geraetId}` : '/geraete');
 }
 
-/** anlass.erfassen + Geltungsbereich; F-10; datum ≤ heute; alle Prüfarten gehören zum Gerät.
- *  Erfolg: { status: 'ok', meldung: 'Anlass erfasst', id: geraetId }. */
+/** anlass.erfassen + Geltungsbereich; F-10. */
 export async function anlassErfassen(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-11)');
+  const r = await fuehreAus(
+    'anlass.erfassen',
+    anlassErfassenSchema,
+    felder(formData, ['geraetId', 'art', 'datum', 'beschreibung'], ['geraetPruefartIds']),
+    async (s, e) => dienste.anlassErfassen(s, await holeRepository(s), e, zeit()),
+    'anlassErfassen',
+  );
+  if (!r.ok) return r.state;
+  revalidatePath(`/geraete/${r.ergebnis.geraetId}`);
+  revalidatePath('/geraete');
+  revalidatePath('/pruefer');
+  return { status: 'ok', meldung: 'Anlass erfasst', id: r.ergebnis.geraetId };
 }
 
-/** anlass.erfassen + Geltungsbereich; nur offene, nicht aufgehobene Anlässe. Erfolg: { status: 'ok', meldung: 'Anlass aufgehoben', id: anlassId }. */
+/** anlass.erfassen + Geltungsbereich; nur offene Anlässe. */
 export async function anlassAufheben(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-11)');
+  const r = await fuehreAus(
+    'anlass.erfassen',
+    anlassAufhebenSchema,
+    felder(formData, ['anlassId', 'grund']),
+    async (s, e) => dienste.anlassAufheben(s, await holeRepository(s), e, new Date()),
+    'anlassAufheben',
+  );
+  if (!r.ok) return r.state;
+  revalidatePath(`/geraete/${r.ergebnis.geraetId}`);
+  revalidatePath('/geraete');
+  revalidatePath('/pruefer');
+  return { status: 'ok', meldung: 'Anlass aufgehoben', id: r.ergebnis.anlassId };
 }
 
-/** mangel.erfassen + Geltungsbereich; F-14. Erfolg: revalidatePath('/maengel', `/geraete/${geraetId}`),
- *  redirect(zurueck ?? (pruefer ? '/pruefer' : `/maengel/${mangelId}`)). */
+// ---------------------------------------------------------------------------
+// Mängel
+// ---------------------------------------------------------------------------
+
+/** mangel.erfassen + Geltungsbereich; F-14. Redirect auf zurueck (nur relative Pfade) bzw. Default. */
 export async function mangelErfassen(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-11)');
+  const r = await fuehreAus(
+    'mangel.erfassen',
+    mangelErfassenSchema,
+    felder(formData, ['geraetId', 'geraetPruefartId', 'nachweisId', 'beschreibung', 'schwere', 'termin', 'verantwortlichId', 'zurueck']),
+    async (s, e) => maengel.mangelErfassen(s, await holeRepository(s), e, zeit()),
+    'mangelErfassen',
+  );
+  if (!r.ok) return r.state;
+  revalidatePath('/maengel');
+  revalidatePath(`/geraete/${r.ergebnis.geraetId}`);
+  revalidatePath('/geraete');
+  const standard = r.sitzung.rolle === 'pruefer' ? '/pruefer' : `/maengel/${r.ergebnis.id}`;
+  redirect(sichererRuecksprung(formData.get('zurueck'), standard));
 }
 
-/** mangel.bearbeiten + Geltungsbereich; nur Status 'offen'; verantwortlichId aus listeMangelVerantwortliche.
- *  Erfolg: { status: 'ok', meldung: 'Zur Kenntnis genommen', id: mangelId }. */
+/** mangel.bearbeiten + Geltungsbereich; nur Status 'offen'. */
 export async function mangelKenntnisNehmen(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-11)');
+  const r = await fuehreAus(
+    'mangel.bearbeiten',
+    mangelKenntnisSchema,
+    felder(formData, ['mangelId', 'verantwortlichId', 'termin']),
+    async (s, e) => maengel.mangelKenntnisNehmen(s, await holeRepository(s), e, zeit()),
+    'mangelKenntnisNehmen',
+  );
+  if (!r.ok) return r.state;
+  revalidatePath('/maengel');
+  revalidatePath(`/maengel/${r.ergebnis.id}`);
+  revalidatePath(`/geraete/${r.ergebnis.geraetId}`);
+  return { status: 'ok', meldung: 'Zur Kenntnis genommen', id: r.ergebnis.id };
 }
 
-/** mangel.bearbeiten + Geltungsbereich; Status 'offen' oder 'in_bearbeitung'. Erfolg: { status: 'ok', meldung: 'Mangel behoben', id: mangelId }. */
+/** mangel.bearbeiten + Geltungsbereich; Status 'offen' oder 'in_bearbeitung'. */
 export async function mangelBeheben(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error('nicht implementiert (BE-11)');
+  const r = await fuehreAus(
+    'mangel.bearbeiten',
+    mangelBehebenSchema,
+    felder(formData, ['mangelId', 'behobenAm', 'behobenDurch', 'behebung']),
+    async (s, e) => maengel.mangelBeheben(s, await holeRepository(s), e, zeit()),
+    'mangelBeheben',
+  );
+  if (!r.ok) return r.state;
+  revalidatePath('/maengel');
+  revalidatePath(`/maengel/${r.ergebnis.id}`);
+  revalidatePath(`/geraete/${r.ergebnis.geraetId}`);
+  revalidatePath('/geraete');
+  return { status: 'ok', meldung: 'Mangel behoben', id: r.ergebnis.id };
+}
+
+// ---------------------------------------------------------------------------
+// Verwaltung
+// ---------------------------------------------------------------------------
+
+/** bereich.verwalten. Neu oder ändern (Name, Einsatzort). */
+export async function bereichSpeichern(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  const r = await fuehreAus(
+    'bereich.verwalten',
+    bereichSpeichernSchema,
+    felder(formData, ['bereichId', 'name', 'einsatzort']),
+    async (s, e) => verwaltung.bereichSpeichern(s, await holeRepository(s), e, new Date()),
+    'bereichSpeichern',
+  );
+  if (!r.ok) return r.state;
+  revalidatePath('/admin/bereiche');
+  revalidatePath('/geraete');
+  return { status: 'ok', meldung: 'Bereich gespeichert', id: r.ergebnis.id };
+}
+
+/** mitglied.verwalten. F-17. Doppelte Mitgliedschaft → feldfehler.email. */
+export async function mitgliedEinladen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  const r = await fuehreAus(
+    'mitglied.verwalten',
+    mitgliedEinladenSchema,
+    felder(formData, ['email', 'name', 'rolle'], ['bereichIds', 'prueferTypen']),
+    async (s, e) => verwaltung.mitgliedEinladen(s, await holeRepository(s), e, new Date()),
+    'mitgliedEinladen',
+  );
+  if (!r.ok) return r.state;
+  revalidatePath('/admin/mitglieder');
+  return { status: 'ok', meldung: r.ergebnis.meldung, id: r.ergebnis.id };
+}
+
+/** mitglied.verwalten. F-17 (letzter Admin, eigene Mitgliedschaft). */
+export async function mitgliedAendern(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  const r = await fuehreAus(
+    'mitglied.verwalten',
+    mitgliedAendernSchema,
+    felder(formData, ['mitgliedschaftId', 'name', 'rolle', 'aktiv'], ['bereichIds', 'prueferTypen']),
+    async (s, e) => verwaltung.mitgliedAendern(s, await holeRepository(s), e, new Date()),
+    'mitgliedAendern',
+  );
+  if (!r.ok) return r.state;
+  revalidatePath('/admin/mitglieder');
+  revalidatePath(`/admin/mitglieder/${r.ergebnis.id}`);
+  return { status: 'ok', meldung: 'Gespeichert', id: r.ergebnis.id };
 }
