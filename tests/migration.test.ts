@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  ANLASS_ARTEN,
   BETRIEBSSTATUS,
   DATUMSHERKUNFT,
   EINSATZORTE,
@@ -12,6 +13,8 @@ import {
   FRIST_QUELLEN,
   GERAETE_KATEGORIEN,
   KATALOG_FREIGABESTATUS,
+  MANGEL_SCHWEREN,
+  MANGEL_STATUS,
   PRUEF_ERGEBNISSE,
   PRUEFER_TYPEN,
   ROLLEN,
@@ -183,6 +186,98 @@ describe('Migration init', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Inkrement 2 (BE-9)
+// ---------------------------------------------------------------------------
+
+const SQL2 = readFileSync(path.resolve(__dirname, '../supabase/migrations/20261126000000_inkrement2.sql'), 'utf8');
+const sql2OhneKommentare = SQL2.replace(/--.*$/gm, '');
+const klein2 = sql2OhneKommentare.toLowerCase();
+const tabellen2 = [...klein2.matchAll(/create table public\.(\w+)/g)].map((m) => m[1]);
+const policies2 = [...klein2.matchAll(/create policy (\w+) on ([\w.]+)\s+for (\w+)/g)].map((m) => ({
+  name: m[1],
+  tabelle: m[2],
+  befehl: m[3],
+}));
+const alleWerte = (text: string, spalte: string) => {
+  const werte = new Set<string>();
+  for (const m of text.matchAll(new RegExp(`check \\(${spalte} in \\(([^)]*)\\)`, 'g'))) {
+    for (const w of m[1].matchAll(/'([^']*)'/g)) werte.add(w[1]);
+  }
+  return werte;
+};
+
+describe('Migration Inkrement 2', () => {
+  it('I1-Migration bleibt unverändert neben I2 bestehen', () => {
+    expect(SQL).toContain('-- Readyloop Inkrement 1');
+    expect(tabellen2.sort()).toEqual(['anlass', 'mangel']);
+  });
+
+  it('jede neue Tabelle hat RLS und organisation_id', () => {
+    for (const t of tabellen2) {
+      expect(klein2, t).toContain(`alter table public.${t} enable row level security`);
+      expect(klein2.split(`create table public.${t} (`)[1].split(');')[0], t).toMatch(/organisation_id uuid not null/);
+    }
+  });
+
+  it('einzige DELETE-Policy ist bereich_verantwortung (Q-19), keine FOR ALL', () => {
+    const del = [...policies, ...policies2].filter((p) => p.befehl === 'delete');
+    expect(del).toEqual([{ name: 'bereich_verantwortung_delete', tabelle: 'public.bereich_verantwortung', befehl: 'delete' }]);
+    expect(policies2.filter((p) => p.befehl === 'all')).toEqual([]);
+  });
+
+  it('keine UPDATE-Policy auf nachweis/ereignis, keine Schreib-Policy auf ereignis', () => {
+    expect(policies2.filter((p) => ['public.nachweis', 'public.ereignis'].includes(p.tabelle))).toEqual([]);
+  });
+
+  it.each([
+    ['art', ANLASS_ARTEN],
+    ['schwere', MANGEL_SCHWEREN],
+    ['status', MANGEL_STATUS],
+    ['typ', EREIGNIS_TYPEN],
+  ] as const)('Check %s enthält genau die Werte aus types.ts', (spalte, werte) => {
+    expect([...alleWerte(sql2OhneKommentare, spalte)].sort()).toEqual([...werte].sort());
+  });
+
+  it('Prüfertypen der Mitgliedschaft im Check', () => {
+    const block = klein2.split('add column pruefer_typen')[1].split(';')[0];
+    for (const t of PRUEFER_TYPEN) expect(block).toContain(`'${t}'`);
+  });
+
+  it('jede RPC ist security invoker und für authenticated freigegeben', () => {
+    const rpcs = [...klein2.matchAll(/create or replace function public\.(\w+)\(/g)].map((m) => m[1]);
+    expect(rpcs.sort()).toEqual(['betriebsstatus_setzen', 'frist_setzen', 'geraet_anlegen', 'geraet_verschieben', 'mitglied_speichern']);
+    for (const r of rpcs) {
+      const kopf = klein2.split(`create or replace function public.${r}(`)[1].split('$$')[0];
+      expect(kopf, r).toContain('security invoker');
+      expect(kopf, r).not.toContain('security definer');
+    }
+    expect(klein2).toMatch(/grant execute on function public\.geraet_anlegen\(jsonb, jsonb\)[^;]*to authenticated/);
+  });
+
+  it('Hilfsfunktionen prüfen aktive Mitgliedschaft', () => {
+    for (const f of ['ist_mitglied', 'hat_rolle', 'verantwortet_bereich', 'ist_zugewiesen']) {
+      const block = klein2.split(`create or replace function app.${f}(`)[1].split('$$;')[0];
+      expect(block, f).toContain('m.aktiv');
+      expect(block, f).toContain('security definer');
+    }
+  });
+
+  it('Spalten-Grants: geraet nur bereich_id/betriebsstatus, nachweis/ereignis ohne UPDATE-Grant', () => {
+    expect(klein2).toContain('grant update (bereich_id, betriebsstatus) on public.geraet to authenticated');
+    expect(klein2).not.toMatch(/grant update[^;]*on public\.(nachweis|ereignis)/);
+    expect(klein2).toMatch(/alter table public\.nachweis\s+add column pdf_dateiname text not null default 'nachweis\.pdf'/);
+  });
+
+  it('Ereignisse nur per Trigger (security definer) und Kontext aus set_config', () => {
+    const triggerFns = [...klein2.matchAll(/create or replace function app\.(\w+)\(\)\s+returns trigger([^$]*)\$\$/g)];
+    expect(triggerFns.length).toBeGreaterThanOrEqual(8);
+    for (const [, name, kopf] of triggerFns) expect(kopf, name).toContain('security definer');
+    expect(klein2).toContain("set_config('readyloop.kontext'");
+    expect(klein2).not.toMatch(/insert into public\.ereignis[^;]*\n[^;]*security invoker/);
+  });
+});
+
 const PG = process.env.RL_TEST_PG;
 
 describe.skipIf(!PG)('Migration gegen Postgres (RL_TEST_PG)', () => {
@@ -202,7 +297,9 @@ describe.skipIf(!PG)('Migration gegen Postgres (RL_TEST_PG)', () => {
     const ziel = `${PG} dbname=${db}`;
     psql(ziel, 'sql/supabase-stub.sql', false);
     psql(ziel, '../supabase/migrations/20261119000000_init.sql');
-    return psql(ziel, 'sql/rls-szenario.sql')
+    psql(ziel, '../supabase/migrations/20261126000000_inkrement2.sql');
+    return [psql(ziel, 'sql/rls-szenario.sql'), psql(ziel, 'sql/rls-szenario-i2.sql')]
+      .join('\n')
       .split('\n')
       .map((z) => z.match(/^(.*) \(erw\. (.*)\): (.*)$/))
       .filter((m): m is RegExpMatchArray => m !== null)
@@ -210,7 +307,7 @@ describe.skipIf(!PG)('Migration gegen Postgres (RL_TEST_PG)', () => {
   })();
 
   it('Szenario liefert Fälle', () => {
-    expect(zeilen.length).toBeGreaterThan(20);
+    expect(zeilen.length).toBeGreaterThan(120);
   });
 
   it.each(zeilen.map((z) => [z.fall, z] as const))('%s', (_fall, { erwartung, ergebnis }) => {
