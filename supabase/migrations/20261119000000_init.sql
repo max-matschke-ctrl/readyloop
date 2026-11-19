@@ -169,7 +169,8 @@ create table public.nachweis (
   erfasst_am timestamptz not null default now(),
   foreign key (geraet_pruefart_id, geraet_id, organisation_id)
     references public.geraet_pruefart (id, geraet_id, organisation_id),
-  check (pdf_pfad = organisation_id::text || '/' || geraet_id::text || '/' || id::text || '.pdf')
+  -- Pfad enthält die Prüfart, damit Storage-Policies pro Prüfart greifen (Upload vor dem Nachweis-INSERT).
+  check (pdf_pfad = organisation_id::text || '/' || geraet_id::text || '/' || geraet_pruefart_id::text || '/' || id::text || '.pdf')
 );
 
 create table public.ereignis (
@@ -353,10 +354,18 @@ create policy geraet_pruefart_select on public.geraet_pruefart
     or app.ist_zugewiesen(id)
   );
 
+-- Beim Anlegen keine Frist (Freigabe nur per UPDATE, F-4), Ersterfassung nicht in der Zukunft
+-- und nie mit Herkunft 'nachweis' (die setzt nur der Nachweis-Trigger).
 create policy geraet_pruefart_insert on public.geraet_pruefart
   for insert to authenticated with check (
-    app.hat_rolle(organisation_id, array['admin'])
-    or (app.hat_rolle(organisation_id, array['verantwortlicher']) and app.verantwortet_geraet(geraet_id))
+    (
+      app.hat_rolle(organisation_id, array['admin'])
+      or (app.hat_rolle(organisation_id, array['verantwortlicher']) and app.verantwortet_geraet(geraet_id))
+    )
+    and frist_monate is null and frist_quelle is null and frist_stufe is null and frist_fundstelle is null
+    and frist_katalog_eintrag_id is null and frist_katalog_version is null and frist_begruendung is null
+    and (letzte_pruefung is null or letzte_pruefung <= (now() at time zone 'Europe/Berlin')::date)
+    and letzte_pruefung_herkunft <> 'nachweis'
   );
 
 -- Fristfreigabe (frist.freigeben): Sifa ganze Organisation, Verantwortlicher eigener Bereich.
@@ -382,6 +391,7 @@ create policy nachweis_select on public.nachweis
 create policy nachweis_insert on public.nachweis
   for insert to authenticated with check (
     erfasst_von = auth.uid()
+    and (pruefer_benutzer_id is null or pruefer_benutzer_id = auth.uid())
     and (
       (app.hat_rolle(organisation_id, array['verantwortlicher']) and app.verantwortet_geraet(geraet_id))
       or app.ist_zugewiesen(geraet_pruefart_id)
@@ -444,12 +454,41 @@ returns jsonb language sql immutable set search_path = public, pg_temp as $$
   ) end;
 $$;
 
+-- F-2 wie waehleKatalogEintrag (src/domain/fristen.ts): freigegeben, gleicher Schlüssel; je Einsatzort-Gruppe
+-- höchste Version; exakter Einsatzort schlägt einsatzort = null; bei mehreren das kürzeste Intervall.
+-- Kein Treffer: Zeile mit id = null.
+create or replace function app.katalog_wahl(p_schluessel text, p_ort text)
+returns public.katalog_eintrag language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare
+  e public.katalog_eintrag;
+begin
+  select k.* into e from public.katalog_eintrag k
+  where k.schluessel = p_schluessel and k.freigabestatus = 'freigegeben' and k.einsatzort = p_ort
+    and k.version = (select max(x.version) from public.katalog_eintrag x
+                     where x.schluessel = p_schluessel and x.freigabestatus = 'freigegeben' and x.einsatzort = p_ort)
+  order by k.intervall_monate asc nulls last, k.stufe asc, k.id
+  limit 1;
+  if found then
+    return e;
+  end if;
+  select k.* into e from public.katalog_eintrag k
+  where k.schluessel = p_schluessel and k.freigabestatus = 'freigegeben' and k.einsatzort is null
+    and k.version = (select max(x.version) from public.katalog_eintrag x
+                     where x.schluessel = p_schluessel and x.freigabestatus = 'freigegeben' and x.einsatzort is null)
+  order by k.intervall_monate asc nulls last, k.stufe asc, k.id
+  limit 1;
+  return e;
+end;
+$$;
+
+revoke all on function app.katalog_wahl(text, text) from public;
+
 -- Fristfreigabe: Metadaten stempeln und Regeln F-4 serverseitig absichern.
 create or replace function app.frist_stempeln()
 returns trigger language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   ort text;
-  hoechstfrist integer;
+  wahl public.katalog_eintrag;
 begin
   if tg_op = 'UPDATE'
      and new.frist_monate is not distinct from old.frist_monate
@@ -477,38 +516,40 @@ begin
     return new;
   end if;
 
+  select coalesce(g.einsatzort, b.einsatzort) into ort
+  from public.geraet g join public.bereich b on b.id = g.bereich_id
+  where g.id = new.geraet_id;
+  if new.katalog_schluessel is not null then
+    wahl := app.katalog_wahl(new.katalog_schluessel, ort);
+  end if;
+
   if new.frist_quelle = 'gbu' then
+    new.frist_stufe := 'C';
     -- (b) Herstellerfrist nicht überschreiten
     if new.herstellerfrist_monate is not null and new.frist_monate > new.herstellerfrist_monate then
       raise exception 'GBU-Frist überschreitet die Herstellerfrist' using errcode = '23514';
     end if;
-    -- (a) Freigegebene Stufe-A-Höchstfrist nicht überschreiten (konservativ: Einsatzort exakt oder allgemein)
-    if new.katalog_schluessel is not null then
-      select coalesce(g.einsatzort, b.einsatzort) into ort
-      from public.geraet g join public.bereich b on b.id = g.bereich_id
-      where g.id = new.geraet_id;
-      select min(k.intervall_monate) into hoechstfrist
-      from public.katalog_eintrag k
-      where k.schluessel = new.katalog_schluessel
-        and k.freigabestatus = 'freigegeben'
-        and k.stufe = 'A'
-        and k.intervall_monate is not null
-        and (k.einsatzort is null or k.einsatzort = ort);
-      if hoechstfrist is not null and new.frist_monate > hoechstfrist then
-        raise exception 'GBU-Frist überschreitet die Höchstfrist (Stufe A)' using errcode = '23514';
-      end if;
+    -- (a) Stufe-A-Höchstfrist des nach F-2 gewählten Eintrags nicht überschreiten
+    if wahl.id is not null and wahl.stufe = 'A' and wahl.intervall_monate is not null
+       and new.frist_monate > wahl.intervall_monate then
+      raise exception 'GBU-Frist überschreitet die Höchstfrist (Stufe A)' using errcode = '23514';
     end if;
   elsif new.frist_quelle = 'katalog' then
-    if not exists (
-      select 1 from public.katalog_eintrag k
-      where k.id = new.frist_katalog_eintrag_id
-        and k.version = new.frist_katalog_version
-        and k.freigabestatus = 'freigegeben'
-        and k.intervall_monate = new.frist_monate
-    ) then
-      raise exception 'Katalogfrist nur aus freigegebenem Katalogeintrag' using errcode = '23514';
+    -- Nur der nach F-2 gewählte freigegebene Eintrag zur eigenen Prüfart, unverändert übernommen.
+    if wahl.id is null
+       or wahl.id is distinct from new.frist_katalog_eintrag_id
+       or wahl.version is distinct from new.frist_katalog_version
+       or wahl.intervall_monate is null
+       or wahl.intervall_monate is distinct from new.frist_monate
+       or wahl.stufe is distinct from new.frist_stufe then
+      raise exception 'Katalogfrist nur aus dem freigegebenen Katalogeintrag der Prüfart' using errcode = '23514';
+    end if;
+    -- F-3: kürzere Herstellerfrist hat Vorrang
+    if new.herstellerfrist_monate is not null and new.herstellerfrist_monate < wahl.intervall_monate then
+      raise exception 'Kürzere Herstellerfrist hat Vorrang vor der Katalogfrist' using errcode = '23514';
     end if;
   elsif new.frist_quelle = 'hersteller' then
+    new.frist_stufe := 'C';
     if new.herstellerfrist_monate is distinct from new.frist_monate then
       raise exception 'Herstellerfrist weicht von der hinterlegten Herstellerangabe ab' using errcode = '23514';
     end if;
@@ -592,27 +633,37 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values ('nachweise', 'nachweise', false, 10485760, array['application/pdf'])
 on conflict (id) do nothing;
 
+-- Pfad: {organisation_id}/{geraet_id}/{geraet_pruefart_id}/{nachweis_id}.pdf
+-- Lesen nur über die Nachweis-Zeile mit derselben Sichtlogik wie nachweis_select (pro Prüfart).
 create policy nachweise_select on storage.objects
   for select to authenticated using (
     bucket_id = 'nachweise'
-    and app.ist_mitglied(app.uuid_oder_null((storage.foldername(name))[1]))
-    and app.sieht_geraet(app.uuid_oder_null((storage.foldername(name))[2]))
     and exists (
-      select 1 from public.geraet g
-      where g.id = app.uuid_oder_null((storage.foldername(name))[2])
-        and g.organisation_id = app.uuid_oder_null((storage.foldername(name))[1])
+      select 1 from public.nachweis n
+      where n.pdf_pfad = objects.name
+        and (
+          app.hat_rolle(n.organisation_id, array['admin', 'sifa'])
+          or app.verantwortet_geraet(n.geraet_id)
+          or app.ist_zugewiesen(n.geraet_pruefart_id)
+        )
     )
   );
 
+-- Hochladen (vor dem Nachweis-INSERT) nur in den Ordner einer Prüfart, die der Nutzer erfassen darf
+-- (gleiche Rechte wie nachweis_insert), Dateiname = UUID.pdf.
 create policy nachweise_insert on storage.objects
   for insert to authenticated with check (
     bucket_id = 'nachweise'
-    and app.hat_rolle(app.uuid_oder_null((storage.foldername(name))[1]), array['verantwortlicher', 'pruefer'])
-    and app.sieht_geraet(app.uuid_oder_null((storage.foldername(name))[2]))
+    and objects.name ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}/[0-9a-f-]{36}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$'
     and exists (
-      select 1 from public.geraet g
-      where g.id = app.uuid_oder_null((storage.foldername(name))[2])
-        and g.organisation_id = app.uuid_oder_null((storage.foldername(name))[1])
+      select 1 from public.geraet_pruefart gp
+      where gp.id = app.uuid_oder_null((storage.foldername(objects.name))[3])
+        and gp.geraet_id = app.uuid_oder_null((storage.foldername(objects.name))[2])
+        and gp.organisation_id = app.uuid_oder_null((storage.foldername(objects.name))[1])
+        and (
+          (app.hat_rolle(gp.organisation_id, array['verantwortlicher']) and app.verantwortet_geraet(gp.geraet_id))
+          or app.ist_zugewiesen(gp.id)
+        )
     )
   );
 -- Keine UPDATE-/DELETE-Policies auf storage.objects für den Bucket: Nachweis-PDFs sind unveränderlich.

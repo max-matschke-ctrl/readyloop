@@ -5,8 +5,17 @@ import { erzeugeDemoStand, type DemoStand } from './daten';
 
 const kopie = <T>(wert: T): T => structuredClone(wert);
 
+/** Höchstzahl hochgeladener PDFs im Speicher; danach wird das älteste verworfen. Demo-PDFs bleiben erhalten. */
+export const DEMO_MAX_HOCHGELADENE_PDFS = 50;
+
 export class DemoRepository implements Repository {
-  constructor(private readonly stand: DemoStand) {}
+  /** Reihenfolge der hochgeladenen PDFs (älteste zuerst). */
+  private readonly hochgeladen: Id[] = [];
+
+  constructor(
+    private readonly stand: DemoStand,
+    private readonly maxPdfs: number = DEMO_MAX_HOCHGELADENE_PDFS,
+  ) {}
 
   async holeOrganisation(id: Id) {
     return kopie(this.stand.organisationen.find((o) => o.id === id) ?? null);
@@ -78,6 +87,11 @@ export class DemoRepository implements Repository {
     if (!p) throw new Error('Prüfart nicht gefunden');
     this.stand.nachweise.push(kopie(nachweis));
     this.stand.pdfs.set(nachweis.id, new Uint8Array(pdf));
+    this.hochgeladen.push(nachweis.id);
+    while (this.hochgeladen.length > this.maxPdfs) {
+      const aeltestes = this.hochgeladen.shift();
+      if (aeltestes !== undefined) this.stand.pdfs.delete(aeltestes);
+    }
     if (letztePruefung !== null) {
       p.letztePruefung = letztePruefung;
       p.letztePruefungHerkunft = 'nachweis';

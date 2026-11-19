@@ -207,7 +207,7 @@ Entitäten (I1 fett; übrige ab I2+):
 
 Ereignisse I1: `geraet_angelegt`, `frist_freigegeben` (alte und neue Frist in `daten`), `nachweis_erfasst`. Ab I2: `pruefer_zugewiesen`, `geraet_verschoben`, `betriebsstatus_geaendert`, `mangel_*`, `anlass_erfasst`, `export_erstellt`.
 
-Speicherung PDF: Supabase Storage, privater Bucket `nachweise`, Pfad `{organisation_id}/{geraet_id}/{nachweis_id}.pdf`.
+Speicherung PDF: Supabase Storage, privater Bucket `nachweise`, Pfad `{organisation_id}/{geraet_id}/{geraet_pruefart_id}/{nachweis_id}.pdf` (Prüfart im Pfad, damit Storage-Rechte pro Prüfart greifen).
 
 ## 6. Rechte-Matrix
 

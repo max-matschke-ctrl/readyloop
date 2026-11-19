@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { berechneStatus, gesamtStatus, naechsteFaelligkeit, prueferGruppe } from './status';
+import { berechneStatus, gesamtStatus, naechsteFaelligkeit, prueferGruppe, statusRang } from './status';
 import type { FestgelegteFrist } from './types';
 
 const frist = (monate: number): FestgelegteFrist => ({
@@ -81,5 +81,32 @@ describe('naechsteFaelligkeit / prueferGruppe', () => {
   it('nur ok ist später', () => {
     expect(prueferGruppe('ok')).toBe('spaeter');
     for (const s of ['ueberfaellig', 'unbekannt', 'gbu', 'bald_faellig'] as const) expect(prueferGruppe(s)).toBe('faellig');
+  });
+});
+
+describe('statusRang', () => {
+  it('ordnet nach Schwere: überfällig zuerst, ok zuletzt', () => {
+    expect(statusRang('ueberfaellig')).toBe(0);
+    expect(statusRang('unbekannt')).toBe(1);
+    expect(statusRang('gbu')).toBe(2);
+    expect(statusRang('bald_faellig')).toBe(3);
+    expect(statusRang('ok')).toBe(4);
+  });
+
+  it('sortiert eine Liste vom schlechtesten zum besten Status', () => {
+    const liste = ['ok', 'gbu', 'bald_faellig', 'ueberfaellig', 'unbekannt'] as const;
+    expect([...liste].sort((a, b) => statusRang(a) - statusRang(b))).toEqual([
+      'ueberfaellig',
+      'unbekannt',
+      'gbu',
+      'bald_faellig',
+      'ok',
+    ]);
+  });
+
+  it('passt zu gesamtStatus: kleinster Rang gewinnt', () => {
+    const liste = ['ok', 'bald_faellig', 'gbu'] as const;
+    const min = [...liste].sort((a, b) => statusRang(a) - statusRang(b))[0];
+    expect(gesamtStatus(liste)).toBe(min);
   });
 });

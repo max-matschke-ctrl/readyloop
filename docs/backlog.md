@@ -116,7 +116,7 @@ Inhalt:
 - Trigger (security definer): Frist-Änderung setzt `frist_freigegeben_von = auth.uid()`, `frist_freigegeben_am = now()` und schreibt `ereignis`; INSERT `geraet` → `geraet_angelegt`; INSERT `nachweis` → `nachweis_erfasst` und aktualisiert `letzte_pruefung` nach F-7.
 - Check: Frist-Spalten entweder alle leer oder `frist_monate`, `frist_quelle`, `frist_stufe`, `frist_fundstelle` gesetzt; `frist_quelle = 'gbu'` verlangt `frist_begruendung`.
 - Check: `letzte_pruefung is null` ⇔ `letzte_pruefung_herkunft = 'unbekannt'`.
-- Storage: privater Bucket `nachweise`; Policies auf `storage.objects` über ersten Pfadteil = `organisation_id` und `app.sieht_geraet` (zweiter Pfadteil).
+- Storage: privater Bucket `nachweise`; Policies auf `storage.objects`: Lesen über die Nachweis-Zeile (`pdf_pfad`, Sicht pro Prüfart), Hochladen nur in den Prüfart-Ordner, den der Nutzer erfassen darf.
 
 Abnahme `tests/migration.test.ts` (liest SQL als Text): jede `create table public.*` hat `enable row level security`; keine `for delete`-Policy; keine `for update`-Policy auf `nachweis`/`ereignis`; alle Rollen- und Statuswerte aus `types.ts` kommen in den Checks vor. Lauf gegen echte DB folgt in I2.
 

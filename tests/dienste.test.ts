@@ -17,8 +17,8 @@ import {
   type NachweisDienstEingabe,
 } from '@/server/dienste';
 import { platzhalterPdf } from '@/server/pdf';
-import { DEMO_BEREICH_IDS } from '@/server/repo/demo/daten';
-import { DemoRepository, erzeugeDemoRepository } from '@/server/repo/demo/repository';
+import { DEMO_BEREICH_IDS, erzeugeDemoStand } from '@/server/repo/demo/daten';
+import { DEMO_MAX_HOCHGELADENE_PDFS, DemoRepository, erzeugeDemoRepository } from '@/server/repo/demo/repository';
 
 const ZIEL: Record<string, FristStatus> = {
   'L-001': 'ueberfaellig', 'L-002': 'bald_faellig', 'L-003': 'ok', 'L-004': 'unbekannt', 'L-005': 'bald_faellig',
@@ -323,5 +323,38 @@ describe('Repository-Isolation', () => {
     const g = await repo.holeGeraet((await repo.listeGeraete((await sitzung('admin')).organisation.id))[0].id);
     g!.bezeichnung = 'manipuliert';
     expect((await repo.holeGeraet(g!.id))!.bezeichnung).not.toBe('manipuliert');
+  });
+});
+
+describe('Demo-PDF-Speicher', () => {
+  it('Standardgrenze 50 hochgeladene PDFs', () => {
+    expect(DEMO_MAX_HOCHGELADENE_PDFS).toBe(50);
+  });
+
+  it('verwirft über der Grenze das älteste hochgeladene PDF, Demo-PDFs bleiben', async () => {
+    const r = new DemoRepository(erzeugeDemoStand(HEUTE), 2);
+    const s = await sitzung('pruefer', r);
+    const d = await holeGeraetDetail(await sitzung('admin', r), r, HEUTE, (await listeGeraete(await sitzung('admin', r), r, HEUTE)).find((g) => g.geraet.inventarnummer === 'L-001')!.geraet.id);
+    const pid = d!.pruefarten[0].pruefart.id;
+    const demoNachweis = (await r.listeNachweise(s.organisation.id))[0];
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const e = await nachweisErfassen(s, r, {
+        geraetPruefartId: pid,
+        pruefdatum: HEUTE,
+        ergebnis: 'ohne_maengel',
+        pruefumfang: 'Wiederkehrende Prüfung',
+        prueferName: 'Tobias Berger',
+        unterschriftImPdf: true,
+        pdf: { name: `b${i}.pdf`, inhalt: platzhalterPdf(`Test ${i}`) },
+      }, { heute: HEUTE, jetzt: JETZT });
+      expect(e.ok).toBe(true);
+      const neu = (await r.listeNachweise(s.organisation.id)).at(-1)!;
+      ids.push(neu.id);
+    }
+    expect(await r.holeNachweisPdf(ids[0])).toBeNull();
+    expect(await r.holeNachweisPdf(ids[1])).not.toBeNull();
+    expect(await r.holeNachweisPdf(ids[2])).not.toBeNull();
+    if (demoNachweis) expect(await r.holeNachweisPdf(demoNachweis.id)).not.toBeNull();
   });
 });
