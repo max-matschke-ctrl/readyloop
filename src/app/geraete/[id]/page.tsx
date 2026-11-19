@@ -7,6 +7,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { BetriebsstatusBadge } from '@/components/BetriebsstatusBadge';
 import { BetriebsstatusForm } from '@/components/BetriebsstatusForm';
 import { GeraetVerschiebenForm } from '@/components/GeraetVerschiebenForm';
+import { MaengelTabelle } from '@/components/MaengelTabelle';
 import { NachweisListe } from '@/components/NachweisListe';
 import { Pruefplakette } from '@/components/Pruefplakette';
 import { PruefartKarte } from '@/components/PruefartKarte';
@@ -42,6 +43,9 @@ export default async function GeraetDetailSeite({ params }: { params: Promise<{ 
   const darfBearbeiten = can(sitzung.rolle, 'geraet.bearbeiten');
   const darfZuweisen = can(sitzung.rolle, 'pruefer.zuweisen');
   const darfAnlass = can(sitzung.rolle, 'anlass.erfassen');
+  const darfMangelLesen = can(sitzung.rolle, 'mangel.lesen');
+  const darfMangelErfassen = can(sitzung.rolle, 'mangel.erfassen');
+  const offeneMaengel = detail.maengel.filter((m) => m.status !== 'behoben').length;
 
   const [prueferOptionen, bereiche]: [PrueferOption[], Bereich[]] = await Promise.all([
     darfZuweisen ? listePrueferOptionen() : Promise.resolve([]),
@@ -112,10 +116,37 @@ export default async function GeraetDetailSeite({ params }: { params: Promise<{ 
                 darfNachweisErfassen={darfNachweis}
                 darfZuweisen={darfZuweisen}
                 prueferOptionen={prueferOptionen}
+                darfMangelErfassen={darfMangelErfassen}
               />
             ))
           )}
         </section>
+
+        {darfMangelLesen && (
+          <section aria-labelledby="maengel-titel" className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 id="maengel-titel" className="text-lg font-semibold">
+                Mängel{' '}
+                <span className="font-mono text-sm font-normal text-steel">
+                  ({offeneMaengel} offen{detail.maengel.length > offeneMaengel ? `, ${detail.maengel.length - offeneMaengel} behoben` : ''})
+                </span>
+              </h2>
+              {darfMangelErfassen && (
+                <Link
+                  href={`/maengel/neu?geraet=${geraet.id}&zurueck=${encodeURIComponent(`/geraete/${geraet.id}`)}`}
+                  className="btn btn-sekundaer"
+                >
+                  Mangel erfassen
+                </Link>
+              )}
+            </div>
+            {detail.maengel.length > 0 ? (
+              <MaengelTabelle maengel={detail.maengel} mitGeraet={false} />
+            ) : (
+              <p className="text-sm text-steel">Keine Mängel erfasst.</p>
+            )}
+          </section>
+        )}
 
         {darfBearbeiten && (
           <section aria-labelledby="betrieb-titel" className="space-y-3">

@@ -24,6 +24,7 @@ interface Props {
   darfNachweisErfassen: boolean;
   darfZuweisen?: boolean;
   prueferOptionen?: PrueferOption[];
+  darfMangelErfassen?: boolean;
 }
 
 function Zeile({ titel, children }: { titel: string; children: React.ReactNode }) {
@@ -103,7 +104,7 @@ function VorschlagBlock({ v }: { v: FristVorschlag }) {
   );
 }
 
-export function PruefartKarte({ ansicht, darfFreigeben, darfNachweisErfassen, darfZuweisen = false, prueferOptionen = [] }: Props) {
+export function PruefartKarte({ ansicht, darfFreigeben, darfNachweisErfassen, darfZuweisen = false, prueferOptionen = [], darfMangelErfassen = false }: Props) {
   const { pruefart, vorschlag, status, katalogEintrag, letzterNachweis } = ansicht;
   const nachErgebnis =
     ansicht.fristHinweis === 'empfehlung_abweichend' && letzterNachweis
@@ -162,6 +163,27 @@ export function PruefartKarte({ ansicht, darfFreigeben, darfNachweisErfassen, da
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {ansicht.maengelErfassenFuerNachweisId && (
+        <div role="note" className="border-b border-brick/40 bg-brick/5 px-4 py-2 text-sm">
+          <p className="font-medium">
+            <span aria-hidden="true" className="mr-1 font-bold text-brick">
+              !
+            </span>
+            Mängel aus Nachweis vom {datum(letzterNachweis?.pruefdatum)} noch nicht erfasst.
+          </p>
+          {darfMangelErfassen && (
+            <p className="text-xs">
+              <Link
+                href={`/maengel/neu?geraet=${pruefart.geraetId}&pruefart=${pruefart.id}&nachweis=${ansicht.maengelErfassenFuerNachweisId}&zurueck=${encodeURIComponent(`/geraete/${pruefart.geraetId}`)}`}
+                className="link"
+              >
+                Mängel jetzt erfassen
+              </Link>
+            </p>
+          )}
         </div>
       )}
 
@@ -319,11 +341,21 @@ export function PruefartKarte({ ansicht, darfFreigeben, darfNachweisErfassen, da
         </section>
       )}
 
-      {darfNachweisErfassen && (
-        <footer className="border-t border-steel/15 px-4 py-3">
-          <Link href={`/nachweise/neu/${pruefart.id}`} className="btn btn-sekundaer">
-            Nachweis erfassen
-          </Link>
+      {(darfNachweisErfassen || darfMangelErfassen) && (
+        <footer className="flex flex-wrap gap-2 border-t border-steel/15 px-4 py-3">
+          {darfNachweisErfassen && (
+            <Link href={`/nachweise/neu/${pruefart.id}`} className="btn btn-sekundaer">
+              Nachweis erfassen<span className="sr-only">: {pruefart.bezeichnung}</span>
+            </Link>
+          )}
+          {darfMangelErfassen && (
+            <Link
+              href={`/maengel/neu?geraet=${pruefart.geraetId}&pruefart=${pruefart.id}&zurueck=${encodeURIComponent(`/geraete/${pruefart.geraetId}`)}`}
+              className="btn btn-sekundaer"
+            >
+              Mangel erfassen<span className="sr-only">: {pruefart.bezeichnung}</span>
+            </Link>
+          )}
         </footer>
       )}
     </article>
