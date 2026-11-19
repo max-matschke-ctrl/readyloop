@@ -20,11 +20,12 @@ import { platzhalterPdf } from '@/server/pdf';
 import { DEMO_BEREICH_IDS, erzeugeDemoStand } from '@/server/repo/demo/daten';
 import { DEMO_MAX_HOCHGELADENE_PDFS, DemoRepository, erzeugeDemoRepository } from '@/server/repo/demo/repository';
 
+// Stand I2 (BE-10): P-001 offener Anlass, P-004 nicht bestanden + gefährlicher Mangel, V-003 außer Betrieb.
 const ZIEL: Record<string, FristStatus> = {
   'L-001': 'ueberfaellig', 'L-002': 'bald_faellig', 'L-003': 'ok', 'L-004': 'unbekannt', 'L-005': 'bald_faellig',
-  'L-006': 'gbu', 'L-007': 'ok', 'L-008': 'ueberfaellig', 'P-001': 'ok', 'P-002': 'bald_faellig', 'P-003': 'ok',
-  'P-004': 'ueberfaellig', 'P-005': 'unbekannt', 'P-006': 'gbu', 'P-007': 'gbu', 'P-008': 'ok', 'P-009': 'ok',
-  'V-001': 'ok', 'V-002': 'ok', 'V-003': 'ueberfaellig',
+  'L-006': 'gbu', 'L-007': 'ok', 'L-008': 'ueberfaellig', 'P-001': 'vor_nutzung_pruefen', 'P-002': 'bald_faellig', 'P-003': 'ok',
+  'P-004': 'vor_nutzung_pruefen', 'P-005': 'unbekannt', 'P-006': 'gbu', 'P-007': 'gbu', 'P-008': 'ok', 'P-009': 'ok',
+  'V-001': 'ok', 'V-002': 'ok', 'V-003': 'vor_nutzung_pruefen',
 };
 
 // Mehrere Stichtage (inkl. Schaltjahr und Monatsenden), damit die Ampel unabhängig vom Datum stabil ist.
@@ -63,7 +64,7 @@ describe('Demo-Daten', () => {
     for (const e of liste) expect(`${e.geraet.inventarnummer}:${e.gesamtStatus}`).toBe(`${e.geraet.inventarnummer}:${ZIEL[e.geraet.inventarnummer!]}`);
     const zaehler = new Map<FristStatus, number>();
     for (const e of liste) zaehler.set(e.gesamtStatus, (zaehler.get(e.gesamtStatus) ?? 0) + 1);
-    for (const st of ['ueberfaellig', 'unbekannt', 'gbu', 'bald_faellig', 'ok'] as const) {
+    for (const st of ['ueberfaellig', 'vor_nutzung_pruefen', 'unbekannt', 'gbu', 'bald_faellig', 'ok'] as const) {
       expect(zaehler.get(st) ?? 0, st).toBeGreaterThanOrEqual(2);
     }
   });
@@ -276,11 +277,13 @@ describe('nachweisErfassen', () => {
     expect(d!.nachweise[0]).toMatchObject({ prueferBenutzerId: prf.benutzer.id, pdfUrl: expect.stringMatching(/^\/api\/nachweise\//) });
   });
 
-  it('mit nicht_bestanden → Status unverändert, weiterbetriebUnzulaessig', async () => {
+  it('mit nicht_bestanden → letzte Prüfung unverändert, vor_nutzung_pruefen (F-12), weiterbetriebUnzulaessig', async () => {
     const r = await nachweisErfassen(await sitzung('pruefer'), repo, eingabe(await pruefartVon('L-001'), { ergebnis: 'nicht_bestanden' }), { heute: HEUTE, jetzt: JETZT });
     expect(r.ok).toBe(true);
     const d = await holeGeraetDetail(await sitzung('admin'), repo, HEUTE, await idVon('L-001'));
-    expect(d!.gesamtStatus).toBe('ueberfaellig');
+    // F-9 Regel 2 greift vor Regel 5 (überfällig)
+    expect(d!.gesamtStatus).toBe('vor_nutzung_pruefen');
+    expect(d!.pruefarten[0].status).toMatchObject({ status: 'vor_nutzung_pruefen', grund: 'nicht_bestanden' });
     expect(d!.pruefarten[0].weiterbetriebUnzulaessig).toBe(true);
     expect(d!.pruefarten[0].pruefart.letztePruefung).toBe(addTage(HEUTE, -400));
   });

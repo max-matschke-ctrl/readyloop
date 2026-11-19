@@ -1,159 +1,118 @@
-// Dienste (BE-5): Anwendungslogik mit explizitem Kontext (sitzung, repo, heute/jetzt) – testbar ohne Next und Cookies.
+// Dienste (BE-5/BE-10): Anwendungslogik mit explizitem Kontext (sitzung, repo, heute/jetzt) – testbar ohne Next und Cookies.
 // Jede Funktion prüft Rolle (can) und Geltungsbereich selbst; Aufrufer müssen nichts vorprüfen.
+// Mängel: dienste-maengel.ts · Verwaltung: dienste-verwaltung.ts · gemeinsame Bausteine: dienste-basis.ts
 import { randomUUID } from 'node:crypto';
+import { anlassErledigtDurch } from '@/domain/anlass';
 import { istIsoDate } from '@/domain/datum';
-import {
-  ermittleFristVorschlag,
-  legeFristFest,
-  waehleKatalogEintrag,
-  wirksamerEinsatzort,
-} from '@/domain/fristen';
-import { can, imGeltungsbereich } from '@/domain/rechte';
-import type { FristFreigebenEingabe, GeraetAnlegenEingabe } from '@/domain/schemas';
-import { berechneStatus, gesamtStatus, naechsteFaelligkeit, prueferGruppe, statusRang } from '@/domain/status';
+import { ermittleFristVorschlag, fristRichtung, legeFristFest, wirksamerEinsatzort } from '@/domain/fristen';
+import { can, darfVerschieben, imGeltungsbereich } from '@/domain/rechte';
 import type {
-  Bereich,
-  DemoRolle,
-  Ereignis,
-  FestgelegteFrist,
-  Geraet,
-  GeraetDetail,
-  GeraeteFilter,
-  GeraetegruppeOption,
-  GeraetListenEintrag,
-  GeraetPruefart,
-  Id,
-  IsoDate,
-  KatalogEintrag,
-  Nachweis,
-  NachweisAnsicht,
-  PruefartAnsicht,
-  PrueferAufgabe,
-  PruefErgebnis,
-  Sitzung,
+  AnlassAufhebenEingabe,
+  AnlassErfassenEingabe,
+  BetriebsstatusSetzenEingabe,
+  FristFreigebenEingabe,
+  GbuDokumentSetzenEingabe,
+  GeraetAnlegenEingabe,
+  GeraetVerschiebenEingabe,
+  PrueferZuweisenEingabe,
+} from '@/domain/schemas';
+import { naechsteFaelligkeit, prueferGruppe, statusRang } from '@/domain/status';
+import {
+  WAEHLBARER_BETRIEBSSTATUS,
+  type Anlass,
+  type Bereich,
+  type DemoRolle,
+  type Ereignis,
+  type FestgelegteFrist,
+  type GbuDokument,
+  type Geraet,
+  type GeraetDetail,
+  type GeraeteFilter,
+  type GeraetegruppeOption,
+  type GeraetListenEintrag,
+  type GeraetPruefart,
+  type Id,
+  type IsoDate,
+  type KatalogEintrag,
+  type Nachweis,
+  type NachweisAnsicht,
+  type OrganisationOption,
+  type PrueferAufgabe,
+  type PrueferOption,
+  type PruefErgebnis,
+  type Sitzung,
 } from '@/domain/types';
+import {
+  aktivesMitglied,
+  anlassAnsicht,
+  baueAnsicht,
+  fehler,
+  geraetGesamt,
+  geraetImBereich,
+  geraetSichtbar,
+  ladeKontext,
+  mangelAnsicht,
+  mangelSichtbar,
+  nachNeuestem,
+  neuesEreignis,
+  pruefartSichtbar,
+  type DienstErgebnis,
+  type Zeit,
+} from './dienste-basis';
 import { sha256Hex } from './pdf';
 import { DEMO_ROLLE_BENUTZER } from './repo/demo/daten';
 import type { Repository } from './repo/types';
 
-export type DienstErgebnis<T extends object = object> =
-  | ({ ok: true } & T)
-  | { ok: false; fehler: string; feld?: string };
-
-const fehler = (text: string, feld?: string): { ok: false; fehler: string; feld?: string } =>
-  feld ? { ok: false, fehler: text, feld } : { ok: false, fehler: text };
+export type { DienstErgebnis } from './dienste-basis';
 
 // ---------------------------------------------------------------------------
 // Sitzung
 // ---------------------------------------------------------------------------
 
-export async function sitzungFuerDemoRolle(repo: Repository, rolle: DemoRolle): Promise<Sitzung | null> {
-  const benutzer = await repo.holeBenutzer(DEMO_ROLLE_BENUTZER[rolle]);
+/**
+ * Sitzung für einen Benutzer (F-8): aktive Mitgliedschaften alphabetisch nach Organisation; gewünschte Organisation,
+ * wenn dort eine aktive Mitgliedschaft besteht, sonst die erste. null ohne aktive Mitgliedschaft.
+ * nurRolle: nur Mitgliedschaften dieser Rolle (Demo-Rollenwahl).
+ */
+export async function sitzungFuerBenutzer(
+  repo: Repository,
+  benutzerId: Id,
+  optionen: { organisationId?: Id | null; demo: boolean; nurRolle?: DemoRolle; name?: string | null },
+): Promise<Sitzung | null> {
+  const benutzer = await repo.holeBenutzer(benutzerId);
   if (!benutzer) return null;
-  const mitgliedschaft = (await repo.mitgliedschaftenVonBenutzer(benutzer.id)).find((m) => m.rolle === rolle);
-  if (!mitgliedschaft) return null;
-  const organisation = await repo.holeOrganisation(mitgliedschaft.organisationId);
-  if (!organisation) return null;
+  const aktiv = (await repo.mitgliedschaftenVonBenutzer(benutzerId)).filter(
+    (m) => m.aktiv && (optionen.nurRolle === undefined || m.rolle === optionen.nurRolle),
+  );
+  const mitOrg = (
+    await Promise.all(aktiv.map(async (m) => ({ m, org: await repo.holeOrganisation(m.organisationId) })))
+  ).filter((x): x is { m: (typeof aktiv)[number]; org: NonNullable<typeof x.org> } => x.org !== null);
+  if (mitOrg.length === 0) return null;
+  mitOrg.sort((a, b) => a.org.name.localeCompare(b.org.name, 'de') || a.org.id.localeCompare(b.org.id));
+  const gewaehlt = mitOrg.find((x) => x.org.id === optionen.organisationId) ?? mitOrg[0];
+  const organisationen: OrganisationOption[] = mitOrg.map((x) => ({ id: x.org.id, name: x.org.name, rolle: x.m.rolle }));
   return {
-    benutzer,
-    organisation,
-    mitgliedschaftId: mitgliedschaft.id,
-    rolle: mitgliedschaft.rolle,
-    bereichIds: mitgliedschaft.bereichIds,
-    organisationen: [{ id: organisation.id, name: organisation.name, rolle: mitgliedschaft.rolle }], // BE-10/11: alle aktiven
-    demo: true,
+    benutzer: optionen.name ? { ...benutzer, name: optionen.name } : benutzer,
+    organisation: gewaehlt.org,
+    mitgliedschaftId: gewaehlt.m.id,
+    rolle: gewaehlt.m.rolle,
+    bereichIds: gewaehlt.m.rolle === 'verantwortlicher' ? gewaehlt.m.bereichIds : [],
+    organisationen,
+    demo: optionen.demo,
   };
 }
 
-// ---------------------------------------------------------------------------
-// Geltungsbereich
-// ---------------------------------------------------------------------------
-
-/** Prüfart im Geltungsbereich (Prüfer: nur selbst zugewiesen). */
-function pruefartSichtbar(sitzung: Sitzung, geraet: Geraet, pruefart: GeraetPruefart): boolean {
-  if (geraet.organisationId !== sitzung.organisation.id || pruefart.geraetId !== geraet.id) return false;
-  return imGeltungsbereich(sitzung, {
-    bereichId: geraet.bereichId,
-    zugewiesenePrueferIds: pruefart.zugewiesenerPrueferId ? [pruefart.zugewiesenerPrueferId] : [],
-  });
-}
-
-function geraetSichtbar(sitzung: Sitzung, geraet: Geraet, pruefarten: readonly GeraetPruefart[]): boolean {
-  if (!can(sitzung.rolle, 'geraet.lesen') || geraet.organisationId !== sitzung.organisation.id) return false;
-  return imGeltungsbereich(sitzung, {
-    bereichId: geraet.bereichId,
-    zugewiesenePrueferIds: pruefarten
-      .filter((p) => p.geraetId === geraet.id && p.zugewiesenerPrueferId !== null)
-      .map((p) => p.zugewiesenerPrueferId as Id),
-  });
+export async function sitzungFuerDemoRolle(
+  repo: Repository,
+  rolle: DemoRolle,
+  organisationId?: Id | null,
+): Promise<Sitzung | null> {
+  return sitzungFuerBenutzer(repo, DEMO_ROLLE_BENUTZER[rolle], { organisationId, demo: true, nurRolle: rolle });
 }
 
 // ---------------------------------------------------------------------------
 // Lesemodelle
 // ---------------------------------------------------------------------------
-
-interface Kontext {
-  bereiche: Map<Id, Bereich>;
-  katalog: KatalogEintrag[];
-  nachweise: Nachweis[];
-  benutzerName: Map<Id, string>;
-}
-
-async function ladeKontext(sitzung: Sitzung, repo: Repository): Promise<Kontext> {
-  const [bereiche, katalog, nachweise, benutzer] = await Promise.all([
-    repo.listeBereiche(sitzung.organisation.id),
-    repo.listeKatalog(),
-    repo.listeNachweise(sitzung.organisation.id),
-    repo.listeBenutzer(sitzung.organisation.id),
-  ]);
-  return {
-    bereiche: new Map(bereiche.map((b) => [b.id, b])),
-    katalog,
-    nachweise,
-    benutzerName: new Map(benutzer.map((b) => [b.id, b.name])),
-  };
-}
-
-function nachNeuestem(a: Nachweis, b: Nachweis): number {
-  return b.pruefdatum.localeCompare(a.pruefdatum) || b.erfasstAm.localeCompare(a.erfasstAm);
-}
-
-function baueAnsicht(pruefart: GeraetPruefart, geraet: Geraet, ctx: Kontext, heute: IsoDate): PruefartAnsicht {
-  const bereich = ctx.bereiche.get(geraet.bereichId);
-  if (!bereich) throw new Error(`Bereich ${geraet.bereichId} fehlt`);
-  const einsatzort = wirksamerEinsatzort(geraet, bereich);
-  const s = pruefart.katalogSchluessel;
-  const katalogEintrag = s
-    ? (waehleKatalogEintrag(ctx.katalog, s, einsatzort, 'freigegeben') ??
-      waehleKatalogEintrag(ctx.katalog, s, einsatzort, 'entwurf'))
-    : null;
-  const letzter = ctx.nachweise.filter((n) => n.geraetPruefartId === pruefart.id).sort(nachNeuestem)[0];
-  return {
-    pruefart,
-    vorschlag: ermittleFristVorschlag({ pruefart, einsatzort, katalog: ctx.katalog }),
-    status: berechneStatus(pruefart, heute),
-    katalogEintrag,
-    weiterbetriebUnzulaessig: letzter?.ergebnis === 'nicht_bestanden',
-    zugewiesenerPrueferName: pruefart.zugewiesenerPrueferId
-      ? (ctx.benutzerName.get(pruefart.zugewiesenerPrueferId) ?? null)
-      : null,
-    letzterNachweis: letzter
-      ? {
-          id: letzter.id,
-          pruefdatum: letzter.pruefdatum,
-          ergebnis: letzter.ergebnis,
-          fristEmpfehlungMonate: letzter.fristEmpfehlungMonate,
-          erfasstAm: letzter.erfasstAm,
-        }
-      : null,
-    // I2-Felder: Platzhalter bis BE-8/BE-10 (Qualifikation, Anlässe, Mängel, Hinweise).
-    qualifikationsWarnung: null,
-    offeneAnlaesse: [],
-    offeneMaengel: 0,
-    fristHinweis: null,
-    maengelErfassenFuerNachweisId: null,
-  };
-}
 
 /** Bereiche im Geltungsbereich, alphabetisch. */
 export async function listeBereiche(sitzung: Sitzung, repo: Repository): Promise<Bereich[]> {
@@ -179,32 +138,34 @@ export async function listeGeraete(
   filter: GeraeteFilter = {},
 ): Promise<GeraetListenEintrag[]> {
   if (!can(sitzung.rolle, 'geraet.lesen')) return [];
-  const [geraete, pruefarten, ctx] = await Promise.all([
-    repo.listeGeraete(sitzung.organisation.id),
-    repo.listePruefarten(sitzung.organisation.id),
-    ladeKontext(sitzung, repo),
-  ]);
+  const ctx = await ladeKontext(sitzung, repo);
   const suche = filter.suche?.trim().toLocaleLowerCase('de') ?? '';
 
   const eintraege: GeraetListenEintrag[] = [];
-  for (const g of geraete) {
-    if (!geraetSichtbar(sitzung, g, pruefarten)) continue;
+  for (const g of ctx.geraete.values()) {
+    if (!geraetSichtbar(sitzung, g, ctx.pruefarten)) continue;
     if (filter.bereichId && g.bereichId !== filter.bereichId) continue;
     if (suche) {
       const felder = [g.bezeichnung, g.inventarnummer, g.hersteller, g.seriennummer];
       if (!felder.some((f) => f?.toLocaleLowerCase('de').includes(suche))) continue;
     }
-    const eigene = pruefarten.filter((p) => p.geraetId === g.id && pruefartSichtbar(sitzung, g, p));
-    const ergebnisse = eigene.map((p) => ({ p, s: berechneStatus(p, heute) }));
-    const gesamt = gesamtStatus(ergebnisse.map((e) => e.s.status));
+    const eigene = ctx.pruefarten.filter((p) => p.geraetId === g.id && pruefartSichtbar(sitzung, g, p));
+    const ansichten = eigene.map((p) => baueAnsicht(p, g, ctx, heute));
+    const maengel = ctx.maengel.filter((m) => m.geraetId === g.id && mangelSichtbar(sitzung, m, g, ctx.pruefarten));
+    const gesamt = geraetGesamt(ansichten, maengel).status;
     if (filter.status && gesamt !== filter.status) continue;
     eintraege.push({
       geraet: g,
       bereichName: ctx.bereiche.get(g.bereichId)?.name ?? '',
       gesamtStatus: gesamt,
-      naechsteFaelligkeit: naechsteFaelligkeit(ergebnisse.map((e) => e.s)),
-      offeneMaengel: 0, // BE-10
-      pruefarten: ergebnisse.map(({ p, s }) => ({ id: p.id, bezeichnung: p.bezeichnung, status: s.status, faelligAm: s.faelligAm })),
+      naechsteFaelligkeit: naechsteFaelligkeit(ansichten.map((a) => a.status)),
+      offeneMaengel: maengel.filter((m) => m.status !== 'behoben').length,
+      pruefarten: ansichten.map((a) => ({
+        id: a.pruefart.id,
+        bezeichnung: a.pruefart.bezeichnung,
+        status: a.status.status,
+        faelligAm: a.status.faelligAm,
+      })),
     });
   }
 
@@ -236,15 +197,12 @@ export async function holeGeraetDetail(
   heute: IsoDate,
   geraetId: Id,
 ): Promise<GeraetDetail | null> {
-  const geraet = await repo.holeGeraet(geraetId);
-  if (!geraet) return null;
-  const pruefarten = (await repo.listePruefarten(sitzung.organisation.id)).filter((p) => p.geraetId === geraet.id);
-  if (!geraetSichtbar(sitzung, geraet, pruefarten)) return null;
-
   const ctx = await ladeKontext(sitzung, repo);
+  const geraet = ctx.geraete.get(geraetId);
+  if (!geraet || !geraetSichtbar(sitzung, geraet, ctx.pruefarten)) return null;
   const bereich = ctx.bereiche.get(geraet.bereichId);
   if (!bereich) return null;
-  const sichtbar = pruefarten.filter((p) => pruefartSichtbar(sitzung, geraet, p));
+  const sichtbar = ctx.pruefarten.filter((p) => p.geraetId === geraet.id && pruefartSichtbar(sitzung, geraet, p));
   const ansichten = sichtbar.map((p) => baueAnsicht(p, geraet, ctx, heute));
   const sichtbareIds = new Set(sichtbar.map((p) => p.id));
   const bezeichnung = new Map(sichtbar.map((p) => [p.id, p.bezeichnung]));
@@ -256,23 +214,38 @@ export async function holeGeraetDetail(
         .map((n) => ({ ...n, pruefartBezeichnung: bezeichnung.get(n.geraetPruefartId) ?? '', pdfUrl: `/api/nachweise/${n.id}` }))
     : [];
 
+  const sichtbareMaengel = ctx.maengel.filter((m) => m.geraetId === geraet.id && mangelSichtbar(sitzung, m, geraet, ctx.pruefarten));
+  const maengel = sichtbareMaengel
+    .map((m) => mangelAnsicht(m, ctx, heute))
+    .sort(
+      (a, b) =>
+        Number(a.status === 'behoben') - Number(b.status === 'behoben') ||
+        a.termin.localeCompare(b.termin) ||
+        a.erfasstAm.localeCompare(b.erfasstAm),
+    );
+  const anlaesse = ctx.anlaesse
+    .filter((a) => a.geraetId === geraet.id && sichtbareIds.has(a.geraetPruefartId))
+    .map((a) => anlassAnsicht(a, ctx))
+    .sort((a, b) => b.datum.localeCompare(a.datum) || b.erfasstAm.localeCompare(a.erfasstAm));
+
   const verlauf: Ereignis[] = can(sitzung.rolle, 'verlauf.lesen')
     ? (await repo.listeEreignisse(sitzung.organisation.id, geraet.id)).sort(
         (a, b) => b.zeitpunkt.localeCompare(a.zeitpunkt) || b.id.localeCompare(a.id),
       )
     : [];
 
+  const gesamt = geraetGesamt(ansichten, sichtbareMaengel);
   return {
     geraet,
     bereich,
     einsatzort: wirksamerEinsatzort(geraet, bereich),
-    gesamtStatus: gesamtStatus(ansichten.map((a) => a.status.status)),
-    gesamtStatusGrund: null, // BE-10 (F-9)
+    gesamtStatus: gesamt.status,
+    gesamtStatusGrund: gesamt.grund,
     naechsteFaelligkeit: naechsteFaelligkeit(ansichten.map((a) => a.status)),
     pruefarten: ansichten,
     nachweise,
-    maengel: [], // BE-10
-    anlaesse: [], // BE-10
+    maengel,
+    anlaesse,
     verlauf,
   };
 }
@@ -315,16 +288,11 @@ async function aufgabenFuer(
   heute: IsoDate,
   nurPruefartId?: Id,
 ): Promise<PrueferAufgabe[]> {
-  const [geraete, pruefarten, ctx] = await Promise.all([
-    repo.listeGeraete(sitzung.organisation.id),
-    repo.listePruefarten(sitzung.organisation.id),
-    ladeKontext(sitzung, repo),
-  ]);
-  const geraetMap = new Map(geraete.map((g) => [g.id, g]));
+  const ctx = await ladeKontext(sitzung, repo);
   const aufgaben: PrueferAufgabe[] = [];
-  for (const p of pruefarten) {
+  for (const p of ctx.pruefarten) {
     if (nurPruefartId !== undefined && p.id !== nurPruefartId) continue;
-    const g = geraetMap.get(p.geraetId);
+    const g = ctx.geraete.get(p.geraetId);
     if (!g || !pruefartSichtbar(sitzung, g, p)) continue;
     const ansicht = baueAnsicht(p, g, ctx, heute);
     aufgaben.push({
@@ -337,7 +305,7 @@ async function aufgabenFuer(
   return aufgaben;
 }
 
-/** Nur Rolle pruefer: zugewiesene Prüfarten; 'faellig' vor 'spaeter', innerhalb nach faelligAm (null zuerst). */
+/** Nur Rolle pruefer: zugewiesene Prüfarten der aktuellen Organisation; 'faellig' vor 'spaeter', innerhalb nach faelligAm (null zuerst). */
 export async function listePrueferAufgaben(sitzung: Sitzung, repo: Repository, heute: IsoDate): Promise<PrueferAufgabe[]> {
   if (!can(sitzung.rolle, 'pruefaufgaben.lesen')) return [];
   const aufgaben = await aufgabenFuer(sitzung, repo, heute);
@@ -373,6 +341,20 @@ export async function holeNachweisPdf(
   if (!geraet || !pruefart || !pruefartSichtbar(sitzung, geraet, pruefart)) return null;
   const inhalt = await repo.holeNachweisPdf(nachweis.id);
   return inhalt ? { dateiname: nachweis.pdfDateiname, inhalt } : null;
+}
+
+/** pruefer.zuweisen: aktive Mitglieder mit Rolle pruefer, alphabetisch. Sonst []. */
+export async function listePrueferOptionen(sitzung: Sitzung, repo: Repository): Promise<PrueferOption[]> {
+  if (!can(sitzung.rolle, 'pruefer.zuweisen')) return [];
+  const [mitglieder, benutzer] = await Promise.all([
+    repo.listeMitgliedschaften(sitzung.organisation.id),
+    repo.listeBenutzer(sitzung.organisation.id),
+  ]);
+  const name = new Map(benutzer.map((b) => [b.id, b.name]));
+  return mitglieder
+    .filter((m) => m.aktiv && m.rolle === 'pruefer')
+    .map((m) => ({ benutzerId: m.benutzerId, name: name.get(m.benutzerId) ?? '', prueferTypen: m.prueferTypen }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'));
 }
 
 // ---------------------------------------------------------------------------
@@ -479,13 +461,19 @@ export async function fristFreigeben(
   jetzt: Date,
 ): Promise<DienstErgebnis<{ geraetId: Id; pruefartId: Id }>> {
   if (!can(sitzung.rolle, 'frist.freigeben')) return fehler('Keine Berechtigung, Fristen freizugeben.');
-  // F-13 (Nachweisbezug, Richtung) folgt mit BE-10; bis dahin nicht still verwerfen.
-  if (eingabe.nachweisId !== null) return fehler('Fristfestlegung mit Nachweisbezug ist noch nicht verfügbar.', 'nachweisId');
   const geladen = await ladePruefartImBereich(sitzung, repo, eingabe.geraetPruefartId);
   if (!geladen) return fehler('Prüfart nicht gefunden.');
   const { pruefart, geraet } = geladen;
   const bereich = (await repo.listeBereiche(sitzung.organisation.id)).find((b) => b.id === geraet.bereichId);
   if (!bereich) return fehler('Bereich nicht gefunden.');
+
+  // F-13: Bezug auf einen Nachweis derselben Prüfart
+  if (eingabe.nachweisId !== null) {
+    const n = await repo.holeNachweis(eingabe.nachweisId);
+    if (!n || n.geraetPruefartId !== pruefart.id || n.organisationId !== sitzung.organisation.id) {
+      return fehler('Der Nachweis gehört nicht zu dieser Prüfart.', 'nachweisId');
+    }
+  }
 
   const katalog = await repo.listeKatalog();
   const einsatzort = wirksamerEinsatzort(geraet, bereich);
@@ -508,17 +496,21 @@ export async function fristFreigeben(
   await repo.setzeFrist({
     pruefartId: pruefart.id,
     frist,
-    nachweisId: null,
-    ereignis: {
-      id: randomUUID(),
-      organisationId: sitzung.organisation.id,
-      geraetId: geraet.id,
-      typ: 'frist_freigegeben',
-      akteurId: sitzung.benutzer.id,
-      akteurName: sitzung.benutzer.name,
-      zeitpunkt,
-      daten: { pruefartId: pruefart.id, pruefart: pruefart.bezeichnung, alt: pruefart.frist, neu: frist },
-    },
+    nachweisId: eingabe.nachweisId,
+    ereignis: neuesEreignis(
+      sitzung,
+      geraet.id,
+      'frist_freigegeben',
+      {
+        pruefartId: pruefart.id,
+        pruefart: pruefart.bezeichnung,
+        alt: pruefart.frist,
+        neu: frist,
+        nachweisId: eingabe.nachweisId,
+        richtung: fristRichtung(pruefart.frist?.monate ?? null, frist.monate),
+      },
+      jetzt,
+    ),
   });
   return { ok: true, geraetId: geraet.id, pruefartId: pruefart.id };
 }
@@ -602,4 +594,212 @@ export async function nachweisErfassen(
     },
   });
   return { ok: true, id, geraetId: geraet.id };
+}
+
+// ---------------------------------------------------------------------------
+// Inkrement 2: Prüfer, GBU-Verweis, Betriebsstatus, Verschieben, Anlass
+// ---------------------------------------------------------------------------
+
+/** F-15: pruefer.zuweisen + Bereich (ADM ganze Organisation, VER eigene Bereiche). Warnung blockiert nicht. */
+export async function prueferZuweisen(
+  sitzung: Sitzung,
+  repo: Repository,
+  eingabe: PrueferZuweisenEingabe,
+  jetzt: Date,
+): Promise<DienstErgebnis<{ geraetId: Id; pruefartId: Id; entfernt: boolean }>> {
+  if (!can(sitzung.rolle, 'pruefer.zuweisen')) return fehler('Keine Berechtigung, Prüfer zuzuweisen.');
+  const pruefart = await repo.holePruefart(eingabe.geraetPruefartId);
+  const geraet = pruefart && pruefart.organisationId === sitzung.organisation.id ? await repo.holeGeraet(pruefart.geraetId) : null;
+  if (!pruefart || !geraet || !geraetImBereich(sitzung, geraet)) return fehler('Prüfart nicht gefunden.');
+
+  let neuName: string | null = null;
+  if (eingabe.prueferId !== null) {
+    const ctx = { mitgliedschaften: await repo.listeMitgliedschaften(sitzung.organisation.id) };
+    if (!aktivesMitglied(ctx, eingabe.prueferId, ['pruefer'])) {
+      return fehler('Zuweisung nur an aktive Prüfer der Organisation.', 'prueferId');
+    }
+    neuName = (await repo.holeBenutzer(eingabe.prueferId))?.name ?? null;
+  }
+  if (pruefart.zugewiesenerPrueferId === eingabe.prueferId) {
+    return { ok: true, geraetId: geraet.id, pruefartId: pruefart.id, entfernt: eingabe.prueferId === null };
+  }
+  await repo.setzePruefer({
+    pruefartId: pruefart.id,
+    prueferId: eingabe.prueferId,
+    ereignis: neuesEreignis(
+      sitzung,
+      geraet.id,
+      'pruefer_zugewiesen',
+      { pruefartId: pruefart.id, pruefart: pruefart.bezeichnung, alt: pruefart.zugewiesenerPrueferId, neu: eingabe.prueferId, neuName },
+      jetzt,
+    ),
+  });
+  return { ok: true, geraetId: geraet.id, pruefartId: pruefart.id, entfernt: eingabe.prueferId === null };
+}
+
+/** F-18: frist.freigeben + Bereich. titel null = Verweis entfernen. */
+export async function gbuDokumentSetzen(
+  sitzung: Sitzung,
+  repo: Repository,
+  eingabe: GbuDokumentSetzenEingabe,
+  jetzt: Date,
+): Promise<DienstErgebnis<{ geraetId: Id; pruefartId: Id }>> {
+  if (!can(sitzung.rolle, 'frist.freigeben')) return fehler('Keine Berechtigung, den GBU-Verweis zu ändern.');
+  const geladen = await ladePruefartImBereich(sitzung, repo, eingabe.geraetPruefartId);
+  if (!geladen) return fehler('Prüfart nicht gefunden.');
+  const { pruefart, geraet } = geladen;
+  if (eingabe.url !== null && !eingabe.url.startsWith('https://')) return fehler('Nur https-Links.', 'url');
+  if (eingabe.titel === null && eingabe.url !== null) return fehler('Link nur mit Titel.', 'titel');
+  const neu: GbuDokument | null = eingabe.titel === null ? null : { titel: eingabe.titel, url: eingabe.url };
+  const alt = pruefart.gbuDokument;
+  if (JSON.stringify(alt) !== JSON.stringify(neu)) {
+    await repo.setzeGbuDokument({
+      pruefartId: pruefart.id,
+      gbuDokument: neu,
+      ereignis: neuesEreignis(sitzung, geraet.id, 'gbu_dokument_gesetzt', { pruefartId: pruefart.id, pruefart: pruefart.bezeichnung, alt, neu }, jetzt),
+    });
+  }
+  return { ok: true, geraetId: geraet.id, pruefartId: pruefart.id };
+}
+
+async function ladeGeraetImBereich(sitzung: Sitzung, repo: Repository, geraetId: Id): Promise<Geraet | null> {
+  const geraet = await repo.holeGeraet(geraetId);
+  return geraet && geraetImBereich(sitzung, geraet) ? geraet : null;
+}
+
+/** F-11: geraet.bearbeiten + Bereich; nur in_betrieb ↔ ausser_betrieb. */
+export async function betriebsstatusSetzen(
+  sitzung: Sitzung,
+  repo: Repository,
+  eingabe: BetriebsstatusSetzenEingabe,
+  jetzt: Date,
+): Promise<DienstErgebnis<{ geraetId: Id }>> {
+  if (!can(sitzung.rolle, 'geraet.bearbeiten')) return fehler('Keine Berechtigung, Geräte zu bearbeiten.');
+  if (!(WAEHLBARER_BETRIEBSSTATUS as readonly string[]).includes(eingabe.betriebsstatus)) {
+    return fehler('Dieser Betriebsstatus ist nicht wählbar.', 'betriebsstatus');
+  }
+  const geraet = await ladeGeraetImBereich(sitzung, repo, eingabe.geraetId);
+  if (!geraet) return fehler('Gerät nicht gefunden.');
+  if (geraet.betriebsstatus === eingabe.betriebsstatus) return fehler('Der Betriebsstatus ist bereits gesetzt.', 'betriebsstatus');
+  await repo.setzeBetriebsstatus({
+    geraetId: geraet.id,
+    betriebsstatus: eingabe.betriebsstatus,
+    begruendung: eingabe.begruendung,
+    ereignis: neuesEreignis(
+      sitzung,
+      geraet.id,
+      'betriebsstatus_geaendert',
+      { alt: geraet.betriebsstatus, neu: eingabe.betriebsstatus, begruendung: eingabe.begruendung },
+      jetzt,
+    ),
+  });
+  return { ok: true, geraetId: geraet.id };
+}
+
+/** F-16: geraet.bearbeiten + darfVerschieben. Frist, Nachweise, Mängel, Anlässe, Zuweisungen bleiben. */
+export async function geraetVerschieben(
+  sitzung: Sitzung,
+  repo: Repository,
+  eingabe: GeraetVerschiebenEingabe,
+  jetzt: Date,
+): Promise<DienstErgebnis<{ geraetId: Id; nochSichtbar: boolean }>> {
+  if (!can(sitzung.rolle, 'geraet.bearbeiten')) return fehler('Keine Berechtigung, Geräte zu verschieben.');
+  const geraet = await ladeGeraetImBereich(sitzung, repo, eingabe.geraetId);
+  if (!geraet) return fehler('Gerät nicht gefunden.');
+  const bereiche = await repo.listeBereiche(sitzung.organisation.id);
+  const von = bereiche.find((b) => b.id === geraet.bereichId);
+  const nach = bereiche.find((b) => b.id === eingabe.bereichId);
+  if (!von || !nach || !darfVerschieben(sitzung, von.id, nach.id)) return fehler('Zielbereich nicht verfügbar.', 'bereichId');
+  if (von.id === nach.id) return fehler('Das Gerät ist bereits in diesem Bereich.', 'bereichId');
+  await repo.verschiebeGeraet({
+    geraetId: geraet.id,
+    bereichId: nach.id,
+    begruendung: eingabe.begruendung,
+    ereignis: neuesEreignis(
+      sitzung,
+      geraet.id,
+      'geraet_verschoben',
+      { vonBereichId: von.id, vonBereich: von.name, nachBereichId: nach.id, nachBereich: nach.name, begruendung: eingabe.begruendung },
+      jetzt,
+    ),
+  });
+  return { ok: true, geraetId: geraet.id, nochSichtbar: geraetImBereich(sitzung, { ...geraet, bereichId: nach.id }) };
+}
+
+/** F-10: anlass.erfassen + Bereich; je Prüfart ein Anlass; Datum ≤ heute. */
+export async function anlassErfassen(
+  sitzung: Sitzung,
+  repo: Repository,
+  eingabe: AnlassErfassenEingabe,
+  zeit: Zeit,
+): Promise<DienstErgebnis<{ geraetId: Id; anlassIds: Id[] }>> {
+  if (!can(sitzung.rolle, 'anlass.erfassen')) return fehler('Keine Berechtigung, Anlässe zu erfassen.');
+  const geraet = await ladeGeraetImBereich(sitzung, repo, eingabe.geraetId);
+  if (!geraet) return fehler('Gerät nicht gefunden.');
+  if (!istIsoDate(eingabe.datum)) return fehler('Ungültiges Datum.', 'datum');
+  if (eingabe.datum > zeit.heute) return fehler('Das Anlassdatum darf nicht in der Zukunft liegen.', 'datum');
+  const pruefarten = (await repo.listePruefarten(sitzung.organisation.id)).filter((p) => p.geraetId === geraet.id);
+  const ids = [...new Set(eingabe.geraetPruefartIds)];
+  const gewaehlt = ids.map((id) => pruefarten.find((p) => p.id === id));
+  if (ids.length === 0 || gewaehlt.some((p) => p === undefined)) {
+    return fehler('Prüfarten gehören nicht zu diesem Gerät.', 'geraetPruefartIds');
+  }
+  const zeitpunkt = zeit.jetzt.toISOString();
+  const anlaesse: Anlass[] = (gewaehlt as GeraetPruefart[]).map((p) => ({
+    id: randomUUID(),
+    organisationId: sitzung.organisation.id,
+    geraetId: geraet.id,
+    geraetPruefartId: p.id,
+    art: eingabe.art,
+    datum: eingabe.datum,
+    beschreibung: eingabe.beschreibung,
+    erfasstVon: sitzung.benutzer.id,
+    erfasstVonName: sitzung.benutzer.name,
+    erfasstAm: zeitpunkt,
+    aufgehobenVon: null,
+    aufgehobenVonName: null,
+    aufgehobenAm: null,
+    aufhebungsgrund: null,
+  }));
+  const ereignisse = anlaesse.map((a, i) =>
+    neuesEreignis(
+      sitzung,
+      geraet.id,
+      'anlass_erfasst',
+      { anlassId: a.id, pruefartId: a.geraetPruefartId, pruefart: (gewaehlt[i] as GeraetPruefart).bezeichnung, art: a.art, datum: a.datum },
+      zeit.jetzt,
+    ),
+  );
+  await repo.erfasseAnlaesse({ anlaesse, ereignisse });
+  return { ok: true, geraetId: geraet.id, anlassIds: anlaesse.map((a) => a.id) };
+}
+
+/** Q-25: anlass.erfassen + Bereich; nur offene Anlässe; Begründung ≥ 10 Zeichen. */
+export async function anlassAufheben(
+  sitzung: Sitzung,
+  repo: Repository,
+  eingabe: AnlassAufhebenEingabe,
+  jetzt: Date,
+): Promise<DienstErgebnis<{ geraetId: Id; anlassId: Id }>> {
+  if (!can(sitzung.rolle, 'anlass.erfassen')) return fehler('Keine Berechtigung, Anlässe aufzuheben.');
+  const grund = eingabe.grund.trim();
+  if (grund.length < 10) return fehler('Begründung fehlt (mindestens 10 Zeichen).', 'grund');
+  const anlass = await repo.holeAnlass(eingabe.anlassId);
+  if (!anlass || anlass.organisationId !== sitzung.organisation.id) return fehler('Anlass nicht gefunden.');
+  const geraet = await ladeGeraetImBereich(sitzung, repo, anlass.geraetId);
+  if (!geraet) return fehler('Anlass nicht gefunden.');
+  const nachweise = (await repo.listeNachweise(sitzung.organisation.id)).filter((n) => n.geraetPruefartId === anlass.geraetPruefartId);
+  if (!anlassErledigtDurch(anlass, nachweise).offen) return fehler('Der Anlass ist nicht mehr offen.');
+  const aufgehoben: Anlass = {
+    ...anlass,
+    aufgehobenVon: sitzung.benutzer.id,
+    aufgehobenVonName: sitzung.benutzer.name,
+    aufgehobenAm: jetzt.toISOString(),
+    aufhebungsgrund: grund,
+  };
+  await repo.hebeAnlassAuf({
+    anlass: aufgehoben,
+    ereignis: neuesEreignis(sitzung, geraet.id, 'anlass_aufgehoben', { anlassId: anlass.id, pruefartId: anlass.geraetPruefartId, grund }, jetzt),
+  });
+  return { ok: true, geraetId: geraet.id, anlassId: anlass.id };
 }
