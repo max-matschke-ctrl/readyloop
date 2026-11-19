@@ -544,6 +544,13 @@ export interface PruefartAnsicht {
   katalogEintrag: KatalogEintrag | null; // passender Eintrag (freigegeben oder Entwurf) für Prüfertyp/Hinweis
   weiterbetriebUnzulaessig: boolean; // letzter Nachweis 'nicht_bestanden'
   zugewiesenerPrueferName: string | null;
+  /**
+   * Review I2 (Befund 2): true nur, wenn ein Prüfer zugewiesen ist UND seine Prüfer-Mitgliedschaft aktiv ist.
+   * false bei fehlender Zuweisung oder deaktiviertem Prüfer. Deaktivierter Prüfer ⇔
+   * pruefart.zugewiesenerPrueferId !== null && !zugewiesenerPrueferAktiv → Hinweis „Prüfer deaktiviert – neu zuweisen“;
+   * die Prüfart gilt dann als nicht versorgt. Die Zuweisung bleibt bestehen (wird nie still entfernt).
+   */
+  zugewiesenerPrueferAktiv: boolean;
   qualifikationsWarnung: string | null; // F-15
   offeneAnlaesse: AnlassAnsicht[];
   offeneMaengel: number; // offen + in_bearbeitung an dieser Prüfart

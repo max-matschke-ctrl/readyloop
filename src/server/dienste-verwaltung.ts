@@ -135,6 +135,9 @@ function mitgliedEreignis(sitzung: Sitzung, m: Mitgliedschaft, name: string, ein
   );
 }
 
+/** Review I2 (Befund 6): Konto angelegt, Mitgliedschaft aber nicht gespeichert. */
+export const MITGLIED_NACH_EINLADUNG_FEHLER = 'Konto angelegt, Zugang bitte erneut speichern.';
+
 /** F-17/Q-23: unbekannte E-Mail → Einladung; bekannte → nur Mitgliedschaft. Doppelte Mitgliedschaft → Feld email. */
 export async function mitgliedEinladen(
   sitzung: Sitzung,
@@ -166,12 +169,18 @@ export async function mitgliedEinladen(
     prueferTypen: norm.prueferTypen,
     aktiv: true,
   };
-  await repo.speichereMitgliedschaft({
-    mitgliedschaft,
-    benutzer: { id: eingeladen.benutzerId, name: eingabe.name, email },
-    neu: true,
-    ereignis: mitgliedEreignis(sitzung, mitgliedschaft, eingabe.name, eingeladen.neu, jetzt),
-  });
+  try {
+    await repo.speichereMitgliedschaft({
+      mitgliedschaft,
+      benutzer: { id: eingeladen.benutzerId, name: eingabe.name, email },
+      neu: true,
+      ereignis: mitgliedEreignis(sitzung, mitgliedschaft, eingabe.name, eingeladen.neu, jetzt),
+    });
+  } catch (e) {
+    // Konto (und ggf. Einladungsmail) existiert bereits; erneutes Speichern findet das Konto und legt nur den Zugang an.
+    console.error('mitgliedEinladen: Mitgliedschaft nach Einladung nicht gespeichert', e);
+    return fehler(MITGLIED_NACH_EINLADUNG_FEHLER);
+  }
   return {
     ok: true,
     id: mitgliedschaft.id,

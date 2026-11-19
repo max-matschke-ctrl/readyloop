@@ -29,6 +29,8 @@ export interface MitgliedschaftZeile {
   aktiv: boolean;
   pruefer_typen: Mitgliedschaft['prueferTypen'];
 }
+/** Lesbare Spalten für Mitglieder: email nur über RPC mitglied_emails (Admins, Befund I2-5). */
+export type MitgliedschaftLeseZeile = Omit<MitgliedschaftZeile, 'email'>;
 export interface KatalogZeile {
   id: string;
   schluessel: string;
@@ -163,7 +165,7 @@ export interface MangelZeile {
 export const SPALTEN = {
   organisation: 'id, name, bg',
   bereich: 'id, organisation_id, standort_id, name, einsatzort',
-  mitgliedschaft: 'id, organisation_id, benutzer_id, anzeigename, email, rolle, aktiv, pruefer_typen',
+  mitgliedschaft: 'id, organisation_id, benutzer_id, anzeigename, rolle, aktiv, pruefer_typen', // ohne email (nur Admin, RPC)
   katalog:
     'id, schluessel, version, geraetegruppe, geraetegruppe_label, pruefart, einsatzort, intervall_monate, stufe, fundstelle, quelle_url, pruefer_typen, hinweis, freigabestatus, freigegeben_von, freigegeben_am',
   geraet:
@@ -216,7 +218,7 @@ export const vonBereich = (b: Bereich): BereichZeile => ({
   einsatzort: b.einsatzort,
 });
 
-export function zuMitgliedschaft(z: MitgliedschaftZeile, bereichIds: string[]): Mitgliedschaft {
+export function zuMitgliedschaft(z: MitgliedschaftLeseZeile, bereichIds: string[]): Mitgliedschaft {
   return {
     id: z.id,
     organisationId: z.organisation_id,
@@ -239,11 +241,14 @@ export function vonMitgliedschaft(m: Mitgliedschaft, b: Benutzer): Mitgliedschaf
     pruefer_typen: [...m.prueferTypen],
   };
 }
-/** Benutzer im Kontext einer Organisation: Name = anzeigename (F-8). */
-export const zuBenutzer = (z: Pick<MitgliedschaftZeile, 'benutzer_id' | 'anzeigename' | 'email'>): Benutzer => ({
+/**
+ * Benutzer im Kontext einer Organisation: Name = anzeigename (F-8). E-Mail nur für Admins (mitglied_emails),
+ * sonst '' (Befund I2-5).
+ */
+export const zuBenutzer = (z: Pick<MitgliedschaftZeile, 'benutzer_id' | 'anzeigename'>, email = ''): Benutzer => ({
   id: z.benutzer_id,
   name: z.anzeigename,
-  email: z.email,
+  email,
 });
 
 export const zuKatalog = (z: KatalogZeile): KatalogEintrag => ({

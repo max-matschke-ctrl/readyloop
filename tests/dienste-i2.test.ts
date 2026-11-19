@@ -32,6 +32,7 @@ import {
   holeMitglied,
   listeBereicheVerwaltung,
   listeMitglieder,
+  MITGLIED_NACH_EINLADUNG_FEHLER,
   mitgliedAendern,
   mitgliedEinladen,
 } from '@/server/dienste-verwaltung';
@@ -169,6 +170,22 @@ describe('prueferZuweisen', () => {
     expect(await sitzungFuerDemoRolle(repo, 'pruefer')).not.toBeNull(); // Org 2 bleibt aktiv
     expect((await sitzungFuerDemoRolle(repo, 'pruefer'))!.organisation.id).toBe(DEMO_ORG2_ID);
   });
+  it('Befund I2-2: deaktivierter zugewiesener Prüfer → Zuweisung bleibt, zugewiesenerPrueferAktiv false', async () => {
+    const adm = await sitzung('admin');
+    const vorher = (await detail('L-001')).pruefarten[0];
+    expect(vorher).toMatchObject({ zugewiesenerPrueferName: 'Tobias Berger', zugewiesenerPrueferAktiv: true });
+    expect(vorher.pruefart.zugewiesenerPrueferId).toBe(DEMO_BENUTZER_IDS.tobias);
+    expect((await detail('L-003')).pruefarten[0].zugewiesenerPrueferAktiv).toBe(false); // nicht zugewiesen
+    const berger = (await listeMitglieder(adm, repo)).find((m) => m.benutzer.id === DEMO_BENUTZER_IDS.tobias)!;
+    const aus = await mitgliedAendern(adm, repo, { mitgliedschaftId: berger.mitgliedschaftId, name: 'Tobias Berger', rolle: 'pruefer', bereichIds: [], prueferTypen: ['efk'], aktiv: false }, JETZT);
+    expect(aus.ok).toBe(true);
+    const nachher = (await detail('L-001')).pruefarten[0];
+    expect(nachher.pruefart.zugewiesenerPrueferId).toBe(DEMO_BENUTZER_IDS.tobias); // nicht still entfernt
+    expect(nachher).toMatchObject({ zugewiesenerPrueferName: 'Tobias Berger', zugewiesenerPrueferAktiv: false });
+    expect((await repo.listeEreignisse(DEMO_ORG_ID)).some((e) => e.typ === 'pruefer_zugewiesen' && e.zeitpunkt === JETZT.toISOString())).toBe(false);
+    // Prüfer in Org 1 hat keine Aufgaben mehr (Sitzung fällt auf Org 2)
+    expect((await sitzungFuerDemoRolle(repo, 'pruefer'))!.organisation.id).toBe(DEMO_ORG2_ID);
+  });
   it('listePrueferOptionen nur mit pruefer.zuweisen', async () => {
     expect(await listePrueferOptionen(await sitzung('admin'), repo)).toEqual([
       { benutzerId: DEMO_BENUTZER_IDS.tobias, name: 'Tobias Berger', prueferTypen: ['efk', 'sachkundiger'] },
@@ -234,7 +251,7 @@ describe('Anlass', () => {
     let d = await detail('L-003');
     expect(d.pruefarten[0].status).toMatchObject({ status: 'vor_nutzung_pruefen', grund: 'anlass' });
     expect(d.verlauf[0]).toMatchObject({ typ: 'anlass_erfasst', daten: { art: 'unfall_schadensfall', datum: HEUTE } });
-    expect((await nachweisErfassen(ver, repo, nachweis(p), ZEIT)).ok).toBe(true);
+    expect((await nachweisErfassen(ver, repo, nachweis(p), { ...ZEIT, jetzt: SPAETER })).ok).toBe(true);
     d = await detail('L-003');
     expect(d.pruefarten[0].status.status).toBe('ok');
     expect(d.anlaesse[0]).toMatchObject({ offen: false, erledigtDurchNachweisId: d.nachweise[0].id });
@@ -259,6 +276,29 @@ describe('Anlass', () => {
     expect(d.gesamtStatus).toBe('ok');
     expect(d.verlauf[0]).toMatchObject({ typ: 'anlass_aufgehoben', daten: { grund: 'Schaden war am Nachbarkran' } });
     expect((await anlassAufheben(sif, repo, { anlassId: anlass.id, grund: 'Schaden war am Nachbarkran' }, JETZT)).ok).toBe(false);
+  });
+  it('Befund I2-1: Nachweis am selben Tag, aber VOR dem Anlass erfasst → Anlass bleibt offen und ist aufhebbar', async () => {
+    const ver = await sitzung('verantwortlicher');
+    const g = await geraetVon('L-003');
+    const p = await pruefartVon('L-003');
+    expect((await nachweisErfassen(ver, repo, nachweis(p), ZEIT)).ok).toBe(true);
+    const r = await anlassErfassen(ver, repo, { geraetId: g, geraetPruefartIds: [p], art: 'unfall_schadensfall', datum: HEUTE, beschreibung: 'Stapler hat Regal gerammt' }, { ...ZEIT, jetzt: SPAETER });
+    expect(r.ok).toBe(true);
+    const d = await detail('L-003');
+    expect(d.anlaesse[0]).toMatchObject({ offen: true, erledigtDurchNachweisId: null });
+    expect(d.pruefarten[0].status).toMatchObject({ status: 'vor_nutzung_pruefen', grund: 'anlass' });
+    expect((await anlassAufheben(ver, repo, { anlassId: d.anlaesse[0].id, grund: 'Schaden betraf Nachbarregal' }, SPAETER)).ok).toBe(true);
+  });
+  it('Befund I2-3: durch Nachweis erledigter Anlass kann nicht aufgehoben werden', async () => {
+    const ver = await sitzung('verantwortlicher');
+    const g = await geraetVon('L-003');
+    const p = await pruefartVon('L-003');
+    const r = await anlassErfassen(ver, repo, { geraetId: g, geraetPruefartIds: [p], art: 'sonstiges', datum: HEUTE, beschreibung: 'Sturm über Nacht' }, ZEIT);
+    expect(r.ok).toBe(true);
+    expect((await nachweisErfassen(ver, repo, nachweis(p), { ...ZEIT, jetzt: SPAETER })).ok).toBe(true);
+    const anlassId = (await detail('L-003')).anlaesse[0].id;
+    expect(await anlassAufheben(ver, repo, { anlassId, grund: 'nachträglich aufheben wollen' }, SPAETER)).toMatchObject({ ok: false, fehler: 'Der Anlass ist nicht mehr offen.' });
+    expect((await detail('L-003')).anlaesse[0]).toMatchObject({ offen: false, aufhebungsgrund: null });
   });
   it('Nachweis nicht_bestanden lässt Anlass offen', async () => {
     const p = await pruefartVon('P-001');
@@ -378,6 +418,21 @@ describe('Verwaltung', () => {
     expect(await mitgliedEinladen(adm, repo, einladen({ bereichIds: [] }), JETZT)).toMatchObject({ ok: false, feld: 'bereichIds' });
     expect((await mitgliedEinladen(await sitzung('sifa'), repo, einladen(), JETZT)).ok).toBe(false);
   });
+  it('Befund I2-6: Fehler nach Einladung → „Konto angelegt, Zugang bitte erneut speichern.“; erneutes Speichern ok', async () => {
+    const adm = await sitzung('admin');
+    let scheitern = true;
+    const wackelig = Object.assign(Object.create(repo) as DemoRepository, {
+      speichereMitgliedschaft: async (d: Parameters<DemoRepository['speichereMitgliedschaft']>[0]) => {
+        if (scheitern) throw new Error('Netzwerk');
+        return repo.speichereMitgliedschaft(d);
+      },
+    });
+    expect(await mitgliedEinladen(adm, wackelig, einladen(), JETZT)).toEqual({ ok: false, fehler: MITGLIED_NACH_EINLADUNG_FEHLER });
+    expect((await listeMitglieder(adm, repo)).some((m) => m.benutzer.email === 'neu@example.org')).toBe(false);
+    scheitern = false;
+    expect(await mitgliedEinladen(adm, wackelig, einladen(), JETZT)).toMatchObject({ ok: true, neu: false });
+    expect((await listeMitglieder(adm, repo)).filter((m) => m.benutzer.email === 'neu@example.org')).toHaveLength(1);
+  });
   it('mitgliedAendern: letzter Admin auf sifa → Fehler; eigene Mitgliedschaft deaktivieren → Fehler', async () => {
     const adm = await sitzung('admin');
     const eigen = (await holeMitglied(adm, repo, adm.mitgliedschaftId))!;
@@ -434,5 +489,39 @@ describe('Frist mit Nachweisbezug (F-13)', () => {
     const d = await detail('L-001');
     expect(d.verlauf[0]).toMatchObject({ typ: 'frist_freigegeben', daten: { nachweisId: nid, richtung: 'kuerzer', alt: { monate: 12 }, neu: { monate: 6 } } });
     expect(d.pruefarten[0].fristHinweis).toBeNull();
+  });
+  it('US-11: freigegebener Stufe-A-Eintrag 12 Monate → Verlängerung auf 18 abgelehnt, Frist unverändert', async () => {
+    const sif = await sitzung('sifa');
+    // Demo-Katalog besteht nur aus Entwürfen; für den Fall wird der Stapler-Eintrag als freigegeben simuliert.
+    const freigegeben = Object.assign(Object.create(repo) as DemoRepository, {
+      listeKatalog: async () =>
+        (await repo.listeKatalog()).map((k) =>
+          k.schluessel === 'flurfoerderzeug.wiederkehrend' ? { ...k, freigabestatus: 'freigegeben' as const, freigegebenVon: 'SI', freigegebenAm: '2026-11-01' } : k,
+        ),
+    });
+    const l001 = (await holeGeraetDetail(sif, freigegeben, HEUTE, await geraetVon('L-001')))!;
+    const pa = l001.pruefarten[0];
+    expect(pa.katalogEintrag).toMatchObject({ stufe: 'A', intervallMonate: 12, freigabestatus: 'freigegeben' });
+    expect(pa.pruefart.frist?.monate).toBe(12);
+    const verlaengern = { modus: 'gbu' as const, geraetPruefartId: pa.pruefart.id, monate: 18, fundstelle: 'GBU Lager 2026', begruendung: 'Prüfer sieht guten Zustand', nachweisId: pa.letzterNachweis!.id };
+    const r = await fristFreigeben(sif, freigegeben, verlaengern, JETZT);
+    expect(r).toMatchObject({ ok: false, feld: 'monate' });
+    expect(r.ok === false && r.fehler).toMatch(/Höchstfrist/);
+    const danach = (await holeGeraetDetail(sif, freigegeben, HEUTE, l001.geraet.id))!;
+    expect(danach.pruefarten[0].pruefart.frist).toEqual(pa.pruefart.frist);
+    expect(danach.verlauf.filter((e) => e.typ === 'frist_freigegeben')).toHaveLength(l001.verlauf.filter((e) => e.typ === 'frist_freigegeben').length);
+  });
+  it('US-11: Verlängerung über die Herstellerfrist abgelehnt; Verkürzung darunter erlaubt', async () => {
+    const sif = await sitzung('sifa');
+    const l005 = await detail('L-005');
+    const pa = l005.pruefarten[0];
+    expect(pa.pruefart).toMatchObject({ herstellerfristMonate: 6, frist: { monate: 6, quelle: 'hersteller' } });
+    const basis = { modus: 'gbu' as const, geraetPruefartId: pa.pruefart.id, fundstelle: 'GBU Lager 2026', begruendung: 'Nach Prüfung neu bewertet', nachweisId: pa.letzterNachweis?.id ?? null };
+    const r = await fristFreigeben(sif, repo, { ...basis, monate: 9 }, JETZT);
+    expect(r).toMatchObject({ ok: false, feld: 'monate' });
+    expect(r.ok === false && r.fehler).toMatch(/Herstellerfrist von 6 Monaten/);
+    expect((await detail('L-005')).pruefarten[0].pruefart.frist).toEqual(pa.pruefart.frist);
+    expect((await fristFreigeben(sif, repo, { ...basis, monate: 4 }, JETZT)).ok).toBe(true);
+    expect((await detail('L-005')).verlauf[0]).toMatchObject({ typ: 'frist_freigegeben', daten: { richtung: 'kuerzer', alt: { monate: 6 }, neu: { monate: 4 } } });
   });
 });

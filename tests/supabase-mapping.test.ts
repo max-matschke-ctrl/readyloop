@@ -97,7 +97,8 @@ describe('Mapping hin und zurück', () => {
       const b = stand.benutzer.find((x) => x.id === m.benutzerId)!;
       const z = vonMitgliedschaft(m, b);
       expect(zuMitgliedschaft(z, m.bereichIds)).toEqual(m);
-      expect(zuBenutzer(z)).toEqual(b);
+      expect(zuBenutzer(z, b.email)).toEqual(b);
+      expect(zuBenutzer(z)).toEqual({ ...b, email: '' }); // Befund I2-5: ohne Admin-RPC keine E-Mail
     }
     const z = vonMitgliedschaft({ ...stand.mitgliedschaften[0], rolle: 'sifa', prueferTypen: [] }, stand.benutzer[0]);
     expect(zuMitgliedschaft({ ...z, pruefer_typen: ['zbp'] }, ['b1']).bereichIds).toEqual([]);

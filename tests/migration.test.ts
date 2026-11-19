@@ -284,6 +284,56 @@ describe('Migration Inkrement 2', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Review-Befunde Inkrement 2 (eigene Migration, bestehende bleiben unverändert)
+// ---------------------------------------------------------------------------
+
+const SQL3 = readFileSync(path.resolve(__dirname, '../supabase/migrations/20261127000000_review_i2.sql'), 'utf8');
+const klein3 = SQL3.replace(/--.*$/gm, '').toLowerCase();
+const block3 = (start: string) => klein3.split(start)[1].split('$$;')[0];
+
+describe('Migration Review I2', () => {
+  it('keine neuen Tabellen, keine DELETE- oder FOR-ALL-Policy', () => {
+    expect(klein3).not.toMatch(/create table/);
+    expect(klein3).not.toMatch(/create policy \w+ on [\w.]+\s+for (delete|all)/);
+  });
+
+  it('Befund 1: anlass_erledigt mit Erfassungszeitpunkt bei gleichem Datum', () => {
+    const f = block3('create or replace function app.anlass_erledigt(');
+    expect(f).toContain('security definer');
+    expect(f).toContain("n.ergebnis in ('ohne_maengel', 'maengel_weiterbetrieb')");
+    expect(f).toContain('n.pruefdatum > p_datum or (n.pruefdatum = p_datum and n.erfasst_am > p_erfasst_am)');
+  });
+
+  it('Befund 3: Aufheben eines erledigten Anlasses wird abgelehnt', () => {
+    const f = block3('create or replace function app.anlass_pruefen(');
+    const update = f.split("if tg_op = 'insert' then")[1].split('return new;\n  end if;')[1];
+    expect(update).toContain('if app.anlass_erledigt(old.geraet_pruefart_id, old.datum, old.erfasst_am) then');
+  });
+
+  it('Befund 4: mangel_insert verlangt bei Sifa und VER einen Verantwortlichen', () => {
+    const p = klein3.split('create policy mangel_insert on public.mangel')[1].split(';')[0];
+    expect(klein3).toContain('drop policy mangel_insert on public.mangel;');
+    expect(p).toMatch(/hat_rolle\(organisation_id, array\['sifa'\]\) and verantwortlich_id is not null/);
+    expect(p).toMatch(/verantwortet_geraet\(geraet_id\)\s+and verantwortlich_id is not null/);
+    expect(p).toContain('app.ist_zugewiesen(geraet_pruefart_id) and verantwortlich_id is null');
+  });
+
+  it('Befund 5: email nicht im Spalten-Grant; mitglied_emails nur für Admins; E-Mail nicht änderbar', () => {
+    expect(klein3).toContain('revoke select on public.mitgliedschaft from authenticated;');
+    const grant = klein3.split('grant select (')[1].split(')')[0];
+    expect(grant).not.toContain('email');
+    expect(grant).toContain('anzeigename');
+    expect(klein3).toContain('revoke update (email) on public.mitgliedschaft from authenticated;');
+    const f = block3('create or replace function public.mitglied_emails(');
+    expect(f).toContain('security definer');
+    expect(f).toContain("app.hat_rolle(p_organisation, array['admin'])");
+    const speichern = block3('create or replace function public.mitglied_speichern(').split('else')[0];
+    expect(speichern).toContain('security invoker');
+    expect(speichern).not.toContain('email');
+  });
+});
+
 const PG = process.env.RL_TEST_PG;
 
 describe.skipIf(!PG)('Migration gegen Postgres (RL_TEST_PG)', () => {
@@ -304,6 +354,7 @@ describe.skipIf(!PG)('Migration gegen Postgres (RL_TEST_PG)', () => {
     psql(ziel, 'sql/supabase-stub.sql', false);
     psql(ziel, '../supabase/migrations/20261119000000_init.sql');
     psql(ziel, '../supabase/migrations/20261126000000_inkrement2.sql');
+    psql(ziel, '../supabase/migrations/20261127000000_review_i2.sql');
     return [psql(ziel, 'sql/rls-szenario.sql'), psql(ziel, 'sql/rls-szenario-i2.sql')]
       .join('\n')
       .split('\n')

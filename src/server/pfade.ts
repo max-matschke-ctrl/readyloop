@@ -8,3 +8,8 @@ export function istSichererPfad(wert: unknown): wert is string {
 export function sichererRuecksprung(wert: unknown, standard: string): string {
   return istSichererPfad(wert) ? wert : standard;
 }
+
+/** Review I2 (Befund 7): Bestätigungsseite für Einladungs-/Reset-Links (Seite: frontend-dev). */
+export const BESTAETIGEN_SEITE = '/auth/bestaetigen';
+/** Standardziel nach bestätigtem Einladungs-/Reset-Link. */
+export const NACH_BESTAETIGUNG = '/passwort-neu';

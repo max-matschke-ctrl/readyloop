@@ -33,7 +33,7 @@ import {
   type GeraetZeile,
   type KatalogZeile,
   type MangelZeile,
-  type MitgliedschaftZeile,
+  type MitgliedschaftLeseZeile,
   type NachweisZeile,
   type OrganisationZeile,
   type PruefartZeile,
@@ -88,9 +88,17 @@ export function supabaseRepository(
     for (const z of zeilen) map.set(z.mitgliedschaft_id, [...(map.get(z.mitgliedschaft_id) ?? []), z.bereich_id]);
     return map;
   };
-  const mitBereichen = async (zeilen: MitgliedschaftZeile[]) => {
+  const mitBereichen = async (zeilen: MitgliedschaftLeseZeile[]) => {
     const bereiche = await bereichIdsVon(zeilen.map((z) => z.id));
     return zeilen.map((z) => zuMitgliedschaft(z, bereiche.get(z.id) ?? []));
+  };
+  /** E-Mail je Benutzer: RPC liefert nur für Admins der Organisation Zeilen, sonst leer (Befund I2-5). */
+  const emailsVon = async (org: Id): Promise<Map<Id, string>> => {
+    const zeilen = (pruefe(await client.rpc('mitglied_emails', { p_organisation: org }), 'mitglied_emails') ?? []) as {
+      benutzer_id: Id;
+      email: string;
+    }[];
+    return new Map(zeilen.map((z) => [z.benutzer_id, z.email]));
   };
   /** UPDATE einer Zeile; 0 betroffene Zeilen = nicht sichtbar oder keine Berechtigung (RLS). */
   const aendere = async (tabelle: string, id: Id, werte: Record<string, unknown>) => {
@@ -109,17 +117,23 @@ export function supabaseRepository(
     async holeBenutzer(id) {
       const filter: [string, unknown][] = [['benutzer_id', id]];
       if (organisationId) filter.push(['organisation_id', organisationId]);
-      const [z] = await liste<MitgliedschaftZeile>('mitgliedschaft', SPALTEN.mitgliedschaft, filter);
-      return z ? zuBenutzer(z) : null;
+      const [z] = await liste<MitgliedschaftLeseZeile>('mitgliedschaft', SPALTEN.mitgliedschaft, filter);
+      if (!z) return null;
+      const emails = organisationId ? await emailsVon(organisationId) : new Map<Id, string>();
+      return zuBenutzer(z, emails.get(z.benutzer_id) ?? '');
     },
     async listeBenutzer(org) {
-      return (await liste<MitgliedschaftZeile>('mitgliedschaft', SPALTEN.mitgliedschaft, [['organisation_id', org]])).map(zuBenutzer);
+      const [zeilen, emails] = await Promise.all([
+        liste<MitgliedschaftLeseZeile>('mitgliedschaft', SPALTEN.mitgliedschaft, [['organisation_id', org]]),
+        emailsVon(org),
+      ]);
+      return zeilen.map((z) => zuBenutzer(z, emails.get(z.benutzer_id) ?? ''));
     },
     async listeMitgliedschaften(org) {
-      return mitBereichen(await liste<MitgliedschaftZeile>('mitgliedschaft', SPALTEN.mitgliedschaft, [['organisation_id', org]]));
+      return mitBereichen(await liste<MitgliedschaftLeseZeile>('mitgliedschaft', SPALTEN.mitgliedschaft, [['organisation_id', org]]));
     },
     async mitgliedschaftenVonBenutzer(benutzerId) {
-      return mitBereichen(await liste<MitgliedschaftZeile>('mitgliedschaft', SPALTEN.mitgliedschaft, [['benutzer_id', benutzerId]]));
+      return mitBereichen(await liste<MitgliedschaftLeseZeile>('mitgliedschaft', SPALTEN.mitgliedschaft, [['benutzer_id', benutzerId]]));
     },
     async listeBereiche(org) {
       return (await liste<BereichZeile>('bereich', SPALTEN.bereich, [['organisation_id', org]])).map(zuBereich);

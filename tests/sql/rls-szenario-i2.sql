@@ -41,6 +41,12 @@ select 'ADM weist Prüfer zu (erw. OK 1): ' || t($$update geraet_pruefart set zu
 select 'Ereignis pruefer_zugewiesen mit Name (erw. Tobias): ' || q($$select daten->>'neuName' from ereignis where typ='pruefer_zugewiesen'$$);
 select 'ADM weist Sifa als Prüfer zu (erw. FEHLER): ' || t($$update geraet_pruefart set zugewiesener_pruefer_id='22222222-2222-2222-2222-222222222222' where id='00000000-0000-0000-0000-0000000000f5'$$);
 select 'ADM weist deaktivierten Prüfer zu (erw. FEHLER): ' || t($$update geraet_pruefart set zugewiesener_pruefer_id='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' where id='00000000-0000-0000-0000-0000000000f5'$$);
+set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+select 'PRF weist sich fremde Prüfart selbst zu (erw. OK 0): ' || t($$update geraet_pruefart set zugewiesener_pruefer_id='44444444-4444-4444-4444-444444444444' where id='00000000-0000-0000-0000-0000000000f5'$$);
+select 'PRF gibt eigene Prüfart an anderen Prüfer weiter (erw. OK 0): ' || t($$update geraet_pruefart set zugewiesener_pruefer_id='66666666-6666-6666-6666-666666666666' where id='00000000-0000-0000-0000-0000000000f4'$$);
+select 'PRF entfernt eigene Zuweisung (erw. OK 0): ' || t($$update geraet_pruefart set zugewiesener_pruefer_id=null where id='00000000-0000-0000-0000-0000000000f4'$$);
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select 'Zuweisungen nach Prüfer-Versuchen unverändert (erw. 00000000-0000-0000-0000-0000000000f4:44444444-4444-4444-4444-444444444444,00000000-0000-0000-0000-0000000000f5:-): ' || q($$select id || ':' || coalesce(zugewiesener_pruefer_id::text, '-') from geraet_pruefart where id in ('00000000-0000-0000-0000-0000000000f4','00000000-0000-0000-0000-0000000000f5')$$);
 select 'ADM setzt GBU-Verweis (erw. FEHLER): ' || t($$update geraet_pruefart set gbu_dokument_titel='GBU' where id='00000000-0000-0000-0000-0000000000f5'$$);
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 select 'VER Lager weist Prüfart in Produktion zu (erw. OK 0): ' || t($$update geraet_pruefart set zugewiesener_pruefer_id='44444444-4444-4444-4444-444444444444' where id='00000000-0000-0000-0000-0000000000f5'$$);
@@ -58,6 +64,9 @@ select 'frist_setzen mit Nachweis anderer Prüfart (erw. FEHLER): ' || t($$selec
 select 'frist_setzen mit eigenem Nachweis (erw. OK 1): ' || t($$select frist_setzen('00000000-0000-0000-0000-0000000000f2','{"frist_monate":3,"frist_quelle":"gbu","frist_stufe":"C","frist_fundstelle":"GBU Kran","frist_begruendung":"nach Prüfung verkürzt"}'::jsonb, '00000000-0000-0000-0000-000000000201')$$);
 select 'Ereignis richtung + nachweisId (erw. kuerzer|00000000-0000-0000-0000-000000000201): ' || q($$select (daten->>'richtung') || '|' || (daten->>'nachweisId') from ereignis where typ='frist_freigegeben' and daten->>'nachweisId' is not null$$);
 select 'frist_setzen über Herstellerfrist (erw. FEHLER): ' || t($$select frist_setzen('00000000-0000-0000-0000-0000000000f2','{"frist_monate":24,"frist_quelle":"gbu","frist_stufe":"C","frist_fundstelle":"GBU Kran","frist_begruendung":"Verlängerung gewünscht"}'::jsonb, null)$$);
+select 'US-11 Stufe-A-Verlängerung 12 → 18 (erw. FEHLER): ' || t($$select frist_setzen('00000000-0000-0000-0000-0000000000f4','{"frist_monate":18,"frist_quelle":"gbu","frist_stufe":"C","frist_fundstelle":"GBU Kran","frist_begruendung":"Zustand sehr gut, verlängern"}'::jsonb, null)$$);
+select 'Frist nach abgelehnter Stufe-A-Verlängerung (erw. 12|katalog): ' || q($$select frist_monate || '|' || frist_quelle from geraet_pruefart where id='00000000-0000-0000-0000-0000000000f4'$$);
+select 'Frist nach abgelehnter Hersteller-Verlängerung (erw. 3): ' || q($$select frist_monate from geraet_pruefart where id='00000000-0000-0000-0000-0000000000f2'$$);
 
 \echo '== Gerät verschieben und Betriebsstatus'
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
@@ -84,6 +93,20 @@ select 'VER Anlass aufheben (erw. OK 1): ' || t($$update anlass set aufhebungsgr
 select 'Aufhebung gestempelt (erw. Marco): ' || q($$select aufgehoben_von_name from anlass where id='00000000-0000-0000-0000-000000000a01'$$);
 select 'VER Anlass zweimal aufheben (erw. FEHLER): ' || t($$update anlass set aufhebungsgrund='nochmal aufgehoben jetzt' where id='00000000-0000-0000-0000-000000000a01'$$);
 select 'VER Anlass löschen (erw. FEHLER): ' || t($$delete from anlass where id='00000000-0000-0000-0000-000000000a01'$$);
+-- Befund I2-1/I2-3: gleicher Tag – nur ein NACH dem Anlass erfasster bestandener Nachweis erledigt; erledigt → nicht aufhebbar
+select 'VER Nachweis heute vor dem Anlass (erw. OK 1): ' || t($$insert into nachweis (id, organisation_id, geraet_id, geraet_pruefart_id, pruefdatum, ergebnis, pruefumfang, pruefer_name, unterschrift_im_pdf, pdf_pfad, pdf_sha256, erfasst_von) values ('00000000-0000-0000-0000-000000000c01','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e1','00000000-0000-0000-0000-0000000000f6',app.heute(),'ohne_maengel','Stapler','Marco',true,'00000000-0000-0000-0000-0000000000a1/00000000-0000-0000-0000-0000000000e1/00000000-0000-0000-0000-0000000000f6/00000000-0000-0000-0000-000000000c01.pdf',repeat('c',64),'33333333-3333-3333-3333-333333333333')$$);
+select 'VER Anlass heute nach dem Nachweis (erw. OK 1): ' || t($$insert into anlass (id, organisation_id, geraet_id, geraet_pruefart_id, art, datum, beschreibung) values ('00000000-0000-0000-0000-000000000a02','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e1','00000000-0000-0000-0000-0000000000f6','unfall_schadensfall',app.heute(),'Anfahrschaden nach Prüfung')$$);
+reset role;
+select 'Früher erfasster Nachweis erledigt Anlass nicht (erw. false): ' || q($$select app.anlass_erledigt(geraet_pruefart_id, datum, erfasst_am) from anlass where id='00000000-0000-0000-0000-000000000a02'$$);
+set role authenticated;
+select 'VER hebt nicht erledigten Anlass auf (erw. OK 1): ' || t($$update anlass set aufhebungsgrund='Schaden betraf Nachbargerät' where id='00000000-0000-0000-0000-000000000a02'$$);
+select 'VER Anlass heute vor dem Nachweis (erw. OK 1): ' || t($$insert into anlass (id, organisation_id, geraet_id, geraet_pruefart_id, art, datum, beschreibung) values ('00000000-0000-0000-0000-000000000a03','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e1','00000000-0000-0000-0000-0000000000f6','aenderung_instandsetzung',app.heute(),'Hubzylinder getauscht')$$);
+select 'VER Nachweis heute nach dem Anlass (erw. OK 1): ' || t($$insert into nachweis (id, organisation_id, geraet_id, geraet_pruefart_id, pruefdatum, ergebnis, pruefumfang, pruefer_name, unterschrift_im_pdf, pdf_pfad, pdf_sha256, erfasst_von) values ('00000000-0000-0000-0000-000000000c02','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e1','00000000-0000-0000-0000-0000000000f6',app.heute(),'maengel_weiterbetrieb','Stapler','Marco',true,'00000000-0000-0000-0000-0000000000a1/00000000-0000-0000-0000-0000000000e1/00000000-0000-0000-0000-0000000000f6/00000000-0000-0000-0000-000000000c02.pdf',repeat('c',64),'33333333-3333-3333-3333-333333333333')$$);
+reset role;
+select 'Später erfasster Nachweis erledigt Anlass (erw. true): ' || q($$select app.anlass_erledigt(geraet_pruefart_id, datum, erfasst_am) from anlass where id='00000000-0000-0000-0000-000000000a03'$$);
+set role authenticated;
+select 'VER hebt erledigten Anlass auf (erw. FEHLER): ' || t($$update anlass set aufhebungsgrund='nachträglich aufheben wollen' where id='00000000-0000-0000-0000-000000000a03'$$);
+select 'Erledigter Anlass bleibt ohne Aufhebung (erw. -): ' || q($$select aufhebungsgrund from anlass where id='00000000-0000-0000-0000-000000000a03'$$);
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 select 'ADM Anlass (erw. FEHLER): ' || t($$insert into anlass (organisation_id, geraet_id, geraet_pruefart_id, art, datum, beschreibung) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e1','00000000-0000-0000-0000-0000000000f6','sonstiges',app.heute(),'Admin darf nicht')$$);
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
@@ -95,14 +118,16 @@ select 'PRF erfasst Anlass (erw. FEHLER): ' || t($$insert into anlass (organisat
 \echo '== Mangel'
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 select 'SIF Mangel Produktion mit Verantwortlichem (erw. OK 1): ' || t($$insert into mangel (id, organisation_id, geraet_id, geraet_pruefart_id, beschreibung, schwere, termin, verantwortlich_id) values ('00000000-0000-0000-0000-000000000b01','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e2','00000000-0000-0000-0000-0000000000f3','Isolation beschädigt','gefaehrlich',app.heute(),'22222222-2222-2222-2222-222222222222')$$);
+select 'SIF Mangel ohne Verantwortlichen (erw. FEHLER): ' || t($$insert into mangel (organisation_id, geraet_id, geraet_pruefart_id, beschreibung, schwere, termin) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e2','00000000-0000-0000-0000-0000000000f3','Ohne Verantwortlichen','gering',app.heute())$$);
 select 'SIF Mangel Verantwortlicher = Prüfer (erw. FEHLER): ' || t($$insert into mangel (organisation_id, geraet_id, beschreibung, schwere, termin, verantwortlich_id) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e2','Falscher Verantwortlicher','gering',app.heute(),'44444444-4444-4444-4444-444444444444')$$);
 select 'SIF Mangel mit Nachweis anderer Prüfart (erw. FEHLER): ' || t($$insert into mangel (organisation_id, geraet_id, geraet_pruefart_id, nachweis_id, beschreibung, schwere, termin) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e2','00000000-0000-0000-0000-0000000000f3','00000000-0000-0000-0000-000000000201','Bezug falsch','gering',app.heute())$$);
 select 'SIF Mangel Nachweis ohne Prüfart (erw. FEHLER): ' || t($$insert into mangel (organisation_id, geraet_id, nachweis_id, beschreibung, schwere, termin) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e2','00000000-0000-0000-0000-000000000201','Bezug fehlt','gering',app.heute())$$);
 select 'SIF Mangel mit Status behoben (erw. FEHLER): ' || t($$insert into mangel (organisation_id, geraet_id, beschreibung, schwere, termin, status, behoben_am, behoben_durch, behebung, behebung_erfasst_am) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e2','Gleich behoben','gering',app.heute(),'behoben',app.heute(),'Firma','Getauscht',now())$$);
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
-select 'VER Mangel Lager (erw. OK 1): ' || t($$insert into mangel (id, organisation_id, geraet_id, geraet_pruefart_id, beschreibung, schwere, termin) values ('00000000-0000-0000-0000-000000000b02','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e1','00000000-0000-0000-0000-0000000000f6','Gabel verbogen','erheblich',app.heute()+30)$$);
-select 'VER Mangel Produktion (erw. FEHLER): ' || t($$insert into mangel (organisation_id, geraet_id, beschreibung, schwere, termin) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e2','Fremder Bereich','gering',app.heute())$$);
-select 'VER Mangel Termin gestern (erw. FEHLER): ' || t($$insert into mangel (organisation_id, geraet_id, beschreibung, schwere, termin) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e1','Termin vorbei','gering',app.heute()-1)$$);
+select 'VER Mangel ohne Verantwortlichen (erw. FEHLER): ' || t($$insert into mangel (organisation_id, geraet_id, geraet_pruefart_id, beschreibung, schwere, termin) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e1','00000000-0000-0000-0000-0000000000f6','Ohne Verantwortlichen','erheblich',app.heute()+30)$$);
+select 'VER Mangel Lager (erw. OK 1): ' || t($$insert into mangel (id, organisation_id, geraet_id, geraet_pruefart_id, beschreibung, schwere, termin, verantwortlich_id) values ('00000000-0000-0000-0000-000000000b02','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e1','00000000-0000-0000-0000-0000000000f6','Gabel verbogen','erheblich',app.heute()+30,'33333333-3333-3333-3333-333333333333')$$);
+select 'VER Mangel Produktion (erw. FEHLER): ' || t($$insert into mangel (organisation_id, geraet_id, beschreibung, schwere, termin, verantwortlich_id) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e2','Fremder Bereich','gering',app.heute(),'33333333-3333-3333-3333-333333333333')$$);
+select 'VER Mangel Termin gestern (erw. FEHLER): ' || t($$insert into mangel (organisation_id, geraet_id, beschreibung, schwere, termin, verantwortlich_id) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e1','Termin vorbei','gering',app.heute()-1,'33333333-3333-3333-3333-333333333333')$$);
 select 'VER Lager sieht keine Produktion-Mängel (erw. 00000000-0000-0000-0000-000000000b02): ' || q($$select id from mangel$$);
 set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
 select 'PRF Mangel nicht zugewiesene Prüfart (erw. FEHLER): ' || t($$insert into mangel (organisation_id, geraet_id, geraet_pruefart_id, beschreibung, schwere, termin) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e2','00000000-0000-0000-0000-0000000000f2','Nicht meins','gering',app.heute())$$);
@@ -115,7 +140,7 @@ set request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
 select 'PRF2 sieht Mängel fremder Prüfart (erw. 0): ' || q($$select count(*) from mangel$$);
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 select 'VER Kenntnis mit Prüfer als Verantwortlichem (erw. FEHLER): ' || t($$update mangel set status='in_bearbeitung', verantwortlich_id='44444444-4444-4444-4444-444444444444' where id='00000000-0000-0000-0000-000000000b02'$$);
-select 'VER Kenntnis ohne Verantwortlichen (erw. FEHLER): ' || t($$update mangel set status='in_bearbeitung' where id='00000000-0000-0000-0000-000000000b02'$$);
+select 'VER Kenntnis ohne Verantwortlichen (erw. FEHLER): ' || t($$update mangel set status='in_bearbeitung', verantwortlich_id=null where id='00000000-0000-0000-0000-000000000b02'$$);
 select 'VER Kenntnis (erw. OK 1): ' || t($$update mangel set status='in_bearbeitung', verantwortlich_id='33333333-3333-3333-3333-333333333333', termin=app.heute()+20 where id='00000000-0000-0000-0000-000000000b02'$$);
 select 'Kenntnis gestempelt (erw. Marco): ' || q($$select kenntnis_von_name from mangel where id='00000000-0000-0000-0000-000000000b02'$$);
 select 'VER in_bearbeitung → offen (erw. FEHLER): ' || t($$update mangel set status='offen' where id='00000000-0000-0000-0000-000000000b02'$$);
@@ -151,6 +176,21 @@ select 'ADM ändert eigene Rolle (erw. FEHLER): ' || t($$update mitgliedschaft s
 select 'ADM stuft zweiten Admin herab (erw. OK 1): ' || t($$update mitgliedschaft set rolle='sifa' where id='00000000-0000-0000-0000-0000000000d5'$$);
 select 'ADM ändert Mitgliedschaft Org B (erw. OK 0): ' || t($$update mitgliedschaft set anzeigename='X' where id='00000000-0000-0000-0000-0000000000d7'$$);
 select 'ADM löscht Bereichszuordnung (erw. OK 1): ' || t($$delete from bereich_verantwortung where mitgliedschaft_id='00000000-0000-0000-0000-0000000000d9' and bereich_id='00000000-0000-0000-0000-0000000000c4'$$);
+\echo '== E-Mail nur für Admins (Befund I2-5)'
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select 'VER liest mitgliedschaft.email (erw. FEHLER): ' || t($$select email from mitgliedschaft$$);
+select 'VER liest Mitglieder ohne E-Mail (erw. OK 1): ' || t($$select anzeigename from mitgliedschaft where id='00000000-0000-0000-0000-0000000000d3'$$);
+select 'VER mitglied_emails (erw. 0): ' || q($$select count(*) from mitglied_emails('00000000-0000-0000-0000-0000000000a1')$$);
+set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+select 'PRF mitglied_emails (erw. 0): ' || q($$select count(*) from mitglied_emails('00000000-0000-0000-0000-0000000000a1')$$);
+set request.jwt.claim.sub = '77777777-7777-7777-7777-777777777777';
+select 'Admin Org B mitglied_emails Org A (erw. 0): ' || q($$select count(*) from mitglied_emails('00000000-0000-0000-0000-0000000000a1')$$);
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select 'ADM liest mitgliedschaft.email direkt (erw. FEHLER): ' || t($$select email from mitgliedschaft$$);
+select 'ADM mitglied_emails (erw. neu@example.org): ' || q($$select email from mitglied_emails('00000000-0000-0000-0000-0000000000a1') where benutzer_id='99999999-9999-9999-9999-999999999999'$$);
+select 'ADM ändert E-Mail direkt (erw. FEHLER): ' || t($$update mitgliedschaft set email='x@example.org' where id='00000000-0000-0000-0000-0000000000d9'$$);
+select 'ADM mitglied_speichern mit anderer E-Mail (erw. OK 1): ' || t($$select mitglied_speichern('{"id":"00000000-0000-0000-0000-0000000000d9","organisation_id":"00000000-0000-0000-0000-0000000000a1","benutzer_id":"99999999-9999-9999-9999-999999999999","anzeigename":"Neue Kollegin","email":"anders@example.org","rolle":"verantwortlicher","aktiv":true}'::jsonb, '{00000000-0000-0000-0000-0000000000c2}')$$);
+select 'E-Mail bleibt beim Ändern (erw. neu@example.org): ' || q($$select email from mitglied_emails('00000000-0000-0000-0000-0000000000a1') where benutzer_id='99999999-9999-9999-9999-999999999999'$$);
 set request.jwt.claim.sub = '99999999-9999-9999-9999-999999999999';
 select 'Neuer VER sieht nur Produktion-Gerät (erw. Kran): ' || q($$select bezeichnung from geraet$$);
 reset role;

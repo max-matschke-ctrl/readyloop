@@ -1,8 +1,9 @@
 // Anmeldung im Modus supabase (BE-12, F-8). Keine Kontoaufzählung: gleiche Meldungen für unbekannte E-Mail
 // und falsches Passwort bzw. für „Passwort vergessen“.
 import { z } from 'zod';
-import { anmeldenSchema, passwortSetzenSchema, passwortVergessenSchema } from '@/domain/schemas';
+import { anmeldenSchema, otpBestaetigenSchema, passwortSetzenSchema, passwortVergessenSchema } from '@/domain/schemas';
 import type { ActionState } from '@/domain/types';
+import { NACH_BESTAETIGUNG, sichererRuecksprung } from './pfade';
 import { betriebsmodus } from './sitzung';
 
 export const ANMELDEFEHLER = 'E-Mail oder Passwort ist falsch.';
@@ -63,6 +64,29 @@ export async function passwortSetzen(roh: Record<string, unknown>): Promise<Acti
     return { status: 'fehler', meldung: 'Das Passwort konnte nicht gesetzt werden.', feldfehler: { passwort: ['Bitte ein anderes Passwort wählen.'] } };
   }
   return { status: 'ok' };
+}
+
+export const LINK_UNGUELTIG_ZIEL = '/login?fehler=link';
+
+/**
+ * Review I2 (Befund 7): Einladungs-/Reset-Token bestätigen (nur per POST aus der Bestätigungsseite).
+ * Liefert das Weiterleitungsziel: bereinigtes next (Standard /passwort-neu) oder /login?fehler=link.
+ */
+export async function bestaetigeOtp(roh: Record<string, unknown>): Promise<string> {
+  if (betriebsmodus() !== 'supabase') return LINK_UNGUELTIG_ZIEL;
+  const geprueft = otpBestaetigenSchema.safeParse(roh);
+  if (!geprueft.success) return LINK_UNGUELTIG_ZIEL;
+  try {
+    const { error } = await (await client()).auth.verifyOtp({ token_hash: geprueft.data.token_hash, type: geprueft.data.type });
+    if (error) {
+      console.error('bestaetigeOtp', error.message);
+      return LINK_UNGUELTIG_ZIEL;
+    }
+  } catch (e) {
+    console.error('bestaetigeOtp', e);
+    return LINK_UNGUELTIG_ZIEL;
+  }
+  return sichererRuecksprung(geprueft.data.next, NACH_BESTAETIGUNG);
 }
 
 export async function abmeldenSupabase(): Promise<void> {

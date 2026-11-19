@@ -14,7 +14,8 @@ minimum_password_length = 10
 enable_signup = false
 enable_confirmations = false
 
-# Links führen auf /api/auth/confirm (token_hash, serverseitiges verifyOtp), danach /passwort-neu.
+# Links führen auf /api/auth/confirm (token_hash) → Bestätigungsseite /auth/bestaetigen; verifyOtp erst per Klick
+# (Server Action bestaetigeOtp, POST), danach /passwort-neu. Kein Token-Verbrauch durch Link-Scanner beim GET.
 [auth.email.template.invite]
 subject = "Einladung zu Readyloop"
 content_path = "./supabase/templates/einladung.html"

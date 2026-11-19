@@ -35,8 +35,28 @@ describe('Lesen', () => {
     const repo = supabaseRepository(client, ORG);
     expect(await repo.listeMitgliedschaften(ORG)).toEqual([m]);
     expect(aufrufe[1]).toMatchObject({ tabelle: 'bereich_verantwortung', filter: [['in', 'mitgliedschaft_id', [m.id]]] });
+    // ohne Zeilen aus mitglied_emails (Nicht-Admin) bleibt die E-Mail leer
+    expect(await repo.holeBenutzer(b.id)).toEqual({ ...b, email: '' });
+    expect(aufrufe.at(-2)!.filter).toEqual([['eq', 'benutzer_id', b.id], ['eq', 'organisation_id', ORG]]);
+    expect(aufrufe.at(-1)).toMatchObject({ art: 'rpc', name: 'mitglied_emails', args: { p_organisation: ORG } });
+  });
+  it('Befund I2-5: email nie in der Spaltenauswahl; E-Mail nur aus RPC mitglied_emails', async () => {
+    const m = stand.mitgliedschaften.find((x) => x.rolle === 'verantwortlicher')!;
+    const b = stand.benutzer.find((x) => x.id === m.benutzerId)!;
+    const { client, aufrufe } = fakeSupabase((a) => {
+      if (a.tabelle === 'mitgliedschaft') {
+        return { data: [{ id: m.id, organisation_id: ORG, benutzer_id: b.id, anzeigename: b.name, rolle: m.rolle, aktiv: true, pruefer_typen: [] }] };
+      }
+      if (a.art === 'rpc' && a.name === 'mitglied_emails') return { data: [{ benutzer_id: b.id, email: b.email }] };
+      return { data: [] };
+    });
+    const repo = supabaseRepository(client, ORG);
+    expect(await repo.listeBenutzer(ORG)).toEqual([b]);
     expect(await repo.holeBenutzer(b.id)).toEqual(b);
-    expect(aufrufe.at(-1)!.filter).toEqual([['eq', 'benutzer_id', b.id], ['eq', 'organisation_id', ORG]]);
+    await repo.listeMitgliedschaften(ORG);
+    const spalten = aufrufe.filter((a) => a.tabelle === 'mitgliedschaft').map((a) => a.spalten ?? '');
+    expect(spalten.length).toBe(3);
+    for (const sp of spalten) expect(sp).not.toMatch(/\bemail\b/);
   });
   it('holeX: maybeSingle, null bei fehlender Zeile', async () => {
     const { client, aufrufe } = fakeSupabase(() => ({ data: null }));

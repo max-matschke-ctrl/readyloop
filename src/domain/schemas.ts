@@ -115,6 +115,13 @@ export const passwortSetzenSchema = z
     path: ['passwortWiederholung'],
   });
 export const organisationWaehlenSchema = z.object({ organisationId: pflichtId });
+/** Review I2 (Befund 7): Einladungs-/Reset-Link; verifyOtp erst nach Klick auf der Bestätigungsseite. */
+export const OTP_TYPEN = ['invite', 'recovery'] as const;
+export const otpBestaetigenSchema = z.object({
+  token_hash: z.string().trim().min(1).max(2000),
+  type: z.enum(OTP_TYPEN),
+  next: z.unknown(), // wird per sichererRuecksprung (src/server/pfade.ts) bereinigt
+});
 
 // Verwaltung
 export const bereichSpeichernSchema = z.object({

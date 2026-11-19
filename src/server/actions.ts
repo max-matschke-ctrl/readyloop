@@ -147,6 +147,14 @@ export async function passwortSetzen(prev: ActionState, formData: FormData): Pro
   redirect('/');
 }
 
+/**
+ * Review I2 (Befund 7): Formular der Seite /auth/bestaetigen (Felder token_hash, type, next; hidden).
+ * Ruft verifyOtp auf; Erfolg: redirect(next bereinigt, Standard '/passwort-neu'); Fehler: redirect('/login?fehler=link').
+ */
+export async function bestaetigeOtp(formData: FormData): Promise<void> {
+  redirect(await auth.bestaetigeOtp(felder(formData, ['token_hash', 'type', 'next'])));
+}
+
 /** Nur eigene aktive Mitgliedschaft; setzt Cookie rl_org. Erfolg: redirect('/'). */
 export async function waehleOrganisation(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;

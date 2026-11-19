@@ -12,7 +12,6 @@ interface MitgliedZeile {
   organisation_id: string;
   rolle: Rolle;
   anzeigename: string;
-  email: string;
   organisation: { id: string; name: string; bg: string | null } | null;
 }
 
@@ -30,7 +29,7 @@ export async function leseSupabaseSitzung(): Promise<Sitzung | null> {
   if (authFehler || !auth.user) return null;
   const { data, error } = await client
     .from('mitgliedschaft')
-    .select('id, organisation_id, rolle, anzeigename, email, organisation:organisation_id (id, name, bg)')
+    .select('id, organisation_id, rolle, anzeigename, organisation:organisation_id (id, name, bg)') // email nur Admin (I2-5)
     .eq('benutzer_id', auth.user.id)
     .eq('aktiv', true);
   if (error) {
@@ -57,7 +56,7 @@ export async function leseSupabaseSitzung(): Promise<Sitzung | null> {
   }
   const organisationen: OrganisationOption[] = zeilen.map((z) => ({ id: z.organisation!.id, name: z.organisation!.name, rolle: z.rolle }));
   return {
-    benutzer: { id: auth.user.id, name: gewaehlt.anzeigename, email: gewaehlt.email || auth.user.email || '' },
+    benutzer: { id: auth.user.id, name: gewaehlt.anzeigename, email: auth.user.email ?? '' },
     organisation: { id: gewaehlt.organisation!.id, name: gewaehlt.organisation!.name, bg: gewaehlt.organisation!.bg },
     mitgliedschaftId: gewaehlt.id,
     rolle: gewaehlt.rolle,

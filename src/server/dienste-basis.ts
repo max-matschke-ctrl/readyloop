@@ -247,6 +247,7 @@ export function baueAnsicht(pruefart: GeraetPruefart, geraet: Geraet, ctx: Konte
     katalogEintrag,
     weiterbetriebUnzulaessig: letzter?.ergebnis === 'nicht_bestanden',
     zugewiesenerPrueferName: zugewiesen ? (ctx.benutzerName.get(zugewiesen) ?? null) : null,
+    zugewiesenerPrueferAktiv: zugewiesen !== null && aktivesMitglied(ctx, zugewiesen, ['pruefer']) !== null,
     qualifikationsWarnung: zugewiesen
       ? qualifikationsWarnung(prueferTypenVon(ctx, zugewiesen), katalogEintrag?.prueferTypen ?? null)
       : null,

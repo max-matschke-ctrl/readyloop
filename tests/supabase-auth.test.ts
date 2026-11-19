@@ -78,7 +78,7 @@ vi.mock('@supabase/ssr', () => ({ createServerClient: () => fakeClient }));
 import { NextRequest } from 'next/server';
 import { INITIAL_ACTION_STATE } from '@/domain/types';
 import { GET as confirm } from '@/app/api/auth/confirm/route';
-import { abmelden, anmelden, passwortSetzen, passwortVergessen } from '@/server/actions';
+import { abmelden, anmelden, bestaetigeOtp, passwortSetzen, passwortVergessen } from '@/server/actions';
 import { ANMELDEFEHLER, VERGESSEN_ANTWORT } from '@/server/auth';
 import { betriebsmodus, hatAuthSitzung, holeAnmeldestatus, holeSitzung } from '@/server/data';
 
@@ -184,17 +184,46 @@ describe('Auth-Actions', () => {
   });
 });
 
-describe('GET /api/auth/confirm', () => {
+describe('GET /api/auth/confirm (Befund I2-7: kein verifyOtp beim GET)', () => {
   const aufruf = async (qs: string) => (await confirm(new NextRequest(`https://app.example/api/auth/confirm?${qs}`))).headers.get('location');
-  it('invite/recovery mit gültigem Token → next bzw. /passwort-neu', async () => {
-    expect(await aufruf('token_hash=gut&type=invite&next=/passwort-neu')).toBe('https://app.example/passwort-neu');
-    expect(await aufruf('token_hash=gut&type=recovery')).toBe('https://app.example/passwort-neu');
+  it('invite/recovery → Bestätigungsseite mit token_hash, type, next; verifyOtp nicht aufgerufen', async () => {
+    expect(await aufruf('token_hash=gut&type=invite&next=/passwort-neu')).toBe(
+      'https://app.example/auth/bestaetigen?token_hash=gut&type=invite&next=%2Fpasswort-neu',
+    );
+    expect(await aufruf('token_hash=gut&type=recovery')).toBe(
+      'https://app.example/auth/bestaetigen?token_hash=gut&type=recovery&next=%2Fpasswort-neu',
+    );
+    expect(fake.aufrufe.filter((a) => a.startsWith('verify'))).toEqual([]);
   });
-  it('unsicheres next → Default; falscher Typ oder Token → /login?fehler=link', async () => {
-    expect(await aufruf('token_hash=gut&type=recovery&next=//boese.example')).toBe('https://app.example/passwort-neu');
+  it('unsicheres next → Default; falscher Typ oder fehlender Token → /login?fehler=link', async () => {
+    expect(await aufruf('token_hash=gut&type=recovery&next=//boese.example')).toBe(
+      'https://app.example/auth/bestaetigen?token_hash=gut&type=recovery&next=%2Fpasswort-neu',
+    );
+    expect(await aufruf('token_hash=gut&type=recovery&next=https://boese.example')).toContain('next=%2Fpasswort-neu');
     expect(await aufruf('token_hash=gut&type=signup')).toBe('https://app.example/login?fehler=link');
-    expect(await aufruf('token_hash=alt&type=invite')).toBe('https://app.example/login?fehler=link');
     expect(await aufruf('type=invite')).toBe('https://app.example/login?fehler=link');
+    expect(fake.aufrufe).toEqual([]);
+  });
+  it('ohne Supabase-Konfiguration → /login?fehler=link', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
+    expect(await aufruf('token_hash=gut&type=invite')).toBe('https://app.example/login?fehler=link');
+  });
+});
+
+describe('Server Action bestaetigeOtp (Befund I2-7)', () => {
+  it('gültiger Token → verifyOtp und Weiterleitung auf bereinigtes next', async () => {
+    expect(await fehlerVon(bestaetigeOtp(form({ token_hash: 'gut', type: 'invite', next: '/passwort-neu' })))).toBe('REDIRECT:/passwort-neu');
+    expect(fake.aufrufe).toEqual(['verify:invite']);
+    expect(await fehlerVon(bestaetigeOtp(form({ token_hash: 'gut', type: 'recovery', next: '//boese.example' })))).toBe('REDIRECT:/passwort-neu');
+    expect(await fehlerVon(bestaetigeOtp(form({ token_hash: 'gut', type: 'recovery', next: 'https://boese.example' })))).toBe('REDIRECT:/passwort-neu');
+    expect(await fehlerVon(bestaetigeOtp(form({ token_hash: 'gut', type: 'recovery' })))).toBe('REDIRECT:/passwort-neu');
+  });
+  it('abgelaufener Token, falscher Typ oder fehlender Token → /login?fehler=link', async () => {
+    expect(await fehlerVon(bestaetigeOtp(form({ token_hash: 'alt', type: 'invite' })))).toBe('REDIRECT:/login?fehler=link');
+    fake.aufrufe = [];
+    expect(await fehlerVon(bestaetigeOtp(form({ token_hash: 'gut', type: 'signup' })))).toBe('REDIRECT:/login?fehler=link');
+    expect(await fehlerVon(bestaetigeOtp(form({ type: 'invite' })))).toBe('REDIRECT:/login?fehler=link');
+    expect(fake.aufrufe).toEqual([]);
   });
 });
 
