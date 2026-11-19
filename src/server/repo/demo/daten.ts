@@ -3,6 +3,7 @@
 import { addTage } from '@/domain/datum';
 import { ermittleFristVorschlag, waehleKatalogEintrag } from '@/domain/fristen';
 import type {
+  Anlass,
   Benutzer,
   Bereich,
   DemoRolle,
@@ -16,6 +17,7 @@ import type {
   IsoDate,
   IsoDateTime,
   KatalogEintrag,
+  Mangel,
   Mitgliedschaft,
   Nachweis,
   Organisation,
@@ -37,16 +39,22 @@ export interface DemoStand {
   nachweise: Nachweis[];
   pdfs: Map<Id, Uint8Array>;
   ereignisse: Ereignis[];
+  anlaesse: Anlass[];
+  maengel: Mangel[];
 }
 
 const uuid = (praefix: string, n: number): Id => `${praefix}-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
 export const DEMO_ORG_ID = uuid('10000000', 1);
+/** Zweite Organisation (I2): Prüfer Berger arbeitet für beide Betriebe. */
+export const DEMO_ORG2_ID = uuid('10000000', 2);
 const STANDORT_ID = uuid('20000000', 1);
+const STANDORT2_ID = uuid('20000000', 2);
 export const DEMO_BEREICH_IDS = {
   lager: uuid('30000000', 1),
   produktion: uuid('30000000', 2),
   verwaltung: uuid('30000000', 3),
+  werkstatt: uuid('30000000', 4),
 } as const;
 export const DEMO_BENUTZER_IDS = {
   katrin: uuid('40000000', 1),
@@ -54,6 +62,7 @@ export const DEMO_BENUTZER_IDS = {
   marco: uuid('40000000', 3),
   tobias: uuid('40000000', 4),
   sabine: uuid('40000000', 5),
+  uwe: uuid('40000000', 6),
 } as const;
 
 /** Benutzer je Demo-Rolle. */
@@ -65,12 +74,14 @@ export const DEMO_ROLLE_BENUTZER: Record<DemoRolle, Id> = {
 };
 
 type BereichKey = keyof typeof DEMO_BEREICH_IDS;
-const BEREICH_NAME: Record<BereichKey, string> = { lager: 'Lager', produktion: 'Produktion', verwaltung: 'Verwaltung' };
+const BEREICH_NAME: Record<BereichKey, string> = { lager: 'Lager', produktion: 'Produktion', verwaltung: 'Verwaltung', werkstatt: 'Werkstatt' };
 const BEREICH_ORT: Record<BereichKey, Einsatzort> = {
   lager: 'lager_logistik',
   produktion: 'werkstatt_fertigung',
   verwaltung: 'buero',
+  werkstatt: 'werkstatt_fertigung',
 };
+const BEREICH_ORG: Record<BereichKey, Id> = { lager: DEMO_ORG_ID, produktion: DEMO_ORG_ID, verwaltung: DEMO_ORG_ID, werkstatt: DEMO_ORG2_ID };
 
 interface PruefartSpez {
   schluessel: string | null;
@@ -86,6 +97,11 @@ interface PruefartSpez {
   prueferName?: string;
   /** zusätzlicher älterer Nachweis */
   aeltererNachweis?: { tage: number; ergebnis: PruefErgebnis; prueferName: string };
+  /** zusätzlicher neuerer Nachweis ohne Fortschreibung (z. B. nicht bestanden) */
+  neuererNachweis?: { tage: number; ergebnis: PruefErgebnis; prueferName: string };
+  /** Frist-Empfehlung im letzten Nachweis (F-13) */
+  empfehlung?: number;
+  gbuDokument?: { titel: string; url: string | null };
 }
 
 interface GeraetSpez {
@@ -98,6 +114,7 @@ interface GeraetSpez {
   typ?: string;
   seriennummer?: string;
   baujahr?: number;
+  ausserBetrieb?: boolean;
   pruefarten: PruefartSpez[];
 }
 
@@ -106,11 +123,12 @@ const ELEKTRO = 'Elektroprüfung Richter';
 
 const GERAETE: GeraetSpez[] = [
   { inv: 'L-001', bezeichnung: 'Gabelstapler Linde H25', bereich: 'lager', kategorie: 'wechselnd', gruppe: 'flurfoerderzeug', hersteller: 'Linde', typ: 'H25', seriennummer: 'H2X392W01234', baujahr: 2017,
-    pruefarten: [{ schluessel: 'flurfoerderzeug.wiederkehrend', frist: { gbu: 12 }, letzte: 400, zugewiesen: true, prueferName: BERGER }] },
+    pruefarten: [{ schluessel: 'flurfoerderzeug.wiederkehrend', frist: { gbu: 12 }, letzte: 400, zugewiesen: true, prueferName: BERGER, empfehlung: 6 }] },
   { inv: 'L-002', bezeichnung: 'Elektro-Hubwagen', bereich: 'lager', kategorie: 'wechselnd', gruppe: 'flurfoerderzeug', hersteller: 'Jungheinrich', typ: 'EJE 116', baujahr: 2020,
     pruefarten: [{ schluessel: 'flurfoerderzeug.wiederkehrend', frist: { gbu: 12 }, letzte: 340, zugewiesen: true, prueferName: BERGER }] },
   { inv: 'L-003', bezeichnung: 'Palettenregal Reihe A', bereich: 'lager', kategorie: 'ortsgebunden', gruppe: 'regal', hersteller: 'SSI Schäfer',
-    pruefarten: [{ schluessel: 'regal.experteninspektion', frist: { gbu: 12 }, letzte: 100, altbestand: true }] },
+    pruefarten: [{ schluessel: 'regal.experteninspektion', frist: { gbu: 12 }, letzte: 100, altbestand: true,
+      gbuDokument: { titel: 'GBU Lager 2025, Abschn. 3 Regale', url: null } }] },
   { inv: 'L-004', bezeichnung: 'Palettenregal Reihe B', bereich: 'lager', kategorie: 'ortsgebunden', gruppe: 'regal', hersteller: 'SSI Schäfer',
     pruefarten: [{ schluessel: 'regal.experteninspektion', frist: { gbu: 12 }, letzte: null }] },
   { inv: 'L-005', bezeichnung: 'Sektionaltor Rampe 1', bereich: 'lager', kategorie: 'ortsgebunden', gruppe: 'tor_kraftbetaetigt', hersteller: 'Hörmann', typ: 'SPU F42', baujahr: 2015,
@@ -132,7 +150,8 @@ const GERAETE: GeraetSpez[] = [
   { inv: 'P-003', bezeichnung: 'Akku-Bohrschrauber Ladegerät', bereich: 'produktion', kategorie: 'wechselnd', gruppe: 'elektro_ortsveraenderlich', hersteller: 'Makita',
     pruefarten: [{ schluessel: 'elektro_ortsveraenderlich.wiederholung', frist: { gbu: 6 }, letzte: 120, prueferName: ELEKTRO }] },
   { inv: 'P-004', bezeichnung: 'Winkelschleifer 125 mm', bereich: 'produktion', kategorie: 'wechselnd', gruppe: 'elektro_ortsveraenderlich', hersteller: 'Bosch', typ: 'GWS 12-125',
-    pruefarten: [{ schluessel: 'elektro_ortsveraenderlich.wiederholung', frist: { gbu: 6 }, letzte: 200, prueferName: ELEKTRO }] },
+    pruefarten: [{ schluessel: 'elektro_ortsveraenderlich.wiederholung', frist: { gbu: 6 }, letzte: 200, prueferName: ELEKTRO,
+      neuererNachweis: { tage: 10, ergebnis: 'nicht_bestanden', prueferName: ELEKTRO } }] },
   { inv: 'P-005', bezeichnung: 'Kabeltrommel 25 m', bereich: 'produktion', kategorie: 'wechselnd', gruppe: 'elektro_ortsveraenderlich', hersteller: 'Brennenstuhl',
     pruefarten: [{ schluessel: 'elektro_ortsveraenderlich.wiederholung', frist: { gbu: 6 }, letzte: null }] },
   { inv: 'P-006', bezeichnung: 'Scherenhubarbeitsbühne', bereich: 'produktion', kategorie: 'ortsgebunden', gruppe: 'hubarbeitsbuehne', hersteller: 'Genie', typ: 'GS-1932', baujahr: 2019,
@@ -151,18 +170,30 @@ const GERAETE: GeraetSpez[] = [
   { inv: 'V-002', bezeichnung: 'Sicherheitsbeleuchtung Treppenhaus', bereich: 'verwaltung', kategorie: 'ortsgebunden', gruppe: 'sicherheitsbeleuchtung',
     pruefarten: [{ schluessel: 'sicherheitsbeleuchtung.wiederkehrend', frist: { gbu: 12 }, letzte: 200, prueferName: ELEKTRO }] },
   { inv: 'V-003', bezeichnung: 'Firmenwagen VW Caddy', bereich: 'verwaltung', kategorie: 'wechselnd', gruppe: 'fahrzeug', hersteller: 'Volkswagen', typ: 'Caddy 2.0 TDI', baujahr: 2021,
+    ausserBetrieb: true,
     pruefarten: [{ schluessel: 'fahrzeug.uvv', frist: { gbu: 12 }, letzte: 370, prueferName: 'Autohaus Pirna' }] },
+  // Zweite Organisation „Muster Metallbau GmbH“ (I2)
+  { inv: 'M-001', bezeichnung: 'Säulenbohrmaschine', bereich: 'werkstatt', kategorie: 'ortsgebunden', gruppe: 'elektro_ortsfest', hersteller: 'Alzmetall', typ: 'AX 3', baujahr: 2014,
+    pruefarten: [{ schluessel: 'elektro_ortsfest.wiederholung', frist: { gbu: 48 }, letzte: 300, zugewiesen: true, prueferName: BERGER }] },
+  { inv: 'M-002', bezeichnung: 'Hallenkran 2 t', bereich: 'werkstatt', kategorie: 'ortsgebunden', gruppe: 'kran_kraftbetrieben', hersteller: 'Abus', baujahr: 2011,
+    pruefarten: [{ schluessel: 'kran_kraftbetrieben.wiederkehrend', frist: { gbu: 12 }, letzte: 350, zugewiesen: true, prueferName: BERGER }] },
 ];
 
 const zeit = (datum: IsoDate, uhr = '09:00'): IsoDateTime => `${datum}T${uhr}:00.000Z`;
 
 export function erzeugeDemoStand(heute: IsoDate): DemoStand {
-  const organisation: Organisation = { id: DEMO_ORG_ID, name: 'Elbtal Fördertechnik GmbH', bg: 'BG Holz und Metall' };
-  const standort: Standort = { id: STANDORT_ID, organisationId: DEMO_ORG_ID, name: 'Hauptwerk' };
+  const organisationen: Organisation[] = [
+    { id: DEMO_ORG_ID, name: 'Elbtal Fördertechnik GmbH', bg: 'BG Holz und Metall' },
+    { id: DEMO_ORG2_ID, name: 'Muster Metallbau GmbH', bg: 'BG Holz und Metall' },
+  ];
+  const standorte: Standort[] = [
+    { id: STANDORT_ID, organisationId: DEMO_ORG_ID, name: 'Hauptwerk' },
+    { id: STANDORT2_ID, organisationId: DEMO_ORG2_ID, name: 'Werk' },
+  ];
   const bereiche: Bereich[] = (Object.keys(DEMO_BEREICH_IDS) as BereichKey[]).map((k) => ({
     id: DEMO_BEREICH_IDS[k],
-    organisationId: DEMO_ORG_ID,
-    standortId: STANDORT_ID,
+    organisationId: BEREICH_ORG[k],
+    standortId: BEREICH_ORG[k] === DEMO_ORG_ID ? STANDORT_ID : STANDORT2_ID,
     name: BEREICH_NAME[k],
     einsatzort: BEREICH_ORT[k],
   }));
@@ -174,23 +205,36 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
     { id: b.marco, name: 'Marco Lindner', email: 'm.lindner@elbtal-foerdertechnik.example' },
     { id: b.tobias, name: 'Tobias Berger', email: 'berger@pruefdienst-berger.example' },
     { id: b.sabine, name: 'Sabine Krüger', email: 's.krueger@elbtal-foerdertechnik.example' },
+    { id: b.uwe, name: 'Uwe Schmidt', email: 'u.schmidt@muster-metallbau.example' },
   ];
-  const m = (n: number, benutzerId: Id, rolle: Mitgliedschaft['rolle'], bereichIds: Id[] = []): Mitgliedschaft => ({
+  const m = (
+    n: number,
+    organisationId: Id,
+    benutzerId: Id,
+    rolle: Mitgliedschaft['rolle'],
+    extra: Partial<Pick<Mitgliedschaft, 'bereichIds' | 'prueferTypen'>> = {},
+  ): Mitgliedschaft => ({
     id: uuid('50000000', n),
-    organisationId: DEMO_ORG_ID,
+    organisationId,
     benutzerId,
     rolle,
-    bereichIds,
-    prueferTypen: [], // Demo-Qualifikationen folgen mit BE-10
+    bereichIds: extra.bereichIds ?? [],
+    prueferTypen: extra.prueferTypen ?? [],
     aktiv: true,
   });
+  const BERGER_TYPEN: Mitgliedschaft['prueferTypen'] = ['efk', 'sachkundiger'];
   const mitgliedschaften: Mitgliedschaft[] = [
-    m(1, b.katrin, 'admin'),
-    m(2, b.jens, 'sifa'),
-    m(3, b.marco, 'verantwortlicher', [DEMO_BEREICH_IDS.lager]),
-    m(4, b.tobias, 'pruefer'),
-    m(5, b.sabine, 'verantwortlicher', [DEMO_BEREICH_IDS.produktion]),
+    m(1, DEMO_ORG_ID, b.katrin, 'admin'),
+    m(2, DEMO_ORG_ID, b.jens, 'sifa'),
+    m(3, DEMO_ORG_ID, b.marco, 'verantwortlicher', { bereichIds: [DEMO_BEREICH_IDS.lager] }),
+    m(4, DEMO_ORG_ID, b.tobias, 'pruefer', { prueferTypen: BERGER_TYPEN }),
+    m(5, DEMO_ORG_ID, b.sabine, 'verantwortlicher', { bereichIds: [DEMO_BEREICH_IDS.produktion] }),
+    m(6, DEMO_ORG2_ID, b.uwe, 'verantwortlicher', { bereichIds: [DEMO_BEREICH_IDS.werkstatt] }),
+    m(7, DEMO_ORG2_ID, b.tobias, 'pruefer', { prueferTypen: BERGER_TYPEN }),
   ];
+  // Org 2: Admin Petra Wolf (kein Demo-Login), Verantwortlicher Werkstatt Uwe Schmidt (gibt dort Fristen frei).
+  benutzer.push({ id: uuid('40000000', 7), name: 'Petra Wolf', email: 'p.wolf@muster-metallbau.example' });
+  mitgliedschaften.push(m(8, DEMO_ORG2_ID, uuid('40000000', 7), 'admin'));
   const name = (id: Id) => benutzer.find((x) => x.id === id)?.name ?? 'System';
 
   const katalog = PRUEFKATALOG_ENTWURF.map((k) => ({ ...k, prueferTypen: [...k.prueferTypen] }));
@@ -199,23 +243,32 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
   const nachweise: Nachweis[] = [];
   const pdfs = new Map<Id, Uint8Array>();
   const ereignisse: Ereignis[] = [];
+  const anlaesse: Anlass[] = [];
+  const maengel: Mangel[] = [];
 
   const angelegtDatum = addTage(heute, -800);
   const freigabeDatum = addTage(heute, -798);
   let pruefartNr = 0;
   let nachweisNr = 0;
   let ereignisNr = 0;
-  const ereignis = (e: Omit<Ereignis, 'id' | 'organisationId'>) => {
+  const ereignis = (organisationId: Id, e: Omit<Ereignis, 'id' | 'organisationId'>) => {
     ereignisNr += 1;
-    ereignisse.push({ id: uuid('90000000', ereignisNr), organisationId: DEMO_ORG_ID, ...e });
+    ereignisse.push({ id: uuid('90000000', ereignisNr), organisationId, ...e });
   };
+  const pruefartenVon = new Map<string, Id[]>();
+  const nachweiseVon = new Map<string, Nachweis[]>();
+  const geraetVon = new Map<string, Geraet>();
 
   GERAETE.forEach((g, gi) => {
     const bereichId = DEMO_BEREICH_IDS[g.bereich];
-    const verantwortlich = g.bereich === 'lager' ? b.marco : g.bereich === 'produktion' ? b.sabine : b.katrin;
+    const org = BEREICH_ORG[g.bereich];
+    const verantwortlich =
+      g.bereich === 'lager' ? b.marco : g.bereich === 'produktion' ? b.sabine : g.bereich === 'werkstatt' ? b.uwe : b.katrin;
+    const anleger = org === DEMO_ORG_ID ? b.katrin : uuid('40000000', 7);
+    const freigeber = org === DEMO_ORG_ID ? b.jens : b.uwe;
     const geraet: Geraet = {
       id: uuid('60000000', gi + 1),
-      organisationId: DEMO_ORG_ID,
+      organisationId: org,
       bereichId,
       bezeichnung: g.bezeichnung,
       inventarnummer: g.inv,
@@ -227,14 +280,17 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
       baujahr: g.baujahr ?? null,
       einsatzort: null,
       betriebsstatus: 'in_betrieb',
-      angelegtAm: zeit(angelegtDatum, `${String(8 + (gi % 8)).padStart(2, '0')}:${String(gi * 2).padStart(2, '0')}`),
+      angelegtAm: zeit(angelegtDatum, `${String(8 + (gi % 8)).padStart(2, '0')}:${String((gi * 2) % 60).padStart(2, '0')}`),
     };
     geraete.push(geraet);
-    ereignis({
+    geraetVon.set(g.inv, geraet);
+    pruefartenVon.set(g.inv, []);
+    nachweiseVon.set(g.inv, []);
+    ereignis(org, {
       geraetId: geraet.id,
       typ: 'geraet_angelegt',
-      akteurId: b.katrin,
-      akteurName: name(b.katrin),
+      akteurId: anleger,
+      akteurName: name(anleger),
       zeitpunkt: geraet.angelegtAm,
       daten: { bezeichnung: geraet.bezeichnung, bereichId },
     });
@@ -242,6 +298,7 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
     for (const p of g.pruefarten) {
       pruefartNr += 1;
       const pruefartId = uuid('70000000', pruefartNr);
+      pruefartenVon.get(g.inv)!.push(pruefartId);
       const einsatzort = BEREICH_ORT[g.bereich];
       const orientierung = p.schluessel
         ? (waehleKatalogEintrag(katalog, p.schluessel, einsatzort, 'freigegeben') ??
@@ -250,7 +307,7 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
       const bezeichnung = p.bezeichnung ?? orientierung?.pruefart ?? 'Prüfung';
 
       let frist: FestgelegteFrist | null = null;
-      const freigabe = { freigegebenVon: b.jens, freigegebenVonName: name(b.jens), freigegebenAm: zeit(freigabeDatum, '10:00') };
+      const freigabe = { freigegebenVon: freigeber, freigegebenVonName: name(freigeber), freigegebenAm: zeit(freigabeDatum, '10:00') };
       if (p.frist === 'hersteller') {
         const v = ermittleFristVorschlag({
           pruefart: {
@@ -275,7 +332,7 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
       const letzte = p.letzte === null ? null : addTage(heute, -p.letzte);
       pruefarten.push({
         id: pruefartId,
-        organisationId: DEMO_ORG_ID,
+        organisationId: org,
         geraetId: geraet.id,
         katalogSchluessel: p.schluessel,
         bezeichnung,
@@ -285,27 +342,37 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
         letztePruefung: letzte,
         letztePruefungHerkunft: letzte === null ? 'unbekannt' : p.altbestand ? 'pruefbericht' : 'nachweis',
         zugewiesenerPrueferId: p.zugewiesen ? b.tobias : null,
-        gbuDokument: null,
+        gbuDokument: p.gbuDokument ? { ...p.gbuDokument } : null,
       });
       if (frist) {
-        ereignis({
+        ereignis(org, {
           geraetId: geraet.id,
           typ: 'frist_freigegeben',
           akteurId: frist.freigegebenVon,
           akteurName: frist.freigegebenVonName,
           zeitpunkt: frist.freigegebenAm,
-          daten: { pruefartId, pruefart: bezeichnung, alt: null, neu: frist },
+          daten: { pruefartId, pruefart: bezeichnung, alt: null, neu: frist, nachweisId: null, richtung: 'erstmalig' },
+        });
+      }
+      if (p.gbuDokument) {
+        ereignis(org, {
+          geraetId: geraet.id,
+          typ: 'gbu_dokument_gesetzt',
+          akteurId: freigeber,
+          akteurName: name(freigeber),
+          zeitpunkt: zeit(freigabeDatum, '10:05'),
+          daten: { pruefartId, pruefart: bezeichnung, alt: null, neu: p.gbuDokument },
         });
       }
 
-      const erfasse = (datum: IsoDate, ergebnis: PruefErgebnis, prueferName: string) => {
+      const erfasse = (datum: IsoDate, ergebnis: PruefErgebnis, prueferName: string, empfehlung: number | null = null) => {
         nachweisNr += 1;
         const id = uuid('80000000', nachweisNr);
         const erfasstVon = p.zugewiesen ? b.tobias : verantwortlich;
         const pdf = platzhalterPdf(`${g.inv} ${g.bezeichnung} - ${bezeichnung} - ${datum}`);
         const n: Nachweis = {
           id,
-          organisationId: DEMO_ORG_ID,
+          organisationId: org,
           geraetId: geraet.id,
           geraetPruefartId: pruefartId,
           pruefdatum: datum,
@@ -316,13 +383,14 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
           unterschriftImPdf: true,
           pdfDateiname: `${g.inv}_${datum}.pdf`,
           pdfSha256: sha256Hex(pdf),
-          fristEmpfehlungMonate: null,
+          fristEmpfehlungMonate: empfehlung,
           erfasstVon,
           erfasstAm: zeit(datum, '15:00'),
         };
         nachweise.push(n);
+        nachweiseVon.get(g.inv)!.push(n);
         pdfs.set(id, pdf);
-        ereignis({
+        ereignis(org, {
           geraetId: geraet.id,
           typ: 'nachweis_erfasst',
           akteurId: erfasstVon,
@@ -334,13 +402,129 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
       if (p.aeltererNachweis) {
         erfasse(addTage(heute, -p.aeltererNachweis.tage), p.aeltererNachweis.ergebnis, p.aeltererNachweis.prueferName);
       }
-      if (letzte !== null && !p.altbestand) erfasse(letzte, 'ohne_maengel', p.prueferName ?? 'Unbekannt');
+      if (letzte !== null && !p.altbestand) erfasse(letzte, 'ohne_maengel', p.prueferName ?? 'Unbekannt', p.empfehlung ?? null);
+      if (p.neuererNachweis) {
+        erfasse(addTage(heute, -p.neuererNachweis.tage), p.neuererNachweis.ergebnis, p.neuererNachweis.prueferName);
+      }
+    }
+
+    if (g.ausserBetrieb) {
+      geraet.betriebsstatus = 'ausser_betrieb';
+      ereignis(org, {
+        geraetId: geraet.id,
+        typ: 'betriebsstatus_geaendert',
+        akteurId: b.katrin,
+        akteurName: name(b.katrin),
+        zeitpunkt: zeit(addTage(heute, -20), '08:30'),
+        daten: { alt: 'in_betrieb', neu: 'ausser_betrieb', begruendung: 'Unfallschaden, Fahrzeug in der Werkstatt' },
+      });
     }
   });
 
+  // ---- Anlässe (F-10) ----
+  const p001 = geraetVon.get('P-001')!;
+  const anlassDatum = addTage(heute, -3);
+  const anlass: Anlass = {
+    id: uuid('a0000000', 1),
+    organisationId: DEMO_ORG_ID,
+    geraetId: p001.id,
+    geraetPruefartId: pruefartenVon.get('P-001')![0],
+    art: 'unfall_schadensfall',
+    datum: anlassDatum,
+    beschreibung: 'Anfahrschaden am Katzfahrwerk',
+    erfasstVon: b.sabine,
+    erfasstVonName: name(b.sabine),
+    erfasstAm: zeit(anlassDatum, '11:00'),
+    aufgehobenVon: null,
+    aufgehobenVonName: null,
+    aufgehobenAm: null,
+    aufhebungsgrund: null,
+  };
+  anlaesse.push(anlass);
+  ereignis(DEMO_ORG_ID, {
+    geraetId: p001.id,
+    typ: 'anlass_erfasst',
+    akteurId: anlass.erfasstVon,
+    akteurName: anlass.erfasstVonName,
+    zeitpunkt: anlass.erfasstAm,
+    daten: { anlassId: anlass.id, pruefartId: anlass.geraetPruefartId, pruefart: 'Wiederkehrende Prüfung', art: anlass.art, datum: anlass.datum },
+  });
+
+  // ---- Mängel (F-14) ----
+  let mangelNr = 0;
+  const mangel = (
+    inv: string,
+    teil: Pick<Mangel, 'beschreibung' | 'schwere' | 'termin' | 'verantwortlichId'> & {
+      nachweisId?: Id | null;
+      erfasstTage: number;
+      erfasstVon: Id;
+      kenntnisTage?: number;
+      behoben?: { tage: number; durch: string; behebung: string };
+    },
+  ) => {
+    mangelNr += 1;
+    const g = geraetVon.get(inv)!;
+    const erfasstAm = zeit(addTage(heute, -teil.erfasstTage), '16:00');
+    const kenntnisAm = teil.kenntnisTage !== undefined ? zeit(addTage(heute, -teil.kenntnisTage), '09:30') : null;
+    const behobenAm = teil.behoben ? addTage(heute, -teil.behoben.tage) : null;
+    const verantwortlich = teil.verantwortlichId;
+    const neu: Mangel = {
+      id: uuid('b0000000', mangelNr),
+      organisationId: g.organisationId,
+      geraetId: g.id,
+      geraetPruefartId: pruefartenVon.get(inv)![0],
+      nachweisId: teil.nachweisId ?? null,
+      beschreibung: teil.beschreibung,
+      schwere: teil.schwere,
+      termin: teil.termin,
+      status: behobenAm ? 'behoben' : kenntnisAm ? 'in_bearbeitung' : 'offen',
+      verantwortlichId: verantwortlich,
+      erfasstVon: teil.erfasstVon,
+      erfasstVonName: name(teil.erfasstVon),
+      erfasstAm,
+      kenntnisVon: kenntnisAm ? verantwortlich : null,
+      kenntnisVonName: kenntnisAm && verantwortlich ? name(verantwortlich) : null,
+      kenntnisAm,
+      behobenAm,
+      behobenDurch: teil.behoben?.durch ?? null,
+      behebung: teil.behoben?.behebung ?? null,
+      behebungErfasstVon: behobenAm ? verantwortlich : null,
+      behebungErfasstVonName: behobenAm && verantwortlich ? name(verantwortlich) : null,
+      behebungErfasstAm: behobenAm ? zeit(behobenAm, '17:00') : null,
+    };
+    maengel.push(neu);
+    ereignis(g.organisationId, {
+      geraetId: g.id, typ: 'mangel_erfasst', akteurId: neu.erfasstVon, akteurName: neu.erfasstVonName, zeitpunkt: erfasstAm,
+      daten: { mangelId: neu.id, pruefartId: neu.geraetPruefartId, nachweisId: neu.nachweisId, schwere: neu.schwere, termin: neu.termin },
+    });
+    if (kenntnisAm && verantwortlich) {
+      ereignis(g.organisationId, {
+        geraetId: g.id, typ: 'mangel_kenntnis', akteurId: verantwortlich, akteurName: name(verantwortlich), zeitpunkt: kenntnisAm,
+        daten: { mangelId: neu.id, verantwortlichId: verantwortlich, verantwortlichName: name(verantwortlich), terminAlt: neu.termin, terminNeu: neu.termin },
+      });
+    }
+    if (behobenAm && verantwortlich) {
+      ereignis(g.organisationId, {
+        geraetId: g.id, typ: 'mangel_behoben', akteurId: verantwortlich, akteurName: name(verantwortlich), zeitpunkt: neu.behebungErfasstAm!,
+        daten: { mangelId: neu.id, behobenAm, behobenDurch: neu.behobenDurch },
+      });
+    }
+  };
+  const p004Nachweis = nachweiseVon.get('P-004')!.find((n) => n.ergebnis === 'nicht_bestanden')!;
+  mangel('P-004', { beschreibung: 'Schutzhaube gebrochen', schwere: 'gefaehrlich', termin: heute, verantwortlichId: b.sabine,
+    nachweisId: p004Nachweis.id, erfasstTage: 10, erfasstVon: b.sabine });
+  mangel('L-006', { beschreibung: 'Kettenglied verformt, Einhängehaken ohne Sicherung', schwere: 'erheblich', termin: addTage(heute, 20),
+    verantwortlichId: b.marco, nachweisId: null, erfasstTage: 25, erfasstVon: b.tobias, kenntnisTage: 24 });
+  const l008Alt = nachweiseVon.get('L-008')!.find((n) => n.ergebnis === 'maengel_weiterbetrieb')!;
+  mangel('L-008', { beschreibung: 'Rutschhemmende Fußkappe fehlt', schwere: 'gering', termin: addTage(heute, -655),
+    verantwortlichId: b.marco, nachweisId: l008Alt.id, erfasstTage: 745, erfasstVon: b.marco,
+    behoben: { tage: 700, durch: 'Marco Lindner', behebung: 'Fußkappen ersetzt (Ersatzteil Zarges)' } });
+  mangel('L-003', { beschreibung: 'Anfahrschutz Stütze A3 lose', schwere: 'gering', termin: addTage(heute, -5),
+    verantwortlichId: b.marco, nachweisId: null, erfasstTage: 40, erfasstVon: b.marco });
+
   return {
-    organisationen: [organisation],
-    standorte: [standort],
+    organisationen,
+    standorte,
     bereiche,
     benutzer,
     mitgliedschaften,
@@ -350,5 +534,7 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
     nachweise,
     pdfs,
     ereignisse,
+    anlaesse,
+    maengel,
   };
 }

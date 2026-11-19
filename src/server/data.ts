@@ -1,4 +1,4 @@
-// Vertrag §3.5/§5.4 – Datenzugriffsschicht (BE-6; I2-Signaturen BE-7, Umsetzung BE-11).
+// Vertrag §3.5/§5.4 – Datenzugriffsschicht (BE-6, BE-11).
 // Nur aus Server Components, Server Actions und Route Handlern importieren.
 import { notFound, redirect } from 'next/navigation';
 import { can } from '@/domain/rechte';
@@ -25,11 +25,23 @@ import type {
   Sitzung,
 } from '@/domain/types';
 import * as dienste from './dienste';
-import { heute as heuteIntern, holeRepository, istDemoModus as istDemoModusIntern, leseSitzung } from './sitzung';
+import * as maengel from './dienste-maengel';
+import * as verwaltung from './dienste-verwaltung';
+import {
+  betriebsmodus as betriebsmodusIntern,
+  heute as heuteIntern,
+  holeRepository,
+  leseSitzung,
+} from './sitzung';
 
-/** true, wenn NEXT_PUBLIC_SUPABASE_URL oder NEXT_PUBLIC_SUPABASE_ANON_KEY fehlt. */
+/** F-8: 'supabase' bei URL + Anon-Key; 'demo' wenn beide fehlen und (NODE_ENV ≠ 'production' oder READYLOOP_DEMO === '1'); sonst 'unkonfiguriert'. */
+export function betriebsmodus(): Betriebsmodus {
+  return betriebsmodusIntern();
+}
+
+/** betriebsmodus() === 'demo'. */
 export function istDemoModus(): boolean {
-  return istDemoModusIntern();
+  return betriebsmodusIntern() === 'demo';
 }
 
 /** Heutiges Datum in Europe/Berlin. */
@@ -49,86 +61,87 @@ export async function erfordereSitzung(aktion?: Aktion): Promise<Sitzung> {
   return sitzung;
 }
 
-/** Bereiche im Geltungsbereich der Sitzung, alphabetisch. */
-export async function listeBereiche(): Promise<Bereich[]> {
-  return dienste.listeBereiche(await erfordereSitzung(), holeRepository());
+async function mitRepo() {
+  const sitzung = await erfordereSitzung();
+  return { sitzung, repo: await holeRepository(sitzung) };
 }
 
-/** Sortierung: Gesamtstatus nach Schwere, dann naechsteFaelligkeit aufsteigend (null zuletzt), dann Bezeichnung. */
-export async function listeGeraete(filter?: GeraeteFilter): Promise<GeraetListenEintrag[]> {
-  return dienste.listeGeraete(await erfordereSitzung(), holeRepository(), heute(), filter);
-}
-
-/** null, wenn nicht vorhanden oder außerhalb des Geltungsbereichs. Prüfer sehen nur zugewiesene Prüfarten. */
-export async function holeGeraetDetail(geraetId: Id): Promise<GeraetDetail | null> {
-  return dienste.holeGeraetDetail(await erfordereSitzung(), holeRepository(), heute(), geraetId);
-}
-
-/** Aus dem Katalog (freigegeben und Entwurf), alphabetisch nach Label. */
-export async function listeGeraetegruppen(): Promise<GeraetegruppeOption[]> {
-  await erfordereSitzung('katalog.lesen');
-  return dienste.listeGeraetegruppen(holeRepository());
-}
-
-/** Nur Rolle pruefer: zugewiesene Prüfarten; 'faellig' vor 'spaeter', innerhalb nach faelligAm (null zuerst). */
-export async function listePrueferAufgaben(): Promise<PrueferAufgabe[]> {
-  return dienste.listePrueferAufgaben(await erfordereSitzung(), holeRepository(), heute());
-}
-
-/** Kontext für das Nachweisformular; null ohne Recht nachweis.erfassen auf diese Prüfart. */
-export async function holeNachweisKontext(geraetPruefartId: Id): Promise<PrueferAufgabe | null> {
-  return dienste.holeNachweisKontext(await erfordereSitzung(), holeRepository(), heute(), geraetPruefartId);
-}
-
-/** Nur für src/app/api/nachweise/[id]/route.ts. null ohne Sitzung oder außerhalb des Geltungsbereichs. */
-export async function holeNachweisPdf(
-  nachweisId: Id,
-): Promise<{ dateiname: string; inhalt: Uint8Array } | null> {
-  const sitzung = await leseSitzung();
-  if (!sitzung) return null;
-  return dienste.holeNachweisPdf(sitzung, holeRepository(), nachweisId);
-}
-
-// ---------------------------------------------------------------------------
-// Inkrement 2 (§5.4) – Signaturen, Umsetzung BE-11
-// ---------------------------------------------------------------------------
-
-function nichtImplementiert(): never {
-  throw new Error('nicht implementiert (BE-11)');
-}
-
-/** F-8: 'supabase' bei URL + Anon-Key; 'demo' wenn beide fehlen und (NODE_ENV ≠ 'production' oder READYLOOP_DEMO === '1'); sonst 'unkonfiguriert'. */
-export function betriebsmodus(): Betriebsmodus {
-  return nichtImplementiert();
-}
-
-/** Für '/' und Login: 'unkonfiguriert' | 'abgemeldet' | 'ohne_mitgliedschaft' (Supabase-Login ohne aktive Mitgliedschaft) | 'angemeldet'. */
+/** Für '/' und Login. */
 export async function holeAnmeldestatus(): Promise<Anmeldestatus> {
-  return nichtImplementiert();
+  const modus = betriebsmodusIntern();
+  if (modus === 'unkonfiguriert') return 'unkonfiguriert';
+  if (await leseSitzung()) return 'angemeldet';
+  if (modus === 'supabase' && (await hatAuthSitzung())) return 'ohne_mitgliedschaft';
+  return 'abgemeldet';
 }
 
 /** true, wenn ein Supabase-Auth-Benutzer angemeldet ist (auch ohne Mitgliedschaft) – für /passwort-neu. Demo: false. */
 export async function hatAuthSitzung(): Promise<boolean> {
-  return nichtImplementiert();
+  if (betriebsmodusIntern() !== 'supabase') return false;
+  const { holeAuthBenutzer } = await import('./supabase/sitzung');
+  return (await holeAuthBenutzer()) !== null;
 }
 
 /** Aktive Mitgliedschaften des angemeldeten Benutzers, alphabetisch (= sitzung.organisationen). */
 export async function listeMeineOrganisationen(): Promise<OrganisationOption[]> {
-  return nichtImplementiert();
+  return (await erfordereSitzung()).organisationen;
+}
+
+/** Bereiche im Geltungsbereich der Sitzung, alphabetisch. */
+export async function listeBereiche(): Promise<Bereich[]> {
+  const { sitzung, repo } = await mitRepo();
+  return dienste.listeBereiche(sitzung, repo);
+}
+
+/** Sortierung: Gesamtstatus nach Schwere, dann naechsteFaelligkeit aufsteigend (null zuletzt), dann Bezeichnung. */
+export async function listeGeraete(filter?: GeraeteFilter): Promise<GeraetListenEintrag[]> {
+  const { sitzung, repo } = await mitRepo();
+  return dienste.listeGeraete(sitzung, repo, heute(), filter);
+}
+
+/** null, wenn nicht vorhanden oder außerhalb des Geltungsbereichs. Prüfer sehen nur zugewiesene Prüfarten. */
+export async function holeGeraetDetail(geraetId: Id): Promise<GeraetDetail | null> {
+  const { sitzung, repo } = await mitRepo();
+  return dienste.holeGeraetDetail(sitzung, repo, heute(), geraetId);
+}
+
+/** Aus dem Katalog (freigegeben und Entwurf), alphabetisch nach Label. */
+export async function listeGeraetegruppen(): Promise<GeraetegruppeOption[]> {
+  const sitzung = await erfordereSitzung('katalog.lesen');
+  return dienste.listeGeraetegruppen(await holeRepository(sitzung));
+}
+
+/** Nur Rolle pruefer: zugewiesene Prüfarten der aktuellen Organisation. */
+export async function listePrueferAufgaben(): Promise<PrueferAufgabe[]> {
+  const { sitzung, repo } = await mitRepo();
+  return dienste.listePrueferAufgaben(sitzung, repo, heute());
+}
+
+/** Kontext für das Nachweisformular; null ohne Recht nachweis.erfassen auf diese Prüfart. */
+export async function holeNachweisKontext(geraetPruefartId: Id): Promise<PrueferAufgabe | null> {
+  const { sitzung, repo } = await mitRepo();
+  return dienste.holeNachweisKontext(sitzung, repo, heute(), geraetPruefartId);
+}
+
+/** Nur für src/app/api/nachweise/[id]/route.ts. null ohne Sitzung oder außerhalb des Geltungsbereichs. */
+export async function holeNachweisPdf(nachweisId: Id): Promise<{ dateiname: string; inhalt: Uint8Array } | null> {
+  const sitzung = await leseSitzung();
+  if (!sitzung) return null;
+  return dienste.holeNachweisPdf(sitzung, await holeRepository(sitzung), nachweisId);
 }
 
 // --- Mängel ---
 
 /** mangel.lesen + Geltungsbereich (Prüfer: Mängel zugewiesener Prüfarten). Sortierung: Schwere, termin aufsteigend, erfasstAm. */
 export async function listeMaengel(filter?: MangelFilter): Promise<MangelAnsicht[]> {
-  void filter;
-  return nichtImplementiert();
+  const { sitzung, repo } = await mitRepo();
+  return maengel.listeMaengel(sitzung, repo, heute(), filter);
 }
 
 /** null ohne Recht oder außerhalb des Geltungsbereichs. */
 export async function holeMangel(mangelId: Id): Promise<MangelAnsicht | null> {
-  void mangelId;
-  return nichtImplementiert();
+  const { sitzung, repo } = await mitRepo();
+  return maengel.holeMangel(sitzung, repo, heute(), mangelId);
 }
 
 /** mangel.erfassen + Gerät im Geltungsbereich; nachweisId muss zum Gerät gehören (setzt vorbelegtePruefartId). Sonst null. */
@@ -136,37 +149,40 @@ export async function holeMangelFormular(
   geraetId: Id,
   vorbelegung?: { geraetPruefartId?: Id; nachweisId?: Id },
 ): Promise<MangelFormularKontext | null> {
-  void geraetId;
-  void vorbelegung;
-  return nichtImplementiert();
+  const { sitzung, repo } = await mitRepo();
+  return maengel.holeMangelFormular(sitzung, repo, heute(), geraetId, vorbelegung);
 }
 
 /** mangel.bearbeiten: aktive Mitglieder mit Rolle admin, sifa, verantwortlicher; alphabetisch. */
 export async function listeMangelVerantwortliche(): Promise<PersonOption[]> {
-  return nichtImplementiert();
+  const { sitzung, repo } = await mitRepo();
+  return maengel.listeMangelVerantwortliche(sitzung, repo);
 }
 
 // --- Prüfer ---
 
 /** pruefer.zuweisen: aktive Mitglieder mit Rolle pruefer, alphabetisch. Sonst []. */
 export async function listePrueferOptionen(): Promise<PrueferOption[]> {
-  return nichtImplementiert();
+  const { sitzung, repo } = await mitRepo();
+  return dienste.listePrueferOptionen(sitzung, repo);
 }
 
 // --- Verwaltung ---
 
 /** bereich.verwalten, sonst notFound(). Alphabetisch. */
 export async function listeBereicheVerwaltung(): Promise<BereichAnsicht[]> {
-  return nichtImplementiert();
+  const sitzung = await erfordereSitzung('bereich.verwalten');
+  return verwaltung.listeBereicheVerwaltung(sitzung, await holeRepository(sitzung));
 }
 
 /** mitglied.verwalten, sonst notFound(). Aktive zuerst, dann alphabetisch. */
 export async function listeMitglieder(): Promise<MitgliedAnsicht[]> {
-  return nichtImplementiert();
+  const sitzung = await erfordereSitzung('mitglied.verwalten');
+  return verwaltung.listeMitglieder(sitzung, await holeRepository(sitzung));
 }
 
-/** mitglied.verwalten; null, wenn nicht in der Organisation. */
+/** mitglied.verwalten (sonst notFound()); null, wenn nicht in der Organisation. */
 export async function holeMitglied(mitgliedschaftId: Id): Promise<MitgliedAnsicht | null> {
-  void mitgliedschaftId;
-  return nichtImplementiert();
+  const sitzung = await erfordereSitzung('mitglied.verwalten');
+  return verwaltung.holeMitglied(sitzung, await holeRepository(sitzung), mitgliedschaftId);
 }

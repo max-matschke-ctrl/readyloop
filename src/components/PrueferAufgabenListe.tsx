@@ -24,7 +24,7 @@ function Aufgabe({ a }: { a: PrueferAufgabe }) {
           {geraetDetails.length > 0 && <p className="text-xs text-steel">{geraetDetails.join(' · ')}</p>}
           <p className="mt-1 text-sm">{pruefart.bezeichnung}</p>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-            <StatusAmpel status={status.status} kurz />
+            <StatusAmpel status={status.status} grund={status.grund} kurz />
             <span>
               fällig am <span className="font-mono">{datum(status.faelligAm)}</span>
               {rest && <span className="text-steel"> ({rest})</span>}

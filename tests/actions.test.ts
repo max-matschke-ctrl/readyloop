@@ -5,6 +5,7 @@ const cookieJar = new Map<string, { value: string; optionen?: Record<string, unk
 vi.mock('next/headers', () => ({
   cookies: async () => ({
     get: (name: string) => (cookieJar.has(name) ? { name, value: cookieJar.get(name)!.value } : undefined),
+    getAll: () => [...cookieJar.entries()].map(([name, v]) => ({ name, value: v.value })),
     set: (name: string, value: string, optionen?: Record<string, unknown>) => cookieJar.set(name, { value, optionen }),
     delete: (arg: string | { name: string }) => cookieJar.delete(typeof arg === 'string' ? arg : arg.name),
   }),
@@ -19,6 +20,10 @@ vi.mock('next/navigation', () => ({
 }));
 const revalidatePath = vi.fn();
 vi.mock('next/cache', () => ({ revalidatePath: (p: string) => revalidatePath(p) }));
+// Supabase-Modus ohne Netz: Client ohne angemeldeten Benutzer (Details in tests/supabase-auth.test.ts).
+vi.mock('@supabase/ssr', () => ({
+  createServerClient: () => ({ auth: { getUser: async () => ({ data: { user: null }, error: { message: 'keine Sitzung' } }) } }),
+}));
 
 import { INITIAL_ACTION_STATE, type DemoRolle } from '@/domain/types';
 import { GET } from '@/app/api/nachweise/[id]/route';
@@ -91,7 +96,7 @@ describe('Demo-Sitzung', () => {
     expect(await fehlerVon(erfordereSitzung('frist.freigeben'))).toBe('NOT_FOUND');
   });
 
-  it('mit Supabase-Variablen: kein Demo, Repository wirft', async () => {
+  it('mit Supabase-Variablen: kein Demo, Demo-Cookie wird ignoriert', async () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://x.supabase.co');
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon');
     als('admin');
