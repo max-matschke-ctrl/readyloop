@@ -1,26 +1,69 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Design-Tokens Readyloop (FE-1). Schriften ohne Webfont-Laden (Q-10): lokal installiert oder Systemschrift. */
+@theme {
+  --color-steel: #44546a;
+  --color-steel-hell: #dfe3e9;
+  --color-moss: #5b7f3a;
+  --color-ochre: #c8902e;
+  --color-ochre-dunkel: #7a5310;
+  --color-brick: #a6452f;
+  --color-paper: #f5f3ee;
+  --color-ink: #1e2328;
+
+  --font-display: "Space Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-steel);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .feld {
+    @apply block w-full rounded border border-steel/40 bg-white px-2.5 py-1.5 text-sm text-ink;
+  }
+  .feld:focus-visible {
+    @apply border-steel;
+  }
+  .feld[aria-invalid="true"] {
+    @apply border-brick;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-ink;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primaer {
+    @apply bg-steel text-white hover:bg-ink;
+  }
+  .btn-sekundaer {
+    @apply border border-steel/50 bg-white text-ink hover:bg-steel-hell;
+  }
+  .karte {
+    @apply rounded border border-steel/20 bg-white;
+  }
+  .link {
+    @apply text-steel underline decoration-steel/40 underline-offset-2 hover:decoration-steel;
+  }
 }
