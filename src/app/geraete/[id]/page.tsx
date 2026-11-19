@@ -1,7 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { AnlassForm } from '@/components/AnlassForm';
+import { AnlassListe } from '@/components/AnlassListe';
 import { AppHeader } from '@/components/AppHeader';
+import { BetriebsstatusBadge } from '@/components/BetriebsstatusBadge';
+import { BetriebsstatusForm } from '@/components/BetriebsstatusForm';
+import { GeraetVerschiebenForm } from '@/components/GeraetVerschiebenForm';
 import { NachweisListe } from '@/components/NachweisListe';
 import { Pruefplakette } from '@/components/Pruefplakette';
 import { PruefartKarte } from '@/components/PruefartKarte';
@@ -9,16 +14,10 @@ import { StatusAmpel } from '@/components/StatusAmpel';
 import { VerlaufListe } from '@/components/VerlaufListe';
 import { datum } from '@/components/format';
 import { can } from '@/domain/rechte';
-import { EINSATZORT_LABEL, KATEGORIE_LABEL, type Betriebsstatus, type Id } from '@/domain/types';
-import { erfordereSitzung, holeGeraetDetail } from '@/server/data';
+import { BETRIEBSSTATUS_LABEL, EINSATZORT_LABEL, KATEGORIE_LABEL, type Bereich, type Id, type PrueferOption } from '@/domain/types';
+import { erfordereSitzung, heute, holeGeraetDetail, listeBereiche, listePrueferOptionen } from '@/server/data';
 
 export const metadata: Metadata = { title: 'Geräteakte' };
-
-const BETRIEBSSTATUS_LABEL: Record<Betriebsstatus, string> = {
-  in_betrieb: 'In Betrieb',
-  ausser_betrieb: 'Außer Betrieb',
-  ausgemustert: 'Ausgemustert',
-};
 
 function Feld({ titel, wert, mono = false }: { titel: string; wert: React.ReactNode; mono?: boolean }) {
   return (
@@ -40,6 +39,16 @@ export default async function GeraetDetailSeite({ params }: { params: Promise<{ 
   const darfNachweis = can(sitzung.rolle, 'nachweis.erfassen');
   const darfVerlauf = can(sitzung.rolle, 'verlauf.lesen');
   const istPruefer = sitzung.rolle === 'pruefer';
+  const darfBearbeiten = can(sitzung.rolle, 'geraet.bearbeiten');
+  const darfZuweisen = can(sitzung.rolle, 'pruefer.zuweisen');
+  const darfAnlass = can(sitzung.rolle, 'anlass.erfassen');
+
+  const [prueferOptionen, bereiche]: [PrueferOption[], Bereich[]] = await Promise.all([
+    darfZuweisen ? listePrueferOptionen() : Promise.resolve([]),
+    darfBearbeiten ? listeBereiche() : Promise.resolve([]),
+  ]);
+  const ziele = bereiche.filter((b) => b.id !== bereich.id);
+  const warnungAbgelaufen = detail.pruefarten.some((p) => p.status.grund === 'ausser_betrieb');
 
   const pruefartNamen = new Map<Id, string>(detail.pruefarten.map((p) => [p.pruefart.id, p.pruefart.bezeichnung]));
 
@@ -60,7 +69,8 @@ export default async function GeraetDetailSeite({ params }: { params: Promise<{ 
               <h1 id="geraet-titel" className="text-2xl font-bold">
                 {geraet.bezeichnung}
               </h1>
-              <StatusAmpel status={detail.gesamtStatus} />
+              <StatusAmpel status={detail.gesamtStatus} grund={detail.gesamtStatusGrund} />
+              <BetriebsstatusBadge status={geraet.betriebsstatus} />
             </div>
             <p className="text-sm text-steel">
               Nächste Prüfung: <span className="font-mono text-ink">{datum(detail.naechsteFaelligkeit)}</span>
@@ -95,10 +105,59 @@ export default async function GeraetDetailSeite({ params }: { params: Promise<{ 
             <p className="text-sm text-steel">Keine Prüfarten sichtbar.</p>
           ) : (
             detail.pruefarten.map((p) => (
-              <PruefartKarte key={p.pruefart.id} ansicht={p} darfFreigeben={darfFreigeben} darfNachweisErfassen={darfNachweis} />
+              <PruefartKarte
+                key={p.pruefart.id}
+                ansicht={p}
+                darfFreigeben={darfFreigeben}
+                darfNachweisErfassen={darfNachweis}
+                darfZuweisen={darfZuweisen}
+                prueferOptionen={prueferOptionen}
+              />
             ))
           )}
         </section>
+
+        {darfBearbeiten && (
+          <section aria-labelledby="betrieb-titel" className="space-y-3">
+            <h2 id="betrieb-titel" className="text-lg font-semibold">
+              Betrieb und Standort
+            </h2>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="karte space-y-2 p-4">
+                <h3 className="font-semibold">Betriebsstatus</h3>
+                <BetriebsstatusForm geraetId={geraet.id} aktuell={geraet.betriebsstatus} warnungAbgelaufen={warnungAbgelaufen} />
+              </div>
+              <div className="karte space-y-2 p-4">
+                <h3 className="font-semibold">Gerät verschieben</h3>
+                <p className="text-sm">
+                  Aktueller Bereich: <strong>{bereich.name}</strong>
+                </p>
+                <GeraetVerschiebenForm geraetId={geraet.id} ziele={ziele} />
+              </div>
+            </div>
+          </section>
+        )}
+
+        {(darfAnlass || detail.anlaesse.length > 0) && !istPruefer && (
+          <section aria-labelledby="anlaesse-titel" className="space-y-3">
+            <h2 id="anlaesse-titel" className="text-lg font-semibold">
+              Anlassprüfungen
+            </h2>
+            <AnlassListe anlaesse={detail.anlaesse} darfAufheben={darfAnlass} />
+            {darfAnlass && detail.pruefarten.length > 0 && (
+              <details className="karte">
+                <summary className="cursor-pointer px-4 py-2 text-sm font-medium">Anlass erfassen</summary>
+                <div className="px-4 pb-4 pt-1">
+                  <AnlassForm
+                    geraetId={geraet.id}
+                    pruefarten={detail.pruefarten.map((p) => ({ id: p.pruefart.id, bezeichnung: p.pruefart.bezeichnung }))}
+                    heute={heute()}
+                  />
+                </div>
+              </details>
+            )}
+          </section>
+        )}
 
         {can(sitzung.rolle, 'nachweis.lesen') && (
           <section aria-labelledby="nachweise-titel" className="space-y-3">

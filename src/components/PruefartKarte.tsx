@@ -1,13 +1,18 @@
 import Link from 'next/link';
 import {
+  ANLASS_ART_LABEL,
   DATUMSHERKUNFT_LABEL,
+  PRUEF_ERGEBNIS_LABEL,
   FRIST_QUELLE_LABEL,
   PRUEFER_TYP_LABEL,
   type FristVorschlag,
   type KatalogEintrag,
   type PruefartAnsicht,
+  type PrueferOption,
 } from '@/domain/types';
 import { FristFreigabeForm } from './FristFreigabeForm';
+import { GbuVerweisForm } from './GbuVerweisForm';
+import { PrueferZuweisungForm } from './PrueferZuweisungForm';
 import { Pruefplakette } from './Pruefplakette';
 import { StatusAmpel } from './StatusAmpel';
 import { StufeBadge, StufeMitText } from './StufeBadge';
@@ -17,6 +22,8 @@ interface Props {
   ansicht: PruefartAnsicht;
   darfFreigeben: boolean;
   darfNachweisErfassen: boolean;
+  darfZuweisen?: boolean;
+  prueferOptionen?: PrueferOption[];
 }
 
 function Zeile({ titel, children }: { titel: string; children: React.ReactNode }) {
@@ -96,8 +103,16 @@ function VorschlagBlock({ v }: { v: FristVorschlag }) {
   );
 }
 
-export function PruefartKarte({ ansicht, darfFreigeben, darfNachweisErfassen }: Props) {
-  const { pruefart, vorschlag, status, katalogEintrag } = ansicht;
+export function PruefartKarte({ ansicht, darfFreigeben, darfNachweisErfassen, darfZuweisen = false, prueferOptionen = [] }: Props) {
+  const { pruefart, vorschlag, status, katalogEintrag, letzterNachweis } = ansicht;
+  const nachErgebnis =
+    ansicht.fristHinweis === 'empfehlung_abweichend' && letzterNachweis
+      ? {
+          nachweisId: letzterNachweis.id,
+          nachweisText: `Nachweis vom ${datum(letzterNachweis.pruefdatum)} (${PRUEF_ERGEBNIS_LABEL[letzterNachweis.ergebnis]})`,
+          monate: letzterNachweis.fristEmpfehlungMonate,
+        }
+      : null;
   const frist = pruefart.frist;
   const rest = restTageText(status.restTage);
   const vText = vorschlagText(vorschlag);
@@ -126,8 +141,50 @@ export function PruefartKarte({ ansicht, darfFreigeben, darfNachweisErfassen }: 
           </h3>
           <p className="text-xs text-steel">{pruefart.katalogSchluessel ? `Katalog: ${pruefart.katalogSchluessel}` : 'Freie Prüfart ohne Katalogeintrag'}</p>
         </div>
-        <StatusAmpel status={status.status} />
+        <StatusAmpel status={status.status} grund={status.grund} />
+        {ansicht.offeneMaengel > 0 && (
+          <span className="inline-flex items-center gap-1 rounded border border-brick/50 bg-brick/10 px-1.5 py-0.5 text-xs">
+            <span aria-hidden="true">⚠</span>
+            {ansicht.offeneMaengel === 1 ? '1 offener Mangel' : `${ansicht.offeneMaengel} offene Mängel`}
+          </span>
+        )}
       </header>
+
+      {ansicht.offeneAnlaesse.length > 0 && (
+        <div role="alert" className="border-b border-brick/40 bg-brick/10 px-4 py-2 text-sm">
+          <p className="font-semibold">
+            <span aria-hidden="true">! </span>Anlassprüfung offen – vor Nutzung prüfen
+          </p>
+          <ul className="text-xs">
+            {ansicht.offeneAnlaesse.map((a) => (
+              <li key={a.id}>
+                {ANLASS_ART_LABEL[a.art]} am {datum(a.datum)}: {a.beschreibung}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {ansicht.fristHinweis && (
+        <div role="note" className="border-b border-ochre/60 bg-ochre/15 px-4 py-2 text-sm">
+          <p className="font-medium">
+            <span aria-hidden="true" className="mr-1 font-bold text-ochre-dunkel">
+              !
+            </span>
+            {ansicht.fristHinweis === 'empfehlung_abweichend'
+              ? `Prüfer empfiehlt ${letzterNachweis?.fristEmpfehlungMonate !== null && letzterNachweis?.fristEmpfehlungMonate !== undefined ? monate(letzterNachweis.fristEmpfehlungMonate) : 'eine andere Frist'}${frist ? ` (aktuell ${monate(frist.monate)})` : ''} – Nachweis vom ${datum(letzterNachweis?.pruefdatum)}.`
+              : 'Kürzere Frist für neuen Einsatzort vorgeschlagen – Frist prüfen.'}
+          </p>
+          {darfFreigeben && ansicht.fristHinweis === 'empfehlung_abweichend' && (
+            <p className="text-xs">
+              <a href={`#gbu-form-${pruefart.id}`} className="link">
+                Frist nach Prüfung festlegen
+              </a>{' '}
+              – Formular unten ist mit der Empfehlung vorbelegt. Die Empfehlung wirkt erst nach Freigabe.
+            </p>
+          )}
+        </div>
+      )}
 
       {ansicht.weiterbetriebUnzulaessig && (
         <p role="alert" className="border-b border-brick/40 bg-brick/10 px-4 py-2 text-sm font-semibold text-brick">
@@ -160,7 +217,30 @@ export function PruefartKarte({ ansicht, darfFreigeben, darfNachweisErfassen }: 
             {katalogEintrag && katalogEintrag.prueferTypen.length > 0 && (
               <span className="block text-xs text-steel">
                 Qualifikation: {katalogEintrag.prueferTypen.map((t) => PRUEFER_TYP_LABEL[t]).join(' oder ')}
+                {katalogEintrag.freigabestatus !== 'freigegeben' && ' (laut Katalogentwurf)'}
               </span>
+            )}
+            {ansicht.qualifikationsWarnung && (
+              <span className="mt-1 block rounded border border-ochre/60 bg-ochre/15 px-2 py-1 text-xs">
+                <span aria-hidden="true" className="mr-1 font-bold text-ochre-dunkel">
+                  !
+                </span>
+                Qualifikation prüfen – {ansicht.qualifikationsWarnung}
+              </span>
+            )}
+          </Zeile>
+          <Zeile titel="GBU-Verweis">
+            {pruefart.gbuDokument ? (
+              pruefart.gbuDokument.url ? (
+                <a href={pruefart.gbuDokument.url} target="_blank" rel="noopener noreferrer" className="link">
+                  {pruefart.gbuDokument.titel}
+                  <span className="sr-only"> (öffnet in neuem Fenster)</span>
+                </a>
+              ) : (
+                pruefart.gbuDokument.titel
+              )
+            ) : (
+              <span className="text-steel">kein Verweis</span>
             )}
           </Zeile>
         </dl>
@@ -213,12 +293,31 @@ export function PruefartKarte({ ansicht, darfFreigeben, darfNachweisErfassen }: 
               geraetPruefartId={pruefart.id}
               vorschlagText={vorschlagFreigebbar ? vText : null}
               gbuTitel={vorschlag.art === 'gbu' && !frist ? 'Frist über GBU festlegen' : 'Abweichende Frist festlegen'}
-              gbuOffen={vorschlag.art === 'gbu' && !frist}
+              gbuOffen={(vorschlag.art === 'gbu' && !frist) || nachErgebnis !== null}
               hinweisObergrenze={hinweisObergrenze}
+              nachErgebnis={nachErgebnis}
+              aktuelleMonate={frist?.monate ?? null}
             />
           </div>
         )}
+        {darfFreigeben && (
+          <div className="mt-3">
+            <GbuVerweisForm geraetPruefartId={pruefart.id} aktuell={pruefart.gbuDokument} />
+          </div>
+        )}
       </section>
+
+      {darfZuweisen && (
+        <section aria-label="Prüfer-Zuweisung" className="border-t border-steel/15 px-4 py-3">
+          <PrueferZuweisungForm
+            geraetPruefartId={pruefart.id}
+            optionen={prueferOptionen}
+            aktuellId={pruefart.zugewiesenerPrueferId}
+            aktuellName={ansicht.zugewiesenerPrueferName}
+            gefordert={katalogEintrag ? katalogEintrag.prueferTypen : null}
+          />
+        </section>
+      )}
 
       {darfNachweisErfassen && (
         <footer className="border-t border-steel/15 px-4 py-3">

@@ -11,11 +11,13 @@ interface Props {
   heute: IsoDate;
   pruefumfang: string;
   prueferName: string;
+  /** true, wenn die Rolle Mängel erfassen darf (Hinweis auf Weiterleitung, F-12). */
+  mitMaengelHinweis?: boolean;
 }
 
 const MB = PDF_MAX_BYTES / (1024 * 1024);
 
-export function NachweisForm({ geraetPruefartId, heute, pruefumfang, prueferName }: Props) {
+export function NachweisForm({ geraetPruefartId, heute, pruefumfang, prueferName, mitMaengelHinweis = false }: Props) {
   const { state, formAction, pending, onSubmit } = useFormularAction(nachweisErfassen);
   const uid = useId();
   const f = (n: string) => `${uid}-${n}`;
@@ -80,6 +82,11 @@ export function NachweisForm({ geraetPruefartId, heute, pruefumfang, prueferName
           ))}
         </div>
         <FeldFehler state={state} feld="ergebnis" />
+        {mitMaengelHinweis && (
+          <p className="mt-2 text-xs text-steel">
+            Bei Mängeln oder „nicht bestanden“ geht es nach dem Speichern weiter zur Mängelerfassung.
+          </p>
+        )}
       </fieldset>
 
       <div>
@@ -98,6 +105,29 @@ export function NachweisForm({ geraetPruefartId, heute, pruefumfang, prueferName
           {...feldProps(state, 'pruefumfang')}
         />
         <FeldFehler state={state} feld="pruefumfang" />
+      </div>
+
+      <div>
+        <label htmlFor={f('fristEmpfehlungMonate')} className="label">
+          Empfohlene Frist (Monate, optional)
+        </label>
+        <input
+          id={f('fristEmpfehlungMonate')}
+          name="fristEmpfehlungMonate"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={120}
+          className="feld font-mono sm:w-32"
+          {...feldProps(state, 'fristEmpfehlungMonate')}
+          aria-describedby={[f('empfehlung-hinweis'), feldProps(state, 'fristEmpfehlungMonate')['aria-describedby']]
+            .filter(Boolean)
+            .join(' ')}
+        />
+        <p id={f('empfehlung-hinweis')} className="mt-1 text-xs text-steel">
+          Empfehlung, wirkt erst nach Freigabe durch Sifa oder Verantwortlichen.
+        </p>
+        <FeldFehler state={state} feld="fristEmpfehlungMonate" />
       </div>
 
       <div>

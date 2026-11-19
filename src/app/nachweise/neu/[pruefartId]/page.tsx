@@ -5,6 +5,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { NachweisForm } from '@/components/NachweisForm';
 import { StatusAmpel } from '@/components/StatusAmpel';
 import { datum } from '@/components/format';
+import { can } from '@/domain/rechte';
 import { erfordereSitzung, heute, holeNachweisKontext } from '@/server/data';
 
 export const metadata: Metadata = { title: 'Nachweis erfassen' };
@@ -42,7 +43,7 @@ export default async function NachweisNeuSeite({ params }: { params: Promise<{ p
             <dd>{ansicht.pruefart.bezeichnung}</dd>
             <dt className="text-steel">Status</dt>
             <dd className="flex flex-wrap items-center gap-2">
-              <StatusAmpel status={ansicht.status.status} kurz />
+              <StatusAmpel status={ansicht.status.status} grund={ansicht.status.grund} kurz />
               <span>
                 fällig am <span className="font-mono">{datum(ansicht.status.faelligAm)}</span>
               </span>
@@ -55,6 +56,7 @@ export default async function NachweisNeuSeite({ params }: { params: Promise<{ p
             heute={heute()}
             pruefumfang={ansicht.pruefart.bezeichnung}
             prueferName={sitzung.benutzer.name}
+            mitMaengelHinweis={can(sitzung.rolle, 'mangel.erfassen')}
           />
         </div>
       </main>
