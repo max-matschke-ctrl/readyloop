@@ -1,0 +1,33 @@
+# Supabase lokal/Projekt (BE-12). Nur Auth-Einstellungen und Mail-Vorlagen; Rest Supabase-Standard.
+project_id = "readyloop"
+
+[db]
+major_version = 15
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/api/auth/confirm"]
+enable_signup = false
+minimum_password_length = 10
+
+[auth.email]
+enable_signup = false
+enable_confirmations = false
+
+# Links führen auf /api/auth/confirm (token_hash, serverseitiges verifyOtp), danach /passwort-neu.
+[auth.email.template.invite]
+subject = "Einladung zu Readyloop"
+content_path = "./supabase/templates/einladung.html"
+
+[auth.email.template.recovery]
+subject = "Readyloop: Passwort zurücksetzen"
+content_path = "./supabase/templates/passwort.html"
+
+# SMTP eines EU-Anbieters vor dem ersten echten Datensatz (Gate G-5, Q-27):
+# [auth.email.smtp]
+# host = "..."
+# port = 587
+# user = "..."
+# pass = "env(SMTP_PASS)"
+# admin_email = "noreply@..."
+# sender_name = "Readyloop"
