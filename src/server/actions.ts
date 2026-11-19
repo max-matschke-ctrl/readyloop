@@ -34,6 +34,7 @@ import type { DienstErgebnis } from './dienste-basis';
 import * as maengel from './dienste-maengel';
 import * as verwaltung from './dienste-verwaltung';
 import { sichererRuecksprung } from './pfade';
+import { RepositoryFehler } from './repo/supabase/mapping';
 import { DEMO_COOKIE, DEMO_COOKIE_OPTIONEN, ORG_COOKIE, ORG_COOKIE_OPTIONEN, heute, holeRepository, istDemoModus, leseSitzung } from './sitzung';
 
 function felder(formData: FormData, namen: readonly string[], mehrfach: readonly string[] = []): Record<string, unknown> {
@@ -90,6 +91,8 @@ async function fuehreAus<S extends z.ZodType, T extends object>(
     if (!ergebnis.ok) return { ok: false, state: dienstFehler(ergebnis) };
     return { ok: true, sitzung, ergebnis };
   } catch (e) {
+    // Supabase: Postgres-/RLS-Fehler (23514, 42501, 23505 …) kommen als RepositoryFehler mit deutscher Meldung.
+    if (e instanceof RepositoryFehler) return { ok: false, state: { status: 'fehler', meldung: e.meldung } };
     console.error(name, e);
     return { ok: false, state: UNERWARTET };
   }
