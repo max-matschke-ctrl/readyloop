@@ -1,8 +1,19 @@
 import {
+  ANLASS_ART_LABEL,
+  ANLASS_ARTEN,
+  BETRIEBSSTATUS,
+  BETRIEBSSTATUS_LABEL,
+  EREIGNIS_LABEL,
   FRIST_QUELLE_LABEL,
   FRIST_QUELLEN,
+  MANGEL_SCHWERE_LABEL,
+  MANGEL_SCHWEREN,
   PRUEF_ERGEBNIS_LABEL,
   PRUEF_ERGEBNISSE,
+  ROLLE_LABEL,
+  ROLLEN,
+  EINSATZORT_LABEL,
+  EINSATZORTE,
   type Ereignis,
   type Id,
 } from '@/domain/types';
@@ -16,35 +27,123 @@ function text(wert: unknown): string | null {
   return typeof wert === 'string' && wert !== '' ? wert : null;
 }
 
+function zahl(wert: unknown): number | null {
+  return typeof wert === 'number' && Number.isFinite(wert) ? wert : null;
+}
+
+function aus<T extends string>(liste: readonly T[], wert: unknown): T | null {
+  return liste.find((x) => x === wert) ?? null;
+}
+
+const RICHTUNG_TEXT: Record<string, string> = {
+  erstmalig: 'erstmalig',
+  kuerzer: 'kürzer',
+  laenger: 'länger',
+  gleich: 'gleich',
+};
+
 /** Ereignistext aus Typ und (untypisierten) Daten; unbekannte Felder werden ignoriert. */
 function beschreibung(e: Ereignis, pruefartNamen: Map<Id, string>): { titel: string; details: string[] } {
   const d = e.daten;
   const pruefartId = text(d.pruefartId) ?? text(d.geraetPruefartId);
-  const pruefart = pruefartId ? pruefartNamen.get(pruefartId) : undefined;
+  const pruefart = (pruefartId ? pruefartNamen.get(pruefartId) : undefined) ?? text(d.pruefart);
   const details: string[] = [];
   if (pruefart) details.push(pruefart);
+  const titel = EREIGNIS_LABEL[e.typ];
 
   switch (e.typ) {
     case 'geraet_angelegt':
-      return { titel: 'Gerät angelegt', details };
+      return { titel, details };
     case 'frist_freigegeben': {
       const neu = obj(d.neu);
+      const alt = obj(d.alt);
+      const neuMonate = neu ? zahl(neu.monate) : null;
+      const altMonate = alt ? zahl(alt.monate) : null;
+      const richtung = text(d.richtung);
+      if (neuMonate !== null) {
+        const r = richtung && richtung !== 'erstmalig' ? ` (${RICHTUNG_TEXT[richtung] ?? richtung})` : '';
+        details.push(altMonate !== null ? `${altMonate} → ${monate(neuMonate)}${r}` : monate(neuMonate));
+      }
       if (neu) {
-        if (typeof neu.monate === 'number') details.push(monate(neu.monate));
-        const q = FRIST_QUELLEN.find((x) => x === neu.quelle);
+        const q = aus(FRIST_QUELLEN, neu.quelle);
         if (q) details.push(FRIST_QUELLE_LABEL[q]);
         if (text(neu.stufe)) details.push(`Stufe ${neu.stufe as string}`);
         if (text(neu.fundstelle)) details.push(neu.fundstelle as string);
       }
-      const alt = obj(d.alt);
-      if (alt && typeof alt.monate === 'number') details.push(`vorher ${monate(alt.monate)}`);
-      return { titel: alt ? 'Frist geändert' : 'Frist freigegeben', details };
+      if (text(d.nachweisId)) details.push('nach Prüfergebnis');
+      return { titel: alt ? 'Frist geändert' : titel, details };
     }
     case 'nachweis_erfasst': {
       if (text(d.pruefdatum)) details.push(`Prüfung vom ${datum(d.pruefdatum as string)}`);
-      const erg = PRUEF_ERGEBNISSE.find((x) => x === d.ergebnis);
+      const erg = aus(PRUEF_ERGEBNISSE, d.ergebnis);
       if (erg) details.push(PRUEF_ERGEBNIS_LABEL[erg]);
-      return { titel: 'Nachweis erfasst', details };
+      const empf = zahl(d.fristEmpfehlungMonate);
+      if (empf !== null) details.push(`Empfehlung ${monate(empf)}`);
+      return { titel, details };
+    }
+    case 'pruefer_zugewiesen': {
+      const neuName = text(d.neuName);
+      return { titel: d.neu ? titel : 'Prüfer-Zuweisung entfernt', details: neuName ? [...details, neuName] : details };
+    }
+    case 'gbu_dokument_gesetzt': {
+      const neu = obj(d.neu);
+      if (neu && text(neu.titel)) details.push(neu.titel as string);
+      return { titel: neu ? titel : 'GBU-Verweis entfernt', details };
+    }
+    case 'geraet_verschoben': {
+      const von = text(d.vonBereich);
+      const nach = text(d.nachBereich);
+      if (von || nach) details.push(`${von ?? '?'} → ${nach ?? '?'}`);
+      if (text(d.begruendung)) details.push(d.begruendung as string);
+      return { titel, details };
+    }
+    case 'betriebsstatus_geaendert': {
+      const alt = aus(BETRIEBSSTATUS, d.alt);
+      const neu = aus(BETRIEBSSTATUS, d.neu);
+      if (neu) details.push(alt ? `${BETRIEBSSTATUS_LABEL[alt]} → ${BETRIEBSSTATUS_LABEL[neu]}` : BETRIEBSSTATUS_LABEL[neu]);
+      if (text(d.begruendung)) details.push(d.begruendung as string);
+      return { titel, details };
+    }
+    case 'anlass_erfasst': {
+      const art = aus(ANLASS_ARTEN, d.art);
+      if (art) details.push(ANLASS_ART_LABEL[art]);
+      if (text(d.datum)) details.push(`am ${datum(d.datum as string)}`);
+      return { titel, details };
+    }
+    case 'anlass_aufgehoben':
+      if (text(d.grund)) details.push(`Grund: ${d.grund as string}`);
+      return { titel, details };
+    case 'mangel_erfasst': {
+      const s = aus(MANGEL_SCHWEREN, d.schwere);
+      if (s) details.push(MANGEL_SCHWERE_LABEL[s]);
+      if (text(d.termin)) details.push(`Termin ${datum(d.termin as string)}`);
+      return { titel, details };
+    }
+    case 'mangel_kenntnis': {
+      if (text(d.verantwortlichName)) details.push(`verantwortlich: ${d.verantwortlichName as string}`);
+      const alt = text(d.terminAlt);
+      const neu = text(d.terminNeu);
+      if (neu) details.push(alt && alt !== neu ? `Termin ${datum(alt)} → ${datum(neu)}` : `Termin ${datum(neu)}`);
+      return { titel, details };
+    }
+    case 'mangel_behoben':
+      if (text(d.behobenAm)) details.push(`am ${datum(d.behobenAm as string)}`);
+      if (text(d.behobenDurch)) details.push(`durch ${d.behobenDurch as string}`);
+      return { titel, details };
+    case 'bereich_gespeichert': {
+      if (text(d.name)) details.push(d.name as string);
+      const ort = aus(EINSATZORTE, d.einsatzort);
+      const ortAlt = aus(EINSATZORTE, d.einsatzortAlt);
+      if (ort) details.push(ortAlt && ortAlt !== ort ? `${EINSATZORT_LABEL[ortAlt]} → ${EINSATZORT_LABEL[ort]}` : EINSATZORT_LABEL[ort]);
+      return { titel, details };
+    }
+    case 'mitglied_gespeichert': {
+      if (text(d.name)) details.push(d.name as string);
+      const rolle = aus(ROLLEN, d.rolle);
+      if (rolle) details.push(ROLLE_LABEL[rolle]);
+      if (d.aktiv === false) details.push('deaktiviert');
+      if (d.eingeladen === true) details.push('eingeladen');
+      return { titel, details };
     }
   }
 }

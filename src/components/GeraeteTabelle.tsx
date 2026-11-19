@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { GeraetListenEintrag } from '@/domain/types';
+import { BetriebsstatusBadge } from './BetriebsstatusBadge';
 import { Pruefplakette } from './Pruefplakette';
 import { StatusAmpel } from './StatusAmpel';
 import { datum } from './format';
@@ -18,6 +19,7 @@ export function GeraeteTabelle({ eintraege }: { eintraege: GeraetListenEintrag[]
             <th scope="col" className="hidden px-3 py-2 md:table-cell">Bereich</th>
             <th scope="col" className="px-3 py-2">Status</th>
             <th scope="col" className="px-3 py-2">Nächste Prüfung</th>
+            <th scope="col" className="px-3 py-2 text-right">Mängel</th>
             <th scope="col" className="hidden px-3 py-2 text-right sm:table-cell">Prüfarten</th>
           </tr>
         </thead>
@@ -38,9 +40,26 @@ export function GeraeteTabelle({ eintraege }: { eintraege: GeraetListenEintrag[]
               </td>
               <td className="hidden px-3 py-2 md:table-cell">{e.bereichName}</td>
               <td className="px-3 py-2">
-                <StatusAmpel status={e.gesamtStatus} kurz />
+                <span className="flex flex-wrap items-center gap-1">
+                  <StatusAmpel status={e.gesamtStatus} kurz />
+                  <BetriebsstatusBadge status={e.geraet.betriebsstatus} />
+                </span>
               </td>
               <td className="px-3 py-2 font-mono">{datum(e.naechsteFaelligkeit)}</td>
+              <td className="px-3 py-2 text-right font-mono">
+                {e.offeneMaengel > 0 ? (
+                  <span
+                    className="inline-flex items-center gap-1 rounded border border-brick/50 bg-brick/10 px-1.5 text-ink"
+                    title={`${e.offeneMaengel} offene Mängel`}
+                  >
+                    <span aria-hidden="true">⚠</span>
+                    {e.offeneMaengel}
+                    <span className="sr-only"> offene Mängel</span>
+                  </span>
+                ) : (
+                  <span className="sr-only">keine offenen Mängel</span>
+                )}
+              </td>
               <td
                 className="hidden px-3 py-2 text-right font-mono sm:table-cell"
                 title={e.pruefarten.map((p) => p.bezeichnung).join(', ')}

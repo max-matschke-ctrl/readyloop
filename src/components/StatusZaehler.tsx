@@ -23,7 +23,7 @@ function href(params: Props['params'], status?: FristStatus): string {
 export function StatusZaehler({ zaehler, gesamt, aktiv, params }: Props) {
   return (
     <nav aria-label="Nach Status filtern">
-      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
         <li>
           <Link
             href={href(params)}

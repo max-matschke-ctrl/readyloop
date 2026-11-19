@@ -39,12 +39,16 @@ export function Pruefplakette({ status, faelligAm, groesse = 40 }: Props) {
   const monat = teile?.[1] ? Number(teile[1]) : null;
   const mitDatum = status !== 'unbekannt' && status !== 'gbu' && jahr !== null && monat !== null;
 
-  const mitte = status === 'gbu' ? 'GBU' : status === 'unbekannt' || !mitDatum ? '?' : jahr;
+  const vorNutzung = status === 'vor_nutzung_pruefen';
+  const mitte =
+    status === 'gbu' ? 'GBU' : vorNutzung && !mitDatum ? '!' : status === 'unbekannt' || !mitDatum ? '?' : jahr;
   const label = mitDatum
     ? `Nächste Prüfung ${String(monat).padStart(2, '0')}/${teile![0]}, ${STATUS_KURZ[status].toLowerCase()}`
     : status === 'gbu'
       ? 'Keine Frist: Frist über GBU festlegen'
-      : 'Nächste Prüfung unbekannt: Prüfdatum unbekannt';
+      : vorNutzung
+        ? 'Vor Nutzung prüfen – nicht verwenden'
+        : 'Nächste Prüfung unbekannt: Prüfdatum unbekannt';
 
   return (
     <svg
@@ -78,7 +82,7 @@ export function Pruefplakette({ status, faelligAm, groesse = 40 }: Props) {
         fontFamily="var(--font-mono)"
         fontWeight={700}
         fontSize={mitte === 'GBU' ? 12 : 17}
-        fill="var(--color-ink)"
+        fill={mitte === '!' ? farbe : 'var(--color-ink)'}
       >
         {mitte}
       </text>
