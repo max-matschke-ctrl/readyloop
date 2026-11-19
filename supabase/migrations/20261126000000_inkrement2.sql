@@ -886,3 +886,15 @@ revoke all on function public.geraet_anlegen(jsonb, jsonb), public.frist_setzen(
 grant execute on function public.geraet_anlegen(jsonb, jsonb), public.frist_setzen(uuid, jsonb, uuid),
   public.geraet_verschieben(uuid, uuid, text), public.betriebsstatus_setzen(uuid, text, text),
   public.mitglied_speichern(jsonb, uuid[]) to authenticated;
+
+-- =====================================================================
+-- Einladung (BE-14, Q-23): vorhandenes Konto per E-Mail finden. Nur Service-Role (Einladungsweg), nie für Clients.
+-- =====================================================================
+
+create or replace function public.benutzer_id_fuer_email(p_email text)
+returns uuid language sql stable security definer set search_path = public, pg_temp as $$
+  select u.id from auth.users u where lower(u.email) = lower(trim(p_email)) limit 1;
+$$;
+
+revoke all on function public.benutzer_id_fuer_email(text) from public, anon, authenticated;
+grant execute on function public.benutzer_id_fuer_email(text) to service_role;

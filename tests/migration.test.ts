@@ -246,13 +246,19 @@ describe('Migration Inkrement 2', () => {
 
   it('jede RPC ist security invoker und für authenticated freigegeben', () => {
     const rpcs = [...klein2.matchAll(/create or replace function public\.(\w+)\(/g)].map((m) => m[1]);
-    expect(rpcs.sort()).toEqual(['betriebsstatus_setzen', 'frist_setzen', 'geraet_anlegen', 'geraet_verschieben', 'mitglied_speichern']);
-    for (const r of rpcs) {
+    expect(rpcs.sort()).toEqual(['benutzer_id_fuer_email', 'betriebsstatus_setzen', 'frist_setzen', 'geraet_anlegen', 'geraet_verschieben', 'mitglied_speichern']);
+    for (const r of rpcs.filter((x) => x !== 'benutzer_id_fuer_email')) {
       const kopf = klein2.split(`create or replace function public.${r}(`)[1].split('$$')[0];
       expect(kopf, r).toContain('security invoker');
       expect(kopf, r).not.toContain('security definer');
     }
     expect(klein2).toMatch(/grant execute on function public\.geraet_anlegen\(jsonb, jsonb\)[^;]*to authenticated/);
+  });
+
+  it('Konto-Suche per E-Mail nur für service_role', () => {
+    expect(klein2).toContain('revoke all on function public.benutzer_id_fuer_email(text) from public, anon, authenticated');
+    expect(klein2).toContain('grant execute on function public.benutzer_id_fuer_email(text) to service_role;');
+    expect(klein2).not.toMatch(/benutzer_id_fuer_email\(text\) to authenticated/);
   });
 
   it('Hilfsfunktionen prüfen aktive Mitgliedschaft', () => {

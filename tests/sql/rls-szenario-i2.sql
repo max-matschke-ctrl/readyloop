@@ -159,6 +159,12 @@ select 'Letzter aktiver Admin nicht deaktivierbar (erw. FEHLER): ' || t($$update
 select 'Letzter aktiver Admin nicht herabstufbar (erw. FEHLER): ' || t($$update mitgliedschaft set rolle='sifa' where id='00000000-0000-0000-0000-0000000000d7'$$);
 set role authenticated;
 
+\echo '== Einladung'
+select 'Client darf Konten nicht per E-Mail suchen (erw. FEHLER): ' || t($$select benutzer_id_fuer_email('prf')$$);
+reset role;
+select 'Service findet Konto per E-Mail (erw. 44444444-4444-4444-4444-444444444444): ' || coalesce(benutzer_id_fuer_email(' PRF ')::text, '-');
+set role authenticated;
+
 \echo '== Verschieben als Admin'
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 select 'ADM verschiebt Lager → Produktion (erw. OK 1): ' || t($$select geraet_verschieben('00000000-0000-0000-0000-0000000000e1','00000000-0000-0000-0000-0000000000c2','Umzug Halle 2')$$);

@@ -9,8 +9,12 @@ import {
   SPALTEN,
   nachweisPfad,
   pgFehlerText,
+  vonBereich,
   vonFrist,
+  vonGbuDokument,
   vonGeraet,
+  vonMangel,
+  vonMitgliedschaft,
   vonNachweis,
   zuAnlass,
   zuBenutzer,
@@ -51,7 +55,22 @@ export function pruefe<T>(antwort: { data: T; error: PgFehler | null }, kontext:
   return antwort.data;
 }
 
-export function supabaseRepository(client: SupabaseClient, organisationId: Id | null): Repository {
+export interface SupabaseRepositoryOptionen {
+  /** Einladung per Service-Role (Standard: src/server/supabase/admin.ts); für Tests ersetzbar. */
+  einladen?: Repository['ladeBenutzerEin'];
+}
+
+async function standardEinladen(daten: { email: string; name: string }) {
+  const { ladeBenutzerEinPerServiceRole } = await import('../../supabase/admin');
+  return ladeBenutzerEinPerServiceRole(daten);
+}
+
+export function supabaseRepository(
+  client: SupabaseClient,
+  organisationId: Id | null,
+  optionen: SupabaseRepositoryOptionen = {},
+): Repository {
+  const einladen = optionen.einladen ?? standardEinladen;
   const liste = async <Z>(tabelle: string, spalten: string, filter: [string, unknown][] = []): Promise<Z[]> => {
     let q = client.from(tabelle).select(spalten);
     for (const [s, w] of filter) q = q.eq(s, w);
@@ -73,8 +92,11 @@ export function supabaseRepository(client: SupabaseClient, organisationId: Id | 
     const bereiche = await bereichIdsVon(zeilen.map((z) => z.id));
     return zeilen.map((z) => zuMitgliedschaft(z, bereiche.get(z.id) ?? []));
   };
-  const nichtImplementiert = (): never => {
-    throw new Error('nicht implementiert (BE-14)');
+  /** UPDATE einer Zeile; 0 betroffene Zeilen = nicht sichtbar oder keine Berechtigung (RLS). */
+  const aendere = async (tabelle: string, id: Id, werte: Record<string, unknown>) => {
+    const antwort = await client.from(tabelle).update(werte, { count: 'exact' }).eq('id', id);
+    pruefe(antwort, `${tabelle} ändern`);
+    if (antwort.count === 0) throw new RepositoryFehler(pgFehlerText('42501'), '42501');
   };
 
   return {
@@ -216,16 +238,98 @@ export function supabaseRepository(client: SupabaseClient, organisationId: Id | 
     },
 
     // ------------------------------------------------------------ Schreiben I2 (BE-14)
-    speichereBereich: nichtImplementiert,
-    ladeBenutzerEin: nichtImplementiert,
-    speichereMitgliedschaft: nichtImplementiert,
-    setzePruefer: nichtImplementiert,
-    setzeGbuDokument: nichtImplementiert,
-    verschiebeGeraet: nichtImplementiert,
-    setzeBetriebsstatus: nichtImplementiert,
-    erfasseAnlaesse: nichtImplementiert,
-    hebeAnlassAuf: nichtImplementiert,
-    erfasseMangel: nichtImplementiert,
-    aktualisiereMangel: nichtImplementiert,
+    async speichereBereich({ bereich, neu }) {
+      if (neu) {
+        let standortId = bereich.standortId;
+        if (!standortId) {
+          const [s] = await liste<{ id: Id }>('standort', 'id', [['organisation_id', bereich.organisationId]]);
+          if (!s) throw new RepositoryFehler('Für die Organisation ist kein Standort angelegt.');
+          standortId = s.id;
+        }
+        pruefe(await client.from('bereich').insert(vonBereich({ ...bereich, standortId })), 'bereich anlegen');
+      } else {
+        await aendere('bereich', bereich.id, { name: bereich.name, einsatzort: bereich.einsatzort });
+      }
+    },
+    async ladeBenutzerEin(daten) {
+      return einladen(daten);
+    },
+    /** RPC mitglied_speichern: Mitgliedschaft + Bereichsmenge atomar; Ereignis mitglied_gespeichert per Trigger. */
+    async speichereMitgliedschaft({ mitgliedschaft, benutzer, ereignis }) {
+      pruefe(
+        await client.rpc('mitglied_speichern', {
+          p_mitgliedschaft: { ...vonMitgliedschaft(mitgliedschaft, benutzer), eingeladen: ereignis.daten.eingeladen === true },
+          p_bereich_ids: mitgliedschaft.bereichIds,
+        }),
+        'mitglied_speichern',
+      );
+    },
+    async setzePruefer({ pruefartId, prueferId }) {
+      await aendere('geraet_pruefart', pruefartId, { zugewiesener_pruefer_id: prueferId });
+    },
+    async setzeGbuDokument({ pruefartId, gbuDokument }) {
+      await aendere('geraet_pruefart', pruefartId, vonGbuDokument(gbuDokument));
+    },
+    async verschiebeGeraet({ geraetId, bereichId, begruendung }) {
+      pruefe(await client.rpc('geraet_verschieben', { p_geraet: geraetId, p_bereich: bereichId, p_begruendung: begruendung }), 'geraet_verschieben');
+    },
+    async setzeBetriebsstatus({ geraetId, betriebsstatus, begruendung }) {
+      pruefe(
+        await client.rpc('betriebsstatus_setzen', { p_geraet: geraetId, p_status: betriebsstatus, p_begruendung: begruendung }),
+        'betriebsstatus_setzen',
+      );
+    },
+    /** Ein INSERT mit n Zeilen (eine Transaktion); Erfasser stempelt der Trigger. */
+    async erfasseAnlaesse({ anlaesse }) {
+      if (anlaesse.length === 0) return;
+      const zeilen = anlaesse.map((a) => ({
+        id: a.id,
+        organisation_id: a.organisationId,
+        geraet_id: a.geraetId,
+        geraet_pruefart_id: a.geraetPruefartId,
+        art: a.art,
+        datum: a.datum,
+        beschreibung: a.beschreibung,
+        erfasst_von: a.erfasstVon,
+      }));
+      pruefe(await client.from('anlass').insert(zeilen), 'anlass erfassen');
+    },
+    /** Nur die Begründung; aufgehoben_von/_name/_am stempelt der Trigger (einmalig). */
+    async hebeAnlassAuf({ anlass }) {
+      await aendere('anlass', anlass.id, { aufhebungsgrund: anlass.aufhebungsgrund });
+    },
+    async erfasseMangel({ mangel }) {
+      const z = vonMangel(mangel);
+      pruefe(
+        await client.from('mangel').insert({
+          id: z.id,
+          organisation_id: z.organisation_id,
+          geraet_id: z.geraet_id,
+          geraet_pruefart_id: z.geraet_pruefart_id,
+          nachweis_id: z.nachweis_id,
+          beschreibung: z.beschreibung,
+          schwere: z.schwere,
+          termin: z.termin,
+          verantwortlich_id: z.verantwortlich_id,
+          erfasst_von: z.erfasst_von,
+        }),
+        'mangel erfassen',
+      );
+    },
+    /** Nur Übergänge F-14; Kenntnis- und Behebungs-Stempel setzt der Trigger. */
+    async aktualisiereMangel({ mangel }) {
+      if (mangel.status === 'in_bearbeitung') {
+        await aendere('mangel', mangel.id, { status: 'in_bearbeitung', verantwortlich_id: mangel.verantwortlichId, termin: mangel.termin });
+      } else if (mangel.status === 'behoben') {
+        await aendere('mangel', mangel.id, {
+          status: 'behoben',
+          behoben_am: mangel.behobenAm,
+          behoben_durch: mangel.behobenDurch,
+          behebung: mangel.behebung,
+        });
+      } else {
+        throw new RepositoryFehler('Statusübergang nicht erlaubt.', '23514');
+      }
+    },
   };
 }
