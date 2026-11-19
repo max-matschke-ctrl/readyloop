@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 type SuchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const FEHLER_TEXT: Record<string, string> = {
-  link: 'Der Link ist ungültig oder abgelaufen. Bitte fordern Sie einen neuen Link an.',
+  link: 'Der Link ist ungültig oder abgelaufen. Bitte neu anfordern.',
 };
 
 export default async function LoginSeite({ searchParams }: { searchParams: SuchParams }) {
@@ -30,7 +30,7 @@ export default async function LoginSeite({ searchParams }: { searchParams: SuchP
       <p className="mt-1 text-sm text-steel">Prüffristen für Arbeitsmittel. Nachweise griffbereit.</p>
       <div className="karte mt-6 space-y-4 p-5">
         <h2 className="text-lg font-semibold">Anmelden</h2>
-        {fehler && modus !== 'unkonfiguriert' && (
+        {fehler && (
           <p role="alert" className="rounded border border-brick/50 bg-brick/10 px-3 py-2 text-sm">
             <span aria-hidden="true" className="mr-1 font-bold">
               ✕

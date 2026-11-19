@@ -12,6 +12,7 @@ import {
 } from '@/domain/types';
 import { FristFreigabeForm } from './FristFreigabeForm';
 import { GbuVerweisForm } from './GbuVerweisForm';
+import { PrueferDeaktiviertHinweis } from './PrueferDeaktiviertHinweis';
 import { PrueferZuweisungForm } from './PrueferZuweisungForm';
 import { Pruefplakette } from './Pruefplakette';
 import { StatusAmpel } from './StatusAmpel';
@@ -235,7 +236,16 @@ export function PruefartKarte({ ansicht, darfFreigeben, darfNachweisErfassen, da
             )}
           </Zeile>
           <Zeile titel="Prüfer">
-            {ansicht.zugewiesenerPrueferName ?? <span className="text-steel">nicht zugewiesen</span>}
+            {pruefart.zugewiesenerPrueferId === null ? (
+              <span className="text-steel">nicht zugewiesen</span>
+            ) : ansicht.zugewiesenerPrueferAktiv ? (
+              ansicht.zugewiesenerPrueferName
+            ) : (
+              <>
+                <span className="text-steel line-through decoration-steel/60">{ansicht.zugewiesenerPrueferName ?? 'Unbekannter Prüfer'}</span>
+                <PrueferDeaktiviertHinweis name={null} className="mt-1" />
+              </>
+            )}
             {katalogEintrag && katalogEintrag.prueferTypen.length > 0 && (
               <span className="block text-xs text-steel">
                 Qualifikation: {katalogEintrag.prueferTypen.map((t) => PRUEFER_TYP_LABEL[t]).join(' oder ')}
@@ -336,6 +346,7 @@ export function PruefartKarte({ ansicht, darfFreigeben, darfNachweisErfassen, da
             optionen={prueferOptionen}
             aktuellId={pruefart.zugewiesenerPrueferId}
             aktuellName={ansicht.zugewiesenerPrueferName}
+            aktuellDeaktiviert={pruefart.zugewiesenerPrueferId !== null && !ansicht.zugewiesenerPrueferAktiv}
             gefordert={katalogEintrag ? katalogEintrag.prueferTypen : null}
           />
         </section>

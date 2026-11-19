@@ -5,24 +5,36 @@ import { qualifikationsWarnung } from '@/domain/qualifikation';
 import type { PrueferOption, PrueferTyp } from '@/domain/types';
 import { prueferZuweisen } from '@/server/actions';
 import { ActionMeldung, FeldFehler, feldProps, useFormularAction } from './formular';
+import { PrueferDeaktiviertHinweis } from './PrueferDeaktiviertHinweis';
 
 interface Props {
   geraetPruefartId: string;
   optionen: PrueferOption[];
   aktuellId: string | null;
   aktuellName: string | null;
+  /** Review I2 (Befund 2): zugewiesener Prüfer ist deaktiviert (fehlt in optionen). */
+  aktuellDeaktiviert?: boolean;
   /** Vom Katalogeintrag geforderte Typen; null = kein Eintrag → keine Warnung (F-15). */
   gefordert: readonly PrueferTyp[] | null;
 }
 
 /** F-15: Warnung vor dem Speichern, blockiert nicht. Der Server prüft Recht und Rolle des Prüfers. */
-export function PrueferZuweisungForm({ geraetPruefartId, optionen, aktuellId, aktuellName, gefordert }: Props) {
+export function PrueferZuweisungForm({
+  geraetPruefartId,
+  optionen,
+  aktuellId,
+  aktuellName,
+  aktuellDeaktiviert = false,
+  gefordert,
+}: Props) {
   const { state, formAction, pending, onSubmit } = useFormularAction(prueferZuweisen);
   const [wahl, setWahl] = useState(aktuellId ?? '');
   const gewaehlt = optionen.find((o) => o.benutzerId === wahl);
   const warnung = gewaehlt ? qualifikationsWarnung(gewaehlt.prueferTypen, gefordert) : null;
   const aktuellFehlt = aktuellId !== null && !optionen.some((o) => o.benutzerId === aktuellId);
   const feldId = `pruefer-${geraetPruefartId}`;
+  const hinweisId = `${feldId}-deaktiviert`;
+  const fp = feldProps(state, 'prueferId');
 
   return (
     <form action={formAction} onSubmit={onSubmit} className="space-y-2">
@@ -30,6 +42,11 @@ export function PrueferZuweisungForm({ geraetPruefartId, optionen, aktuellId, ak
       <label htmlFor={feldId} className="label">
         Prüfer zuweisen
       </label>
+      {aktuellDeaktiviert && (
+        <div id={hinweisId}>
+          <PrueferDeaktiviertHinweis name={aktuellName} />
+        </div>
+      )}
       <div className="flex flex-wrap items-start gap-2">
         <select
           id={feldId}
@@ -37,12 +54,13 @@ export function PrueferZuweisungForm({ geraetPruefartId, optionen, aktuellId, ak
           value={wahl}
           onChange={(e) => setWahl(e.currentTarget.value)}
           className="feld sm:w-72"
-          {...feldProps(state, 'prueferId')}
+          {...fp}
+          aria-describedby={[fp['aria-describedby'], aktuellDeaktiviert ? hinweisId : undefined].filter(Boolean).join(' ') || undefined}
         >
           <option value="">– nicht zugewiesen –</option>
           {aktuellFehlt && (
             <option value={aktuellId} disabled>
-              {aktuellName ?? 'Bisheriger Prüfer'} (nicht mehr zuweisbar)
+              {aktuellName ?? 'Bisheriger Prüfer'} {aktuellDeaktiviert ? '(deaktiviert)' : '(nicht mehr zuweisbar)'}
             </option>
           )}
           {optionen.map((o) => (
