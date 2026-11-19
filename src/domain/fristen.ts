@@ -180,3 +180,11 @@ export function legeFristFest(
   };
   return { ok: true, frist };
 }
+
+/** F-13: Richtung einer Neufestlegung gegenüber der bisherigen Frist. */
+export function fristRichtung(altMonate: number | null, neuMonate: number): 'erstmalig' | 'kuerzer' | 'laenger' | 'gleich' {
+  if (altMonate === null) return 'erstmalig';
+  if (neuMonate < altMonate) return 'kuerzer';
+  if (neuMonate > altMonate) return 'laenger';
+  return 'gleich';
+}

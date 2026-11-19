@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ermittleFristVorschlag, legeFristFest, waehleKatalogEintrag, wirksamerEinsatzort } from './fristen';
+import { ermittleFristVorschlag, fristRichtung, legeFristFest, waehleKatalogEintrag, wirksamerEinsatzort } from './fristen';
 import type { Einsatzort, FristVorschlag, GeraetPruefart, KatalogEintrag } from './types';
 
 let zaehler = 0;
@@ -200,4 +200,11 @@ describe('legeFristFest (F-4)', () => {
     expect(legeFristFest(gbu(121), c).ok).toBe(false);
     expect(legeFristFest(gbu(1.5), c).ok).toBe(false);
   });
+});
+
+describe('fristRichtung (F-13)', () => {
+  it('null → erstmalig', () => expect(fristRichtung(null, 12)).toBe('erstmalig'));
+  it('12 → 6 kuerzer', () => expect(fristRichtung(12, 6)).toBe('kuerzer'));
+  it('12 → 24 laenger', () => expect(fristRichtung(12, 24)).toBe('laenger'));
+  it('12 → 12 gleich', () => expect(fristRichtung(12, 12)).toBe('gleich'));
 });

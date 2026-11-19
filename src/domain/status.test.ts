@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { berechneStatus, gesamtStatus, naechsteFaelligkeit, prueferGruppe, statusRang } from './status';
+import { berechneStatus, berechneStatusImKontext, gesamtStatus, naechsteFaelligkeit, prueferGruppe, statusRang } from './status';
 import type { FestgelegteFrist } from './types';
 
 const frist = (monate: number): FestgelegteFrist => ({
@@ -109,5 +109,75 @@ describe('statusRang', () => {
     const liste = ['ok', 'bald_faellig', 'gbu'] as const;
     const min = [...liste].sort((a, b) => statusRang(a) - statusRang(b))[0];
     expect(gesamtStatus(liste)).toBe(min);
+  });
+});
+
+describe('berechneStatusImKontext (F-9)', () => {
+  const normal = { betriebsstatus: 'in_betrieb', anlassOffen: false, nichtBestanden: false } as const;
+  const okPruefart = { frist: frist(12), letztePruefung: '2026-06-01' }; // fällig 2027-06-01 → ok
+
+  it('offener Anlass + ok → vor_nutzung_pruefen/anlass, faelligAm bleibt', () => {
+    const r = berechneStatusImKontext(okPruefart, HEUTE, { ...normal, anlassOffen: true });
+    expect(r).toMatchObject({ status: 'vor_nutzung_pruefen', grund: 'anlass', faelligAm: '2027-06-01' });
+    expect(r.restTage).toBe(194);
+  });
+  it('letzter Nachweis nicht bestanden → vor_nutzung_pruefen/nicht_bestanden', () => {
+    expect(berechneStatusImKontext(okPruefart, HEUTE, { ...normal, nichtBestanden: true })).toMatchObject({
+      status: 'vor_nutzung_pruefen',
+      grund: 'nicht_bestanden',
+    });
+  });
+  it('Anlass ohne Frist → vor_nutzung_pruefen (nicht gbu)', () => {
+    expect(berechneStatusImKontext({ frist: null, letztePruefung: null }, HEUTE, { ...normal, anlassOffen: true })).toEqual({
+      status: 'vor_nutzung_pruefen',
+      faelligAm: null,
+      restTage: null,
+      grund: 'anlass',
+    });
+  });
+  it('außer Betrieb + Resttage −1 → vor_nutzung_pruefen/ausser_betrieb', () => {
+    const r = berechneStatusImKontext({ frist: frist(12), letztePruefung: '2025-11-18' }, HEUTE, {
+      ...normal,
+      betriebsstatus: 'ausser_betrieb',
+    });
+    expect(r).toEqual({ status: 'vor_nutzung_pruefen', faelligAm: '2026-11-18', restTage: -1, grund: 'ausser_betrieb' });
+  });
+  it('außer Betrieb + Resttage 10 → bald_faellig', () => {
+    const r = berechneStatusImKontext({ frist: frist(12), letztePruefung: '2025-11-29' }, HEUTE, {
+      ...normal,
+      betriebsstatus: 'ausser_betrieb',
+    });
+    expect(r).toMatchObject({ status: 'bald_faellig', restTage: 10 });
+    expect(r.grund).toBeUndefined();
+  });
+  it('außer Betrieb + unbekannt → unbekannt', () => {
+    expect(
+      berechneStatusImKontext({ frist: frist(12), letztePruefung: null }, HEUTE, { ...normal, betriebsstatus: 'ausser_betrieb' }).status,
+    ).toBe('unbekannt');
+  });
+  it('ohne Kontext-Abweichung identisch zu berechneStatus', () => {
+    const faelle = [
+      { frist: null, letztePruefung: null },
+      { frist: frist(12), letztePruefung: null },
+      { frist: frist(12), letztePruefung: '2025-11-18' },
+      { frist: frist(12), letztePruefung: '2025-11-29' },
+      okPruefart,
+    ];
+    for (const f of faelle) expect(berechneStatusImKontext(f, HEUTE, normal)).toEqual(berechneStatus(f, HEUTE));
+  });
+});
+
+describe('gesamtStatus mit gefährlichem Mangel (F-9)', () => {
+  it("['vor_nutzung_pruefen','ueberfaellig'] → ueberfaellig", () => {
+    expect(gesamtStatus(['vor_nutzung_pruefen', 'ueberfaellig'])).toBe('ueberfaellig');
+  });
+  it("['ok'] + gefährlicher Mangel → vor_nutzung_pruefen", () => {
+    expect(gesamtStatus(['ok'], true)).toBe('vor_nutzung_pruefen');
+  });
+  it('[] + gefährlicher Mangel → vor_nutzung_pruefen', () => {
+    expect(gesamtStatus([], true)).toBe('vor_nutzung_pruefen');
+  });
+  it('überfällig bleibt überfällig trotz Mangel', () => {
+    expect(gesamtStatus(['ueberfaellig'], true)).toBe('ueberfaellig');
   });
 });

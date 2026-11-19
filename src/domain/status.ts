@@ -1,7 +1,7 @@
 // Vertrag §3.4/§5.7 – Statusampel (F-5, F-6; Rangfolge F-9 über FRIST_STATUS).
 import { addMonate, tageZwischen } from './datum';
 import { FRIST_STATUS } from './types';
-import type { FristStatus, GeraetPruefart, IsoDate, StatusErgebnis } from './types';
+import type { Betriebsstatus, FristStatus, GeraetPruefart, IsoDate, StatusErgebnis } from './types';
 
 export const VORLAUF_TAGE = 30;
 
@@ -19,10 +19,41 @@ export function berechneStatus(
   return { status, faelligAm, restTage };
 }
 
-/** F-6/F-9: schlechtester Status nach FRIST_STATUS (ueberfaellig > vor_nutzung_pruefen > …); leere Liste → gbu. */
-export function gesamtStatus(status: readonly FristStatus[]): FristStatus {
-  if (status.length === 0) return 'gbu';
-  return status.reduce((schlechtester, s) =>
+export interface StatusKontext {
+  betriebsstatus: Betriebsstatus;
+  anlassOffen: boolean;
+  nichtBestanden: boolean; // letzter Nachweis der Prüfart 'nicht_bestanden'
+}
+
+/**
+ * F-9: erste zutreffende Regel – offener Anlass, nicht bestanden (beide vor_nutzung_pruefen), keine Frist (gbu),
+ * kein Datum (unbekannt), abgelaufen (außer Betrieb → vor_nutzung_pruefen, sonst ueberfaellig), bald fällig, ok.
+ * faelligAm/restTage werden berechnet, sobald Frist und Datum vorliegen. Ohne Kontext-Abweichung = berechneStatus.
+ */
+export function berechneStatusImKontext(
+  pruefart: Pick<GeraetPruefart, 'frist' | 'letztePruefung'>,
+  heute: IsoDate,
+  kontext: StatusKontext,
+  vorlaufTage: number = VORLAUF_TAGE,
+): StatusErgebnis {
+  const basis = berechneStatus(pruefart, heute, vorlaufTage);
+  const termin = { faelligAm: basis.faelligAm, restTage: basis.restTage };
+  if (kontext.anlassOffen) return { status: 'vor_nutzung_pruefen', ...termin, grund: 'anlass' };
+  if (kontext.nichtBestanden) return { status: 'vor_nutzung_pruefen', ...termin, grund: 'nicht_bestanden' };
+  if (basis.status === 'ueberfaellig' && kontext.betriebsstatus === 'ausser_betrieb') {
+    return { status: 'vor_nutzung_pruefen', ...termin, grund: 'ausser_betrieb' };
+  }
+  return basis;
+}
+
+/**
+ * F-6/F-9: schlechtester Status nach FRIST_STATUS (ueberfaellig > vor_nutzung_pruefen > …); leere Liste → gbu.
+ * Offener gefährlicher Mangel hebt auf mindestens vor_nutzung_pruefen.
+ */
+export function gesamtStatus(status: readonly FristStatus[], gefaehrlicherMangelOffen = false): FristStatus {
+  const liste: FristStatus[] = gefaehrlicherMangelOffen ? [...status, 'vor_nutzung_pruefen'] : [...status];
+  if (liste.length === 0) return 'gbu';
+  return liste.reduce((schlechtester, s) =>
     FRIST_STATUS.indexOf(s) < FRIST_STATUS.indexOf(schlechtester) ? s : schlechtester,
   );
 }
