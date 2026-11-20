@@ -2,53 +2,25 @@
 
 import { PASSWORT_MIN } from '@/domain/schemas';
 import { passwortSetzen } from '@/server/actions';
-import { ActionMeldung, FeldFehler, feldProps, useFormularAction } from './formular';
+import { AbsendenButton, ActionMeldung, FeldGruppe, Fehleruebersicht, useFormularAction } from './formular';
 
 export function PasswortNeuForm() {
   const { state, formAction, pending, onSubmit } = useFormularAction(passwortSetzen);
 
   return (
     <form action={formAction} onSubmit={onSubmit} className="space-y-4" noValidate>
-      <div>
-        <label htmlFor="pw-neu" className="label">
-          Neues Passwort
-        </label>
-        <input
-          id="pw-neu"
-          name="passwort"
-          type="password"
-          autoComplete="new-password"
-          minLength={PASSWORT_MIN}
-          maxLength={72}
-          required
-          className="feld"
-          {...feldProps(state, 'passwort')}
-          aria-describedby={['pw-neu-hinweis', feldProps(state, 'passwort')['aria-describedby']].filter(Boolean).join(' ')}
-        />
-        <p id="pw-neu-hinweis" className="mt-1 text-xs text-steel">
-          Mindestens {PASSWORT_MIN} Zeichen.
-        </p>
-        <FeldFehler state={state} feld="passwort" />
-      </div>
-      <div>
-        <label htmlFor="pw-wdh" className="label">
-          Passwort wiederholen
-        </label>
-        <input
-          id="pw-wdh"
-          name="passwortWiederholung"
-          type="password"
-          autoComplete="new-password"
-          required
-          className="feld"
-          {...feldProps(state, 'passwortWiederholung')}
-        />
-        <FeldFehler state={state} feld="passwortWiederholung" />
-      </div>
+      <Fehleruebersicht
+        state={state}
+        felder={{ passwort: { id: 'pw-neu', label: 'Neues Passwort' }, passwortWiederholung: { id: 'pw-wdh', label: 'Passwort wiederholen' } }}
+      />
+      <FeldGruppe id="pw-neu" feld="passwort" label="Neues Passwort" hilfe={`Mindestens ${PASSWORT_MIN} Zeichen.`} state={state}>
+        {(p) => <input {...p} name="passwort" type="password" autoComplete="new-password" minLength={PASSWORT_MIN} maxLength={72} required className="feld" />}
+      </FeldGruppe>
+      <FeldGruppe id="pw-wdh" feld="passwortWiederholung" label="Passwort wiederholen" state={state}>
+        {(p) => <input {...p} name="passwortWiederholung" type="password" autoComplete="new-password" required className="feld" />}
+      </FeldGruppe>
       <ActionMeldung state={state} />
-      <button type="submit" className="btn btn-primaer" disabled={pending}>
-        {pending ? 'Wird gespeichert …' : 'Passwort speichern'}
-      </button>
+      <AbsendenButton pending={pending}>Passwort speichern</AbsendenButton>
     </form>
   );
 }

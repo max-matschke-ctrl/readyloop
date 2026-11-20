@@ -97,6 +97,22 @@ h3 {
   }
 }
 
+/* §4.4: der einzige Bewegungsmoment – Live-Plakette auf /login füllt sich einmal bis zum aktuellen Monat. */
+@keyframes plakette-fuellen {
+  from {
+    fill: color-mix(in srgb, var(--color-steel) 14%, white);
+  }
+}
+.plakette-live-segment {
+  animation: plakette-fuellen 120ms var(--ease-standard) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .plakette-live-segment {
+    animation: none;
+  }
+}
+
 @layer components {
   /* Eingabefeld (§6.10): Rahmen steel-400 (3,6:1, WCAG 1.4.11), Fehler brick 2 px. */
   .feld {

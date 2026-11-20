@@ -10,7 +10,7 @@ interface Props {
   /** Genau eine Aktion (Button oder Link). */
   aktion?: ReactNode;
   /** Überschriftenebene im Dokument; die Optik ist immer h3 (§3.2). */
-  ebene?: 'h2' | 'h3';
+  ebene?: 'h1' | 'h2' | 'h3';
   groesse?: 64 | 96;
   className?: string;
 }
