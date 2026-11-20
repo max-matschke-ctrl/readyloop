@@ -13,6 +13,7 @@ import {
 } from '@/domain/types';
 import { mitgliedAendern, mitgliedEinladen } from '@/server/actions';
 import { BestaetigungsDialog } from './BestaetigungsDialog';
+import { EmailHinweisMitarbeiter } from './MitarbeiterEinladenForm';
 import { Meldung } from './Meldung';
 import {
   AbsendenButton,
@@ -31,6 +32,7 @@ const ROLLE_HILFE: Partial<Record<Rolle, string>> = {
   sifa: 'Alle Bereiche, Fristen freigeben, Anlässe und Mängel.',
   verantwortlicher: 'Nur zugeordnete Bereiche: Geräte, Fristen, Nachweise, Mängel.',
   pruefer: 'Nur zugewiesene Prüfarten: Nachweise und Mängel erfassen.',
+  mitarbeiter: 'Eigene Geräte sehen, wechselnde Geräte übernehmen, Mängel melden.',
 };
 
 interface Props {
@@ -225,6 +227,8 @@ function MitgliedFormInnen({ bereiche, mitglied, weitere }: Props & { weitere: (
           <FeldFehler state={state} feld="aktiv" />
         </div>
       )}
+
+      {neu && rolle === 'mitarbeiter' && <EmailHinweisMitarbeiter />}
 
       {neu && (
         <Meldung art="hinweis" text="Hat die Person bereits ein Konto, z. B. als Prüfer anderer Betriebe, wird nur der Zugang angelegt.">
