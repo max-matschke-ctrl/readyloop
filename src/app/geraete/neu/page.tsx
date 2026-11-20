@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
 import { GeraetAnlegenForm } from '@/components/GeraetAnlegenForm';
+import { Leerzustand } from '@/components/Leerzustand';
+import { Seitenkopf } from '@/components/Seitenkopf';
 import { erfordereSitzung, heute, listeBereiche, listeGeraetegruppen } from '@/server/data';
 
 export const metadata: Metadata = { title: 'Gerät anlegen' };
@@ -14,15 +15,18 @@ export default async function GeraetNeuSeite() {
   return (
     <>
       <AppHeader sitzung={sitzung} aktiv="geraete" />
-      <main className="mx-auto max-w-4xl space-y-5 px-4 py-6">
-        <p className="text-sm">
-          <Link href="/geraete" className="link">
-            ← Geräteliste
-          </Link>
-        </p>
-        <h1 className="text-2xl font-bold">Gerät anlegen</h1>
+      <main className="mx-auto max-w-6xl space-y-8 px-4 py-6 md:px-6 xl:px-8">
+        <Seitenkopf
+          pfad={[{ label: 'Geräte', href: '/geraete' }, { label: 'Gerät anlegen' }]}
+          titel="Gerät anlegen"
+          kontext="Stammdaten erfassen und Prüfarten aus dem Prüfkatalog übernehmen."
+        />
         {bereiche.length === 0 ? (
-          <p className="karte px-4 py-6 text-sm">Kein Bereich verfügbar. Ein Admin muss Ihnen zuerst einen Bereich zuordnen.</p>
+          <Leerzustand
+            art="fehler"
+            titel="Kein Bereich verfügbar."
+            text="Geräte gehören immer zu einem Bereich. Bitten Sie den Admin, Ihnen einen Bereich zuzuordnen."
+          />
         ) : (
           <GeraetAnlegenForm bereiche={bereiche} gruppen={gruppen} heute={heute()} />
         )}
