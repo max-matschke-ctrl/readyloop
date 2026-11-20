@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { istTokenFormat } from '@/domain/nutzung';
 import { DEMO_BENUTZER_IDS, DEMO_ORG2_ID, DEMO_ORG_ID, DEMO_ROLLE_BENUTZER } from '@/server/repo/demo/daten';
 import { erzeugeDemoRepository, type DemoRepository } from '@/server/repo/demo/repository';
+import { alleUebernahmen } from './hilfen/demo-stand';
 
 const HEUTE = '2026-11-19';
 let repo: DemoRepository;
@@ -32,12 +33,12 @@ describe('Demo-Daten I3M', () => {
   it('Jonas hat 1 Zuordnung (P-008) und 2 offene Übernahmen (L-002, L-008)', async () => {
     const zugeordnet = (await repo.listeGeraete(DEMO_ORG_ID)).filter((g) => g.zugeordnetAn === DEMO_BENUTZER_IDS.jonas);
     expect(zugeordnet.map((g) => g.inventarnummer)).toEqual(['P-008']);
-    const offen = (await repo.listeUebernahmen(DEMO_ORG_ID)).filter((u) => u.bis === null && u.benutzerId === DEMO_BENUTZER_IDS.jonas);
+    const offen = (await alleUebernahmen(repo, DEMO_ORG_ID)).filter((u) => u.bis === null && u.benutzerId === DEMO_BENUTZER_IDS.jonas);
     expect(offen.map((u) => u.geraetId).sort()).toEqual([await idVon('L-002'), await idVon('L-008')].sort());
   });
 
   it('abgeschlossene Übernahmen: L-006 Aylin (rueckgabe), P-004 pseudonymisiert', async () => {
-    const u = await repo.listeUebernahmen(DEMO_ORG_ID);
+    const u = await alleUebernahmen(repo, DEMO_ORG_ID);
     const l006 = u.find((x) => x.bis !== null && x.benutzerId === DEMO_BENUTZER_IDS.aylin);
     expect(l006).toMatchObject({ endeArt: 'rueckgabe', benutzerName: 'Aylin Demir', geraetId: await idVon('L-006') });
     const p004 = u.find((x) => x.benutzerId === null);
@@ -53,25 +54,28 @@ describe('Demo-Daten I3M', () => {
         expect(istTokenFormat(aktiv[0].token)).toBe(true);
       }
     }
-    expect((await repo.holeTokenRohdaten('demoL001xxxxxxxxxxxxxx'))?.geraet.bezeichnung).toBe('Gabelstapler Linde H25');
-    expect((await repo.holeTokenRohdaten('demoM001xxxxxxxxxxxxxx'))?.organisationName).toBe('Muster Metallbau GmbH');
-    expect(await repo.holeTokenRohdaten('demoL001altxxxxxxxxxxx')).toBeNull();
-    expect(await repo.holeTokenRohdaten('unbekannt0000000000000')).toBeNull();
+    expect((await repo.holeTokenRohdaten('demoL001xxxxxxxxxxxxxx', null))?.geraet.bezeichnung).toBe('Gabelstapler Linde H25');
+    expect((await repo.holeTokenRohdaten('demoM001xxxxxxxxxxxxxx', null))?.organisationName).toBe('Muster Metallbau GmbH');
+    expect(await repo.holeTokenRohdaten('demoL001altxxxxxxxxxxx', null)).toBeNull();
+    expect(await repo.holeTokenRohdaten('unbekannt0000000000000', null)).toBeNull();
   });
 });
 
 describe('Demo-Repository I3M', () => {
   it('holeTokenRohdaten enthält keine Personennamen außer dem Prüfernamen des neuesten Nachweises', async () => {
-    const roh = (await repo.holeTokenRohdaten('demoL008xxxxxxxxxxxxxx'))!;
+    const roh = (await repo.holeTokenRohdaten('demoL008xxxxxxxxxxxxxx', null))!;
     // kein Verlauf: L-008 hat zwei Nachweise, öffentlich nur der neueste
     expect(roh.nachweise).toHaveLength(1);
     expect(roh.nachweise[0].prueferName).toBe('Marco Lindner');
     // P-001: offener Anlass enthalten; L-001 ohne Anlass
-    expect((await repo.holeTokenRohdaten('demoP001xxxxxxxxxxxxxx'))!.anlaesse).toHaveLength(1);
-    expect((await repo.holeTokenRohdaten('demoL001xxxxxxxxxxxxxx'))!.anlaesse).toEqual([]);
+    expect((await repo.holeTokenRohdaten('demoP001xxxxxxxxxxxxxx', null))!.anlaesse).toHaveLength(1);
+    expect((await repo.holeTokenRohdaten('demoL001xxxxxxxxxxxxxx', null))!.anlaesse).toEqual([]);
     const text = JSON.stringify(roh);
     for (const name of ['Jonas Richter', 'Katrin Vogel', 'Dr. Jens Hartmann', 'Rutschhemmende']) expect(text).not.toContain(name);
-    expect(Object.keys(roh).sort()).toEqual(['anlaesse', 'geraet', 'nachweise', 'offeneMaengel', 'organisationName', 'pruefarten']);
+    expect(Object.keys(roh).sort()).toEqual(['anlaesse', 'eigeneOrganisation', 'geraet', 'nachweise', 'offeneMaengel', 'organisationName', 'pruefarten']);
+    expect(roh.eigeneOrganisation).toBeNull();
+    // F-24 (Review I3M): keine internen IDs in den öffentlichen Rohdaten
+    expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
   });
 
   it('listeKurzRohdaten meine/suche/ids', async () => {
@@ -93,12 +97,12 @@ describe('Demo-Repository I3M', () => {
 
   it('starteUebernahme beendet vorherige; zweite offene ohne vorherige → Fehler', async () => {
     const p003 = await idVon('P-003');
-    const alt = (await repo.listeUebernahmen(DEMO_ORG_ID, p003)).find((u) => u.bis === null)!;
+    const alt = (await alleUebernahmen(repo, DEMO_ORG_ID, p003)).find((u) => u.bis === null)!;
     const jetzt = '2026-11-19T10:00:00.000Z';
     const neu = { id: 'u-neu', organisationId: DEMO_ORG_ID, geraetId: p003, benutzerId: DEMO_BENUTZER_IDS.jonas, benutzerName: 'Jonas Richter', von: jetzt, bis: null, endeArt: null, beendetVon: null };
     await expect(repo.starteUebernahme({ uebernahme: neu, vorherige: null })).rejects.toThrow();
     await repo.starteUebernahme({ uebernahme: neu, vorherige: { ...alt, bis: jetzt, endeArt: 'uebergabe', beendetVon: DEMO_BENUTZER_IDS.jonas } });
-    const danach = await repo.listeUebernahmen(DEMO_ORG_ID, p003);
+    const danach = await alleUebernahmen(repo, DEMO_ORG_ID, p003);
     expect(danach.filter((u) => u.bis === null).map((u) => u.benutzerId)).toEqual([DEMO_BENUTZER_IDS.jonas]);
     expect(danach.find((u) => u.id === alt.id)).toMatchObject({ endeArt: 'uebergabe', bis: jetzt });
   });
@@ -111,14 +115,15 @@ describe('Demo-Repository I3M', () => {
       ereignis: { id: 'e1', organisationId: DEMO_ORG_ID, geraetId: l002, typ: 'etikett_erneuert', akteurId: 'x', akteurName: 'x', zeitpunkt: '2026-11-19T10:00:00.000Z', daten: {} },
     });
     expect(t).toBe('neuerTokenAbcdefghijkl');
-    expect(await repo.holeTokenRohdaten('demoL002xxxxxxxxxxxxxx')).toBeNull();
-    expect((await repo.holeTokenRohdaten(t))?.geraet.id).toBe(l002);
+    expect(await repo.holeTokenRohdaten('demoL002xxxxxxxxxxxxxx', null)).toBeNull();
+    expect((await repo.holeTokenRohdaten(t, null))?.eigeneOrganisation).toBeNull();
+    expect((await repo.holeTokenRohdaten(t, { benutzerId: DEMO_BENUTZER_IDS.jonas, organisationId: DEMO_ORG_ID }))?.eigeneOrganisation).toEqual({ geraetId: l002 });
   });
 
   it('loeseNutzungen: Zuordnung gelöst, offene Übernahmen austritt', async () => {
     await repo.loeseNutzungen({ organisationId: DEMO_ORG_ID, benutzerId: DEMO_BENUTZER_IDS.jonas, jetzt: '2026-11-19T10:00:00.000Z' });
     expect((await repo.holeGeraet(await idVon('P-008')))?.zugeordnetAn).toBeNull();
-    const u = (await repo.listeUebernahmen(DEMO_ORG_ID)).filter((x) => x.benutzerId === DEMO_BENUTZER_IDS.jonas);
+    const u = (await alleUebernahmen(repo, DEMO_ORG_ID)).filter((x) => x.benutzerId === DEMO_BENUTZER_IDS.jonas);
     expect(u.every((x) => x.bis !== null && x.endeArt === 'austritt')).toBe(true);
   });
 });

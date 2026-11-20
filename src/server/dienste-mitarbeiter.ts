@@ -43,8 +43,9 @@ function vergleicheNullZuerst(a: IsoDate | null, b: IsoDate | null): number {
 
 /** Kurzansicht eines Geräts der eigenen Organisation für einen Mitarbeiter, sonst null. */
 async function kurzansicht(sitzung: Sitzung, repo: Repository, heute: IsoDate, geraetId: Id): Promise<GeraetKurzansicht | null> {
+  // ma_kurzansichten liefert nur Geräte der übergebenen Organisation (SQL und Demo).
   const [roh] = await repo.listeKurzRohdaten(sitzung.organisation.id, { art: 'ids', geraetIds: [geraetId] }, sitzung.benutzer.id);
-  return roh && roh.geraet.organisationId === sitzung.organisation.id ? kurzansichtAus(roh, heute) : null;
+  return roh && roh.geraetId === geraetId ? kurzansichtAus(roh, heute) : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -99,19 +100,28 @@ export async function holeTokenSeite(
   token: string,
 ): Promise<TokenSeite | null> {
   if (!istTokenFormat(token)) return null;
-  const roh = await repo.holeTokenRohdaten(token);
+  const roh = await repo.holeTokenRohdaten(
+    token,
+    sitzung ? { benutzerId: sitzung.benutzer.id, organisationId: sitzung.organisation.id } : null,
+  );
   if (!roh) return null;
-  const { organisationName, ...rest } = roh;
+  const { organisationName, eigeneOrganisation, ...rest } = roh;
   const ansicht = { ...statusKernAus(rest, zeit.heute), organisationName, stand: zeit.jetzt.toISOString() };
-  const gleicheOrg = sitzung !== null && sitzung.organisation.id === roh.geraet.organisationId;
+  // Geräte-ID nur für aktive Mitglieder, deren aktuelle Organisation die Geräte-Organisation ist (F-24, Review I3M).
+  const gleicheOrg = sitzung !== null && eigeneOrganisation !== null;
 
   let kurz: GeraetKurzansicht | null = null;
   let akteUrl: string | null = null;
   if (gleicheOrg && istMitarbeiter(sitzung)) {
-    kurz = await kurzansicht(sitzung, repo, zeit.heute, roh.geraet.id);
+    kurz = await kurzansicht(sitzung, repo, zeit.heute, eigeneOrganisation.geraetId);
   } else if (gleicheOrg && can(sitzung.rolle, 'geraet.lesen')) {
-    const [geraet, pruefarten] = await Promise.all([repo.holeGeraet(roh.geraet.id), repo.listePruefarten(sitzung.organisation.id)]);
-    if (geraet && geraetSichtbar(sitzung, geraet, pruefarten)) akteUrl = `/geraete/${geraet.id}`;
+    const [geraet, pruefarten] = await Promise.all([
+      repo.holeGeraet(eigeneOrganisation.geraetId),
+      repo.listePruefarten(sitzung.organisation.id),
+    ]);
+    if (geraet && geraet.organisationId === sitzung.organisation.id && geraetSichtbar(sitzung, geraet, pruefarten)) {
+      akteUrl = `/geraete/${geraet.id}`;
+    }
   }
   return {
     token,
@@ -144,7 +154,7 @@ export async function geraetUebernehmen(
 
   const jetzt = zeit.jetzt.toISOString();
   // Supabase: MA sieht fremde Übernahmen nicht (RLS) – die RPC beendet sie selbst; die Demo braucht den Datensatz.
-  const offen = (await repo.listeUebernahmen(sitzung.organisation.id, k.geraetId)).find((u) => u.bis === null) ?? null;
+  const offen = (await repo.listeOffeneUebernahmen(sitzung.organisation.id, k.geraetId))[0] ?? null;
   const vorherige: Uebernahme | null =
     offen && offen.benutzerId !== sitzung.benutzer.id
       ? { ...offen, bis: jetzt, endeArt: 'uebergabe', beendetVon: sitzung.benutzer.id }
@@ -174,7 +184,7 @@ export async function geraetZurueckgeben(
   zeit: Zeit,
 ): Promise<DienstErgebnis<{ geraetId: Id }>> {
   if (!can(sitzung.rolle, 'geraet.uebernehmen') || !istMitarbeiter(sitzung)) return fehler('Keine Berechtigung.');
-  const eigene = (await repo.listeUebernahmen(sitzung.organisation.id, eingabe.geraetId)).find(
+  const eigene = (await repo.listeOffeneUebernahmen(sitzung.organisation.id, eingabe.geraetId)).find(
     (u) => u.bis === null && u.benutzerId === sitzung.benutzer.id && u.organisationId === sitzung.organisation.id,
   );
   if (!eigene) return fehler('Sie haben dieses Gerät nicht übernommen.');
@@ -194,7 +204,7 @@ export async function uebernahmeBeenden(
   if (!can(sitzung.rolle, 'geraet.zuordnen')) return fehler('Keine Berechtigung, Übernahmen zu beenden.');
   const geraet = await repo.holeGeraet(eingabe.geraetId);
   if (!geraet || !geraetImBereich(sitzung, geraet)) return fehler('Gerät nicht gefunden.');
-  const offen = (await repo.listeUebernahmen(sitzung.organisation.id, geraet.id)).find((u) => u.bis === null);
+  const offen = (await repo.listeOffeneUebernahmen(sitzung.organisation.id, geraet.id))[0];
   if (!offen) return fehler('Das Gerät ist nicht übernommen.');
   await repo.beendeUebernahme({
     uebernahme: { ...offen, bis: zeit.jetzt.toISOString(), endeArt: 'beendet_verwaltung', beendetVon: sitzung.benutzer.id },

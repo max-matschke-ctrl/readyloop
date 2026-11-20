@@ -1,4 +1,5 @@
 -- Szenario Inkrement I3M für tests/migration.test.ts (läuft nach rls-szenario.sql und rls-szenario-i2.sql).
+-- Stand: inkl. 20261129000000_review_i3m.sql (öffentliche Ansicht ohne IDs, Übernahmen nur offen direkt lesbar).
 -- Jede Zeile: "<Fall> (erw. <Erwartung>): <Ergebnis>". Spiegelt supabase/tests/rls_inkrement3m.test.sql (pgTAP, Gate G-5).
 \set ON_ERROR_STOP 1
 reset role;
@@ -46,6 +47,7 @@ insert into mangel (organisation_id, geraet_id, beschreibung, schwere, termin, v
  ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e3','Geheime Mangelbeschreibung','gering',current_date + 90,'11111111-1111-1111-1111-111111111111','11111111-1111-1111-1111-111111111111');
 select token as tok_e3 from geraet_token where geraet_id = '00000000-0000-0000-0000-0000000000e3' and aktiv \gset
 select token as tok_e5 from geraet_token where geraet_id = '00000000-0000-0000-0000-0000000000e5' and aktiv \gset
+select token as tok_e9 from geraet_token where geraet_id = '00000000-0000-0000-0000-0000000000e9' and aktiv \gset
 
 \echo '== Token (F-24)'
 select 'Jedes Gerät hat genau einen aktiven Token (erw. 0): ' || q($$select count(*) from geraet g where (select count(*) from geraet_token t where t.geraet_id = g.id and t.aktiv) <> 1$$);
@@ -81,6 +83,11 @@ select 'anon JSON ohne Personen-/Bereichsschlüssel (erw. false): ' || q(format(
 select 'anon keine Mängelbeschreibung, nur Schwere (erw. false|schwere): ' || q(format($f$select (geraet_oeffentlich(%L)::text like '%%Geheime%%')::text || '|' || (select string_agg(k, ',') from jsonb_object_keys(geraet_oeffentlich(%L) -> 'offene_maengel' -> 0) k)$f$, :'tok_e3', :'tok_e3'));
 select 'anon nur neuester Nachweis je Prüfart mit Prüfername (erw. 1|Prüfer Paul|false): ' || q(format($f$select jsonb_array_length(geraet_oeffentlich(%L) -> 'nachweise') || '|' || (geraet_oeffentlich(%L) -> 'nachweise' -> 0 ->> 'pruefer_name') || '|' || (geraet_oeffentlich(%L)::text like '%%Alter Prüfer%%')$f$, :'tok_e3', :'tok_e3', :'tok_e3'));
 select 'anon Frist mit Quelle/Stufe/Fundstelle (erw. 12|gbu|C|GBU Lager): ' || q(format($f$select f ->> 'monate' || '|' || (f ->> 'quelle') || '|' || (f ->> 'stufe') || '|' || (f ->> 'fundstelle') from (select geraet_oeffentlich(%L) -> 'pruefarten' -> 0 -> 'frist' f) x$f$, :'tok_e3'));
+select 'anon geraet-Schlüssel ohne id/organisation_id (erw. betriebsstatus,bezeichnung,hersteller,inventarnummer,kategorie,typ): ' || q(format($f$select jsonb_object_keys(geraet_oeffentlich(%L) -> 'geraet')$f$, :'tok_e3'));
+select 'anon JSON Leiter enthält keine UUID (erw. false): ' || q(format($f$select geraet_oeffentlich(%L)::text ~* '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'$f$, :'tok_e3'));
+select 'anon JSON Kettenzug mit Anlass enthält keine UUID (erw. 1|false): ' || q(format($f$select jsonb_array_length(geraet_oeffentlich(%L) -> 'anlaesse') || '|' || (geraet_oeffentlich(%L)::text ~* '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}') $f$, :'tok_e9', :'tok_e9'));
+select 'anon mit geratener Organisation enthält keine UUID (erw. false): ' || q(format($f$select geraet_oeffentlich(%L, '00000000-0000-0000-0000-0000000000a1')::text ~* '[0-9a-f]{8}-[0-9a-f]{4}-'$f$, :'tok_e3'));
+select 'anon Nachweis verweist über pruefart_nr (erw. 1|1): ' || q(format($f$select (geraet_oeffentlich(%L) -> 'pruefarten' -> 0 ->> 'nr') || '|' || (geraet_oeffentlich(%L) -> 'nachweise' -> 0 ->> 'pruefart_nr')$f$, :'tok_e3', :'tok_e3'));
 select 'anon falsches Format abc (erw. true): ' || q($$select geraet_oeffentlich('abc') is null$$);
 select 'anon 23 Zeichen (erw. true): ' || q($$select geraet_oeffentlich('aaaaaaaaaaaaaaaaaaaaaaa') is null$$);
 select 'anon SQL im Token (erw. true): ' || q($$select geraet_oeffentlich($q$' or ''='$q$) is null$$);
@@ -109,7 +116,9 @@ select 'MA Suche 1 Zeichen (erw. 0): ' || q($$select jsonb_array_length(ma_kurza
 select 'MA Suche Platzhalter %% (erw. 0): ' || q($$select jsonb_array_length(ma_kurzansichten('00000000-0000-0000-0000-0000000000a1','suche','%%',null))$$);
 select 'MA Suche unbekannte Art (erw. FEHLER): ' || t($$select ma_kurzansichten('00000000-0000-0000-0000-0000000000a1','alle',null,null)$$);
 select 'MA Kurzansicht Leiter ohne Namen/Beschreibung, nur neuester Prüfername (erw. false|Prüfer Paul): ' || q($$select (k::text ~ '(Geheime|Alter Prüfer|Katrin|Marco|Jonas|Aylin|benutzer_name|erfasst_von)')::text || '|' || (k -> 0 -> 'nachweise' -> 0 ->> 'pruefer_name') from (select ma_kurzansichten('00000000-0000-0000-0000-0000000000a1','suche','leiter',null) k) x$$);
-select 'MA Kurzansicht Schlüssel (erw. anlaesse,bereich_name,geraet,nachweise,offene_maengel,offene_uebernahme,pruefarten,zugeordnet_mir): ' || q($$select jsonb_object_keys(ma_kurzansichten('00000000-0000-0000-0000-0000000000a1','ids',null,'{00000000-0000-0000-0000-0000000000e3}') -> 0)$$);
+select 'MA QR-Seite eigene Organisation: geraet_id (erw. 00000000-0000-0000-0000-0000000000e3|true): ' || q(format($f$select (j ->> 'geraet_id') || '|' || (j ->> 'gleiche_organisation') from (select geraet_oeffentlich(%L, '00000000-0000-0000-0000-0000000000a1') j) x$f$, :'tok_e3'));
+select 'MA QR-Seite ohne Organisation: keine UUID (erw. false): ' || q(format($f$select geraet_oeffentlich(%L)::text ~* '[0-9a-f]{8}-[0-9a-f]{4}-'$f$, :'tok_e3'));
+select 'MA Kurzansicht Schlüssel (erw. anlaesse,bereich_name,geraet,geraet_id,nachweise,offene_maengel,offene_uebernahme,pruefarten,zugeordnet_mir): ' || q($$select jsonb_object_keys(ma_kurzansichten('00000000-0000-0000-0000-0000000000a1','ids',null,'{00000000-0000-0000-0000-0000000000e3}') -> 0)$$);
 
 \echo '== Übernahme (F-23)'
 select 'MA übernimmt Leiter (erw. OK 1): ' || t($$select uebernahme_starten('00000000-0000-0000-0000-0000000000e3')$$);
@@ -158,8 +167,16 @@ select 'Aylin gibt Bohrschrauber von Jonas zurück (erw. FEHLER): ' || t($$selec
 set request.jwt.claim.sub = 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1';
 select 'Jonas gibt übergebene Leiter zurück (erw. FEHLER): ' || t($$select uebernahme_beenden('00000000-0000-0000-0000-0000000000e3')$$);
 select 'Jonas gibt Bohrschrauber zurück (erw. OK 1): ' || t($$select uebernahme_beenden('00000000-0000-0000-0000-0000000000e6')$$);
-select 'Jonas sieht eigene Zeilen (erw. rueckgabe,uebergabe): ' || q($$select ende_art from uebernahme$$);
+select 'Jonas sieht eigene abgeschlossene Zeilen nicht (erw. 0): ' || q($$select count(*) from uebernahme$$);
+select 'Jonas Verlauf-RPC (erw. 0): ' || q($$select count(*) from uebernahmen_verlauf('00000000-0000-0000-0000-0000000000e3')$$);
 select 'Jonas übernimmt Kabeltrommel Produktion (erw. OK 1): ' || t($$select uebernahme_starten('00000000-0000-0000-0000-000000000e10')$$);
+select 'Jonas sieht nur eigene offene Übernahme (erw. 00000000-0000-0000-0000-000000000e10|-): ' || q($$select geraet_id || '|' || coalesce(beendet_von::text, '-') from uebernahme$$);
+set request.jwt.claim.sub = 'a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2';
+select 'Aylin sieht beendet_von/Übergabe an sie nicht, nur eigene offene Leiter (erw. 00000000-0000-0000-0000-0000000000e3|-): ' || q($$select geraet_id || '|' || coalesce(ende_art, '-') from uebernahme$$);
+set request.jwt.claim.sub = 'a3a3a3a3-a3a3-a3a3-a3a3-a3a3a3a3a3a3';
+select 'MA fremde Organisation QR-Seite mit geratener Organisation: keine UUID (erw. false): ' || q(format($f$select geraet_oeffentlich(%L, '00000000-0000-0000-0000-0000000000a1')::text ~* '[0-9a-f]{8}-[0-9a-f]{4}-'$f$, :'tok_e3'));
+select 'MA fremde Organisation Verlauf-RPC (erw. 0): ' || q($$select count(*) from uebernahmen_verlauf('00000000-0000-0000-0000-0000000000e3')$$);
+set request.jwt.claim.sub = 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1';
 reset role;
 select 'Übergabe beendet mit Akteur (erw. uebergabe|a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2): ' || q($$select ende_art || '|' || beendet_von from uebernahme where geraet_id = '00000000-0000-0000-0000-0000000000e3' and benutzer_id = 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1'$$);
 select 'Zweite offene Übernahme desselben Geräts (erw. FEHLER): ' || t($$insert into uebernahme (organisation_id, geraet_id, benutzer_id, benutzer_name) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e3','a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1','Jonas Richter')$$);
@@ -171,23 +188,31 @@ set role authenticated;
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 select 'VER Lager sieht offenen Halter Leiter (erw. Aylin Demir): ' || q($$select benutzer_name from uebernahme where bis is null$$);
 select 'VER Lager sieht abgeschlossene Übernahmen (erw. 0): ' || q($$select count(*) from uebernahme where bis is not null$$);
+select 'VER Lager Verlauf-RPC (erw. 0): ' || q($$select count(*) from uebernahmen_verlauf('00000000-0000-0000-0000-0000000000e3')$$);
 select 'VER Lager sieht Halter in Produktion (erw. 0): ' || q($$select count(*) from uebernahme where geraet_id = '00000000-0000-0000-0000-000000000e10'$$);
 select 'VER Lager beendet Übernahme Produktion (erw. FEHLER): ' || t($$select uebernahme_beenden('00000000-0000-0000-0000-000000000e10')$$);
 select 'VER übernimmt selbst (erw. FEHLER): ' || t($$select uebernahme_starten('00000000-0000-0000-0000-0000000000e3')$$);
 select 'VER Kurzansicht (erw. FEHLER): ' || t($$select ma_kurzansichten('00000000-0000-0000-0000-0000000000a1','suche','lei',null)$$);
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 select 'SIF sieht offene Übernahmen (erw. 2): ' || q($$select count(*) from uebernahme$$);
+select 'SIF Verlauf-RPC (erw. 0): ' || q($$select count(*) from uebernahmen_verlauf('00000000-0000-0000-0000-0000000000e3')$$);
 select 'SIF beendet Übernahme (erw. FEHLER): ' || t($$select uebernahme_beenden('00000000-0000-0000-0000-0000000000e3')$$);
 set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
 select 'PRF sieht Übernahmen (erw. 0): ' || q($$select count(*) from uebernahme$$);
 select 'PRF sieht Token (erw. 0): ' || q($$select count(*) from geraet_token$$);
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
-select 'ADM sieht abgeschlossene Übernahmen mit Namen (erw. Jonas Richter|rueckgabe,Jonas Richter|uebergabe): ' || q($$select benutzer_name || '|' || ende_art from uebernahme where bis is not null$$);
+select 'ADM sieht abgeschlossene Übernahmen nicht direkt (erw. 0): ' || q($$select count(*) from uebernahme where bis is not null$$);
+select 'ADM sieht offene Übernahmen direkt (erw. 2): ' || q($$select count(*) from uebernahme$$);
+select 'ADM Verlauf je Gerät mit Namen (erw. Jonas Richter|uebergabe): ' || q($$select benutzer_name || '|' || ende_art from uebernahmen_verlauf('00000000-0000-0000-0000-0000000000e3')$$);
+select 'ADM Verlauf ohne beendet_von (erw. false): ' || q($$select bool_or(k = 'beendet_von') from (select jsonb_object_keys(to_jsonb(v)) k from uebernahmen_verlauf('00000000-0000-0000-0000-0000000000e3') v) x$$);
+select 'ADM Verlauf Gerät fremder Organisation (erw. 0): ' || q($$select count(*) from uebernahmen_verlauf('00000000-0000-0000-0000-0000000000e7')$$);
+select 'ADM QR-Seite eigene Organisation: geraet_id (erw. 00000000-0000-0000-0000-0000000000e3): ' || q(format($f$select geraet_oeffentlich(%L, '00000000-0000-0000-0000-0000000000a1') ->> 'geraet_id'$f$, :'tok_e3'));
+select 'ADM QR-Seite andere aktuelle Organisation: keine UUID (erw. false): ' || q(format($f$select geraet_oeffentlich(%L, '00000000-0000-0000-0000-0000000000a2')::text ~* '[0-9a-f]{8}-[0-9a-f]{4}-'$f$, :'tok_e3'));
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 select 'VER Lager beendet Übernahme Leiter (erw. OK 1): ' || t($$select uebernahme_beenden('00000000-0000-0000-0000-0000000000e3')$$);
 select 'VER Lager beendet erneut (erw. FEHLER): ' || t($$select uebernahme_beenden('00000000-0000-0000-0000-0000000000e3')$$);
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
-select 'Ende-Art Verwaltung (erw. beendet_verwaltung): ' || q($$select ende_art from uebernahme where geraet_id = '00000000-0000-0000-0000-0000000000e3' and benutzer_id = 'a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2'$$);
+select 'Ende-Art Verwaltung (erw. beendet_verwaltung): ' || q($$select ende_art from uebernahmen_verlauf('00000000-0000-0000-0000-0000000000e3') where benutzer_id = 'a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2'$$);
 
 \echo '== Zuordnung (F-22)'
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
@@ -248,7 +273,7 @@ set role authenticated;
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 select 'ADM deaktiviert Jonas (erw. OK 1): ' || t($$select mitglied_speichern('{"id":"00000000-0000-0000-0000-000000000d10","organisation_id":"00000000-0000-0000-0000-0000000000a1","benutzer_id":"a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1","anzeigename":"Jonas Richter","rolle":"mitarbeiter","aktiv":false}'::jsonb, '{}')$$);
 select 'Zuordnung gelöst (erw. -): ' || q($$select zugeordnet_an from geraet where id = '00000000-0000-0000-0000-0000000000e5' and zugeordnet_an is not null$$);
-select 'Offene Übernahme beendet mit austritt (erw. austritt): ' || q($$select ende_art from uebernahme where geraet_id = '00000000-0000-0000-0000-000000000e10'$$);
+select 'Offene Übernahme beendet mit austritt (erw. austritt): ' || q($$select ende_art from uebernahmen_verlauf('00000000-0000-0000-0000-000000000e10')$$);
 select 'Austritt ohne zusätzliches Zuordnungsereignis (erw. 1): ' || q($$select count(*) from ereignis where typ = 'zuordnung_geaendert'$$);
 reset role;
 select 'Gemeldete Mängel bleiben (erw. 2): ' || q($$select count(*) from mangel where erfasst_von = 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1'$$);
@@ -269,6 +294,9 @@ insert into uebernahme (id, organisation_id, geraet_id, benutzer_id, benutzer_na
  ('00000000-0000-0000-0000-000000000902','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000e6','a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2','Aylin Demir', now() - interval '81 days', now() - interval '80 days','rueckgabe','a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2');
 set role authenticated;
 select 'Client führt Pseudonymisierung aus (erw. FEHLER): ' || t($$select app.uebernahmen_pseudonymisieren()$$);
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select 'Verlauf ohne Cron-Lauf: > 90 Tage fehlt, 80 Tage enthalten (erw. 2|false|true): ' || q($$select count(*) || '|' || bool_or(id = '00000000-0000-0000-0000-000000000901') || '|' || bool_or(id = '00000000-0000-0000-0000-000000000902') from uebernahmen_verlauf('00000000-0000-0000-0000-0000000000e6')$$);
+set request.jwt.claim.sub = '';
 reset role;
 select 'Pseudonymisierung (erw. 1): ' || app.uebernahmen_pseudonymisieren()::text;
 select 'Ältere ohne Person, jüngere mit Person (erw. 00000000-0000-0000-0000-000000000901|-|-|-|true,00000000-0000-0000-0000-000000000902|Aylin Demir|a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2|a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2|false): ' || q($$select id || '|' || coalesce(benutzer_name, '-') || '|' || coalesce(benutzer_id::text, '-') || '|' || coalesce(beendet_von::text, '-') || '|' || (pseudonymisiert_am is not null) from uebernahme where id in ('00000000-0000-0000-0000-000000000901','00000000-0000-0000-0000-000000000902')$$);
@@ -276,3 +304,47 @@ select 'Zweiter Lauf idempotent (erw. 0): ' || app.uebernahmen_pseudonymisieren(
 select 'Person nachträglich wieder eintragen (erw. FEHLER): ' || t($$update uebernahme set benutzer_id = 'a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2', benutzer_name = 'Aylin Demir', pseudonymisiert_am = null where id = '00000000-0000-0000-0000-000000000901'$$);
 select 'Gerät und Zeitraum bleiben (erw. rueckgabe|true): ' || q($$select ende_art || '|' || (bis is not null) from uebernahme where id = '00000000-0000-0000-0000-000000000901'$$);
 select 'Offene Übernahmen bleiben unberührt (erw. 0): ' || q($$select count(*) from uebernahme where bis is null and pseudonymisiert_am is not null$$);
+
+\echo '== Übernahme-Sperre: nicht bestanden und Fälligkeit am Monatsende (F-21, F-23)'
+-- Muss mit der Domäne übereinstimmen: src/domain/status.ts berechneStatus (überfällig erst bei restTage < 0, d. h. am
+-- Fälligkeitstag noch verwendbar) und berechneStatusImKontext (letzter Nachweis nicht_bestanden → vor_nutzung_pruefen);
+-- Fälligkeit = addMonate in src/domain/datum.ts mit Monatsende-Klemme (31.01. + 13 Monate = 28.02. des Folgejahres).
+-- SQL-Gegenstück: app.geraet_nicht_verwenden (20261128000000_inkrement3m.sql). Akteur: neue Mitarbeiterin j4 (aktiv).
+reset role;
+set request.jwt.claim.sub = '';
+insert into geraet (id, organisation_id, bereich_id, bezeichnung, geraetegruppe, kategorie) values
+ ('00000000-0000-0000-0000-000000000e12','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000c1','Schweißgerät','elektro','wechselnd'),
+ ('00000000-0000-0000-0000-000000000e13','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000c1','Rüttelplatte','sonstiges','wechselnd'),
+ ('00000000-0000-0000-0000-000000000e14','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000c1','Stichsäge','elektro','wechselnd');
+insert into geraet_pruefart (id, organisation_id, geraet_id, bezeichnung, frist_monate, frist_quelle, frist_stufe, frist_fundstelle, frist_begruendung, letzte_pruefung, letzte_pruefung_herkunft) values
+ ('00000000-0000-0000-0000-000000000f12','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-000000000e12','Elektroprüfung',12,'gbu','C','GBU Lager','Begründung lang genug',current_date - 30,'nachweis'),
+ ('00000000-0000-0000-0000-000000000f13','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-000000000e13','Sichtprüfung',12,'gbu','C','GBU Lager','Begründung lang genug',current_date - 30,'nachweis'),
+ ('00000000-0000-0000-0000-000000000f14','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-000000000e14','Elektroprüfung',13,'gbu','C','GBU Lager','Begründung lang genug','2026-01-31','pruefbericht');
+insert into nachweis (id, organisation_id, geraet_id, geraet_pruefart_id, pruefdatum, ergebnis, pruefumfang, pruefer_name, unterschrift_im_pdf, pdf_pfad, pdf_sha256, erfasst_von) values
+ ('00000000-0000-0000-0000-000000000403','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-000000000e12','00000000-0000-0000-0000-000000000f12',current_date - 60,'ohne_maengel','Gerät','Prüfer Paul',true,
+  '00000000-0000-0000-0000-0000000000a1/00000000-0000-0000-0000-000000000e12/00000000-0000-0000-0000-000000000f12/00000000-0000-0000-0000-000000000403.pdf',repeat('d',64),'11111111-1111-1111-1111-111111111111'),
+ ('00000000-0000-0000-0000-000000000404','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-000000000e12','00000000-0000-0000-0000-000000000f12',current_date - 30,'nicht_bestanden','Gerät','Prüfer Paul',true,
+  '00000000-0000-0000-0000-0000000000a1/00000000-0000-0000-0000-000000000e12/00000000-0000-0000-0000-000000000f12/00000000-0000-0000-0000-000000000404.pdf',repeat('d',64),'11111111-1111-1111-1111-111111111111'),
+ ('00000000-0000-0000-0000-000000000405','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-000000000e13','00000000-0000-0000-0000-000000000f13',current_date - 60,'nicht_bestanden','Gerät','Prüfer Paul',true,
+  '00000000-0000-0000-0000-0000000000a1/00000000-0000-0000-0000-000000000e13/00000000-0000-0000-0000-000000000f13/00000000-0000-0000-0000-000000000405.pdf',repeat('d',64),'11111111-1111-1111-1111-111111111111'),
+ ('00000000-0000-0000-0000-000000000406','00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-000000000e13','00000000-0000-0000-0000-000000000f13',current_date - 30,'ohne_maengel','Gerät','Prüfer Paul',true,
+  '00000000-0000-0000-0000-0000000000a1/00000000-0000-0000-0000-000000000e13/00000000-0000-0000-0000-000000000f13/00000000-0000-0000-0000-000000000406.pdf',repeat('d',64),'11111111-1111-1111-1111-111111111111');
+set role authenticated;
+set request.jwt.claim.sub = 'a4a4a4a4-a4a4-a4a4-a4a4-a4a4a4a4a4a4';
+select 'Letzter Nachweis nicht bestanden, Frist ok → gesperrt (erw. FEHLER): ' || t($$select uebernahme_starten('00000000-0000-0000-0000-000000000e12')$$);
+select 'Älterer Nachweis nicht bestanden, neuester bestanden → übernehmbar (erw. OK 1): ' || t($$select uebernahme_starten('00000000-0000-0000-0000-000000000e13')$$);
+-- Fester Stichtag für app.heute(): nur in dieser Testdatenbank, danach wiederhergestellt.
+reset role;
+create or replace function app.heute() returns date language sql stable set search_path = pg_temp as $$ select date '2027-02-28' $$;
+set role authenticated;
+select 'Monatsende: 31.01.2026 + 13 Monate = 28.02.2027, heute 28.02. → übernehmbar (erw. OK 1): ' || t($$select uebernahme_starten('00000000-0000-0000-0000-000000000e14')$$);
+select 'Monatsende: Rückgabe (erw. OK 1): ' || t($$select uebernahme_beenden('00000000-0000-0000-0000-000000000e14')$$);
+reset role;
+create or replace function app.heute() returns date language sql stable set search_path = pg_temp as $$ select date '2027-03-01' $$;
+set role authenticated;
+select 'Monatsende: heute 01.03.2027, einen Tag nach Fälligkeit → gesperrt (erw. FEHLER): ' || t($$select uebernahme_starten('00000000-0000-0000-0000-000000000e14')$$);
+reset role;
+create or replace function app.heute() returns date language sql stable set search_path = pg_temp as $$
+  select (now() at time zone 'Europe/Berlin')::date;
+$$;
+select 'app.heute() wiederhergestellt (erw. true): ' || (app.heute() = (now() at time zone 'Europe/Berlin')::date)::text;

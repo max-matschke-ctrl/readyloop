@@ -16,7 +16,7 @@ import type {
   Organisation,
   Uebernahme,
 } from '@/domain/types';
-import type { KurzRohdaten, TokenRohdaten } from '../types';
+import type { KurzRohdaten, StatusRohdaten, TokenRohdaten, UebernahmeVerlaufEintrag } from '../types';
 
 // ---------- Zeilentypen (Spalten wie in den Migrationen) ----------
 
@@ -186,11 +186,9 @@ export interface UebernahmeZeile {
   ende_art: Uebernahme['endeArt'];
   beendet_von: string | null;
 }
-/** JSON aus app.geraet_status_json (geraet_oeffentlich, ma_kurzansichten), snake_case. */
+/** JSON aus app.geraet_status_json (geraet_oeffentlich, ma_kurzansichten), snake_case, ohne interne IDs (F-24). */
 export interface StatusRohJson {
   geraet: {
-    id: string;
-    organisation_id: string;
     bezeichnung: string;
     inventarnummer: string | null;
     hersteller: string | null;
@@ -199,31 +197,36 @@ export interface StatusRohJson {
     betriebsstatus: Geraet['betriebsstatus'];
   };
   pruefarten: {
-    id: string;
+    nr: number;
     bezeichnung: string;
     letzte_pruefung: string | null;
     letzte_pruefung_herkunft: GeraetPruefart['letztePruefungHerkunft'];
     frist: { monate: number; quelle: FestgelegteFrist['quelle']; stufe: FestgelegteFrist['stufe']; fundstelle: string } | null;
   }[];
   nachweise: {
-    id: string;
-    geraet_pruefart_id: string;
+    pruefart_nr: number;
     pruefdatum: string;
     ergebnis: Nachweis['ergebnis'];
     erfasst_am: string;
     pruefer_name: string | null;
   }[];
-  anlaesse: { id: string; geraet_pruefart_id: string; datum: string; erfasst_am: string; aufgehoben_am: string | null }[];
+  anlaesse: { pruefart_nr: number; datum: string; erfasst_am: string; aufgehoben_am: string | null }[];
   offene_maengel: { schwere: Mangel['schwere'] }[];
 }
 export interface KurzRohJson extends StatusRohJson {
+  geraet_id: string;
   bereich_name: string;
   zugeordnet_mir: boolean;
   offene_uebernahme: { von_mir: boolean; seit: string | null } | null;
 }
+/** geraet_id/gleiche_organisation nur für aktive Mitglieder der Geräte-Organisation. */
 export interface TokenRohJson extends StatusRohJson {
   organisation_name: string;
+  geraet_id?: string;
+  gleiche_organisation?: boolean;
 }
+/** Zeile aus RPC uebernahmen_verlauf (ohne beendet_von). */
+export type UebernahmeVerlaufZeile = Omit<UebernahmeZeile, 'beendet_von'>;
 
 /** Spaltenlisten für select() – nur benötigte Spalten. */
 export const SPALTEN = {
@@ -620,11 +623,14 @@ export const vonUebernahme = (u: Uebernahme): UebernahmeZeile => ({
   beendet_von: u.beendetVon,
 });
 
-function zuStatusRoh(j: StatusRohJson): Omit<TokenRohdaten, 'organisationName'> {
+export const zuUebernahmeVerlauf = (z: UebernahmeVerlaufZeile): UebernahmeVerlaufEintrag => ({
+  ...zuUebernahme({ ...z, beendet_von: null }),
+  beendetVon: null,
+});
+
+function zuStatusRoh(j: StatusRohJson): StatusRohdaten {
   return {
     geraet: {
-      id: j.geraet.id,
-      organisationId: j.geraet.organisation_id,
       bezeichnung: j.geraet.bezeichnung,
       inventarnummer: j.geraet.inventarnummer,
       hersteller: j.geraet.hersteller,
@@ -633,23 +639,21 @@ function zuStatusRoh(j: StatusRohJson): Omit<TokenRohdaten, 'organisationName'> 
       betriebsstatus: j.geraet.betriebsstatus,
     },
     pruefarten: (j.pruefarten ?? []).map((p) => ({
-      id: p.id,
+      nr: p.nr,
       bezeichnung: p.bezeichnung,
       letztePruefung: datumOderNull(p.letzte_pruefung),
       letztePruefungHerkunft: p.letzte_pruefung_herkunft,
       frist: p.frist ? { monate: p.frist.monate, quelle: p.frist.quelle, stufe: p.frist.stufe, fundstelle: p.frist.fundstelle } : null,
     })),
     nachweise: (j.nachweise ?? []).map((n) => ({
-      id: n.id,
-      geraetPruefartId: n.geraet_pruefart_id,
+      pruefartNr: n.pruefart_nr,
       pruefdatum: datum(n.pruefdatum),
       ergebnis: n.ergebnis,
       erfasstAm: isoZeit(n.erfasst_am),
       prueferName: n.pruefer_name,
     })),
     anlaesse: (j.anlaesse ?? []).map((a) => ({
-      id: a.id,
-      geraetPruefartId: a.geraet_pruefart_id,
+      pruefartNr: a.pruefart_nr,
       datum: datum(a.datum),
       erfasstAm: isoZeit(a.erfasst_am),
       aufgehobenAm: isoZeitOderNull(a.aufgehoben_am),
@@ -657,11 +661,9 @@ function zuStatusRoh(j: StatusRohJson): Omit<TokenRohdaten, 'organisationName'> 
     offeneMaengel: (j.offene_maengel ?? []).map((m) => ({ schwere: m.schwere })),
   };
 }
-function vonStatusRoh(r: Omit<TokenRohdaten, 'organisationName'>): StatusRohJson {
+function vonStatusRoh(r: StatusRohdaten): StatusRohJson {
   return {
     geraet: {
-      id: r.geraet.id,
-      organisation_id: r.geraet.organisationId,
       bezeichnung: r.geraet.bezeichnung,
       inventarnummer: r.geraet.inventarnummer,
       hersteller: r.geraet.hersteller,
@@ -670,23 +672,21 @@ function vonStatusRoh(r: Omit<TokenRohdaten, 'organisationName'>): StatusRohJson
       betriebsstatus: r.geraet.betriebsstatus,
     },
     pruefarten: r.pruefarten.map((p) => ({
-      id: p.id,
+      nr: p.nr,
       bezeichnung: p.bezeichnung,
       letzte_pruefung: p.letztePruefung,
       letzte_pruefung_herkunft: p.letztePruefungHerkunft,
       frist: p.frist ? { ...p.frist } : null,
     })),
     nachweise: r.nachweise.map((n) => ({
-      id: n.id,
-      geraet_pruefart_id: n.geraetPruefartId,
+      pruefart_nr: n.pruefartNr,
       pruefdatum: n.pruefdatum,
       ergebnis: n.ergebnis,
       erfasst_am: n.erfasstAm,
       pruefer_name: n.prueferName,
     })),
     anlaesse: r.anlaesse.map((a) => ({
-      id: a.id,
-      geraet_pruefart_id: a.geraetPruefartId,
+      pruefart_nr: a.pruefartNr,
       datum: a.datum,
       erfasst_am: a.erfasstAm,
       aufgehoben_am: a.aufgehobenAm,
@@ -697,6 +697,7 @@ function vonStatusRoh(r: Omit<TokenRohdaten, 'organisationName'>): StatusRohJson
 
 export const zuKurzRohdaten = (j: KurzRohJson): KurzRohdaten => ({
   ...zuStatusRoh(j),
+  geraetId: j.geraet_id,
   bereichName: j.bereich_name,
   zugeordnetMir: j.zugeordnet_mir === true,
   offeneUebernahme: j.offene_uebernahme
@@ -705,13 +706,22 @@ export const zuKurzRohdaten = (j: KurzRohJson): KurzRohdaten => ({
 });
 export const vonKurzRohdaten = (r: KurzRohdaten): KurzRohJson => ({
   ...vonStatusRoh(r),
+  geraet_id: r.geraetId,
   bereich_name: r.bereichName,
   zugeordnet_mir: r.zugeordnetMir,
   offene_uebernahme: r.offeneUebernahme ? { von_mir: r.offeneUebernahme.vonMir, seit: r.offeneUebernahme.seit } : null,
 });
 
-export const zuTokenRohdaten = (j: TokenRohJson): TokenRohdaten => ({ ...zuStatusRoh(j), organisationName: j.organisation_name });
-export const vonTokenRohdaten = (r: TokenRohdaten): TokenRohJson => ({ ...vonStatusRoh(r), organisation_name: r.organisationName });
+export const zuTokenRohdaten = (j: TokenRohJson): TokenRohdaten => ({
+  ...zuStatusRoh(j),
+  organisationName: j.organisation_name,
+  eigeneOrganisation: j.gleiche_organisation === true && typeof j.geraet_id === 'string' ? { geraetId: j.geraet_id } : null,
+});
+export const vonTokenRohdaten = (r: TokenRohdaten): TokenRohJson => ({
+  ...vonStatusRoh(r),
+  organisation_name: r.organisationName,
+  ...(r.eigeneOrganisation ? { geraet_id: r.eigeneOrganisation.geraetId, gleiche_organisation: true } : {}),
+});
 
 // ---------- Fehler ----------
 

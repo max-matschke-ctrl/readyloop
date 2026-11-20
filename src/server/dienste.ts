@@ -267,12 +267,14 @@ async function geraetNutzung(
   jetzt: Date,
 ): Promise<GeraetNutzung | null> {
   if (sitzung.rolle === 'pruefer' || sitzung.rolle === 'mitarbeiter' || !geraetImBereich(sitzung, geraet)) return null;
-  const [uebernahmen, tokens] = await Promise.all([
-    repo.listeUebernahmen(sitzung.organisation.id, geraet.id),
+  const darfVerlauf = can(sitzung.rolle, 'uebernahmen.lesen');
+  const [offene, verlauf, tokens] = await Promise.all([
+    repo.listeOffeneUebernahmen(sitzung.organisation.id, geraet.id),
+    // F-27/US-32: nur je Gerät, nur ADM, nur 90 Tage (RPC uebernahmen_verlauf); kein direkter Tabellenzugriff
+    darfVerlauf ? repo.listeUebernahmeVerlauf(geraet.id, jetzt) : Promise.resolve([]),
     can(sitzung.rolle, 'etikett.verwalten') ? repo.listeTokens(sitzung.organisation.id) : Promise.resolve([]),
   ]);
-  const eigene = uebernahmen.filter((u) => u.geraetId === geraet.id);
-  const offen = eigene.find((u) => u.bis === null && u.benutzerName !== null) ?? null;
+  const offen = offene.find((u) => u.geraetId === geraet.id && u.bis === null && u.benutzerName !== null) ?? null;
   const zugeordnetAn = geraet.kategorie === 'personenbezogen' ? geraet.zugeordnetAn : null;
   const token = tokens.find((t) => t.geraetId === geraet.id && t.aktiv) ?? null;
   return {
@@ -280,8 +282,10 @@ async function geraetNutzung(
       ? { benutzerId: zugeordnetAn, name: ctx.benutzerName.get(zugeordnetAn) ?? '', rolle: 'mitarbeiter' }
       : null,
     uebernahme: offen ? { benutzerName: offen.benutzerName!, seit: offen.von } : null,
-    verlauf: can(sitzung.rolle, 'uebernahmen.lesen')
-      ? eigene.filter((u) => imUebernahmeVerlauf(u, jetzt)).sort((a, b) => (b.bis ?? '').localeCompare(a.bis ?? ''))
+    verlauf: darfVerlauf
+      ? verlauf
+          .filter((u) => u.geraetId === geraet.id && imUebernahmeVerlauf(u, jetzt))
+          .sort((a, b) => (b.bis ?? '').localeCompare(a.bis ?? ''))
       : [],
     darfZuordnen: can(sitzung.rolle, 'geraet.zuordnen'), // Geltungsbereich oben geprüft
     etikett: can(sitzung.rolle, 'etikett.verwalten') && token ? { token: token.token, url: tokenUrl(token.token) } : null,

@@ -31,6 +31,7 @@ import {
   zuPruefart,
   zuTokenRohdaten,
   zuUebernahme,
+  zuUebernahmeVerlauf,
   type AnlassZeile,
   type BereichZeile,
   type EreignisZeile,
@@ -45,6 +46,7 @@ import {
   type PruefartZeile,
   type TokenRohJson,
   type UebernahmeZeile,
+  type UebernahmeVerlaufZeile,
 } from './mapping';
 
 export const NACHWEIS_BUCKET = 'nachweise';
@@ -359,11 +361,17 @@ export function supabaseRepository(
     async listeTokens(org) {
       return (await liste<GeraetTokenZeile>('geraet_token', SPALTEN.token, [['organisation_id', org]])).map(zuGeraetToken);
     },
-    /** RLS (F-27): eigene; admin alle; sifa/VER (Bereich) nur offene; Prüfer keine. */
-    async listeUebernahmen(org, geraetId) {
-      const filter: [string, unknown][] = [['organisation_id', org]];
-      if (geraetId !== undefined) filter.push(['geraet_id', geraetId]);
-      return (await liste<UebernahmeZeile>('uebernahme', SPALTEN.uebernahme, filter)).map(zuUebernahme);
+    /** Nur offene Zeilen (Filter bis is null); RLS (F-27): MA eigene; admin/sifa alle; VER Bereich; Prüfer keine. */
+    async listeOffeneUebernahmen(org, geraetId) {
+      let q = client.from('uebernahme').select(SPALTEN.uebernahme).eq('organisation_id', org);
+      if (geraetId !== undefined) q = q.eq('geraet_id', geraetId);
+      const zeilen = (pruefe(await q.is('bis', null), 'uebernahme lesen') ?? []) as unknown as UebernahmeZeile[];
+      return zeilen.map(zuUebernahme);
+    },
+    /** RPC uebernahmen_verlauf (security definer): ein Gerät, nur admin, ≤ 90 Tage; jetzt rechnet die DB selbst. */
+    async listeUebernahmeVerlauf(geraetId) {
+      const daten = pruefe(await client.rpc('uebernahmen_verlauf', { p_geraet: geraetId }), 'uebernahmen_verlauf');
+      return ((daten ?? []) as UebernahmeVerlaufZeile[]).map(zuUebernahmeVerlauf);
     },
     /** RPC ma_kurzansichten (security definer, nur öffentliche Felder); der Benutzer ergibt sich aus der Sitzung. */
     async listeKurzRohdaten(org, auswahl) {
@@ -378,9 +386,13 @@ export function supabaseRepository(
       );
       return ((daten ?? []) as KurzRohJson[]).map(zuKurzRohdaten);
     },
-    /** RPC geraet_oeffentlich – auch ohne Sitzung (anon). null bei falschem Format, unbekanntem oder inaktivem Token. */
-    async holeTokenRohdaten(token) {
-      const daten = pruefe(await client.rpc('geraet_oeffentlich', { p_token: token }), 'geraet_oeffentlich');
+    /** RPC geraet_oeffentlich – auch ohne Sitzung (anon). null bei falschem Format, unbekanntem oder inaktivem Token.
+     *  Der Benutzer ergibt sich aus dem JWT; geraet_id nur, wenn p_organisation die Geräte-Organisation und er dort Mitglied ist. */
+    async holeTokenRohdaten(token, fuer) {
+      const daten = pruefe(
+        await client.rpc('geraet_oeffentlich', { p_token: token, p_organisation: fuer?.organisationId ?? null }),
+        'geraet_oeffentlich',
+      );
       return daten ? zuTokenRohdaten(daten as TokenRohJson) : null;
     },
     /** RPC uebernahme_starten: beendet eine fremde offene Übernahme selbst ('uebergabe'); `vorherige` wird ignoriert. */

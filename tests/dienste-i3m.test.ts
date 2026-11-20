@@ -22,6 +22,7 @@ import {
 import { listeMitarbeiter, mitarbeiterEinladen, mitgliedAendern, mitgliedEinladen } from '@/server/dienste-verwaltung';
 import { DEMO_BENUTZER_IDS, DEMO_BEREICH_IDS, DEMO_ORG2_ID, DEMO_ORG_ID } from '@/server/repo/demo/daten';
 import { erzeugeDemoRepository, type DemoRepository } from '@/server/repo/demo/repository';
+import { alleUebernahmen } from './hilfen/demo-stand';
 
 const HEUTE = '2026-11-19';
 const JETZT = new Date('2026-11-19T10:00:00Z');
@@ -80,7 +81,7 @@ describe('geraetUebernehmen', () => {
   it('P-003 durch Jonas → ok, Aylins Übernahme uebergabe, Aylin hat 0 Geräte', async () => {
     const r = await geraetUebernehmen(await jonas(), repo, await aktion('P-003'), ZEIT);
     expect(r).toMatchObject({ ok: true, vorherigeBeendet: true });
-    const u = await repo.listeUebernahmen(DEMO_ORG_ID, await idVon('P-003'));
+    const u = await alleUebernahmen(repo, DEMO_ORG_ID, await idVon('P-003'));
     expect(u.find((x) => x.benutzerId === DEMO_BENUTZER_IDS.aylin && x.bis !== null && x.endeArt === 'uebergabe')).toBeDefined();
     expect(u.filter((x) => x.bis === null).map((x) => x.benutzerId)).toEqual([DEMO_BENUTZER_IDS.jonas]);
     expect(await listeMeineGeraete(await aylin(), repo, HEUTE)).toEqual([]);
@@ -106,7 +107,7 @@ describe('geraetZurueckgeben / uebernahmeBeenden', () => {
   });
   it('L-002 durch Jonas → ok (rueckgabe), danach nicht mehr in Meine Geräte', async () => {
     expect((await geraetZurueckgeben(await jonas(), repo, await aktion('L-002'), ZEIT)).ok).toBe(true);
-    const u = (await repo.listeUebernahmen(DEMO_ORG_ID, await idVon('L-002')))[0];
+    const u = (await alleUebernahmen(repo, DEMO_ORG_ID, await idVon('L-002')))[0];
     expect(u).toMatchObject({ endeArt: 'rueckgabe', beendetVon: DEMO_BENUTZER_IDS.jonas, bis: JETZT.toISOString() });
     expect((await listeMeineGeraete(await jonas(), repo, HEUTE)).map((g) => g.inventarnummer)).not.toContain('L-002');
   });
@@ -116,7 +117,7 @@ describe('geraetZurueckgeben / uebernahmeBeenden', () => {
   it('VER Lager beendet L-002 → beendet_verwaltung; P-003 (Produktion) → Fehler', async () => {
     const ver = await sitzung('verantwortlicher');
     expect((await uebernahmeBeenden(ver, repo, await aktion('L-002'), ZEIT)).ok).toBe(true);
-    expect((await repo.listeUebernahmen(DEMO_ORG_ID, await idVon('L-002')))[0].endeArt).toBe('beendet_verwaltung');
+    expect((await alleUebernahmen(repo, DEMO_ORG_ID, await idVon('L-002')))[0].endeArt).toBe('beendet_verwaltung');
     expect((await uebernahmeBeenden(ver, repo, await aktion('P-003'), ZEIT)).ok).toBe(false);
   });
   it('SIF und MA dürfen keine fremde Übernahme beenden', async () => {
@@ -216,6 +217,16 @@ describe('holeTokenSeite (F-24)', () => {
     expect(text).not.toContain('Lager"');
     expect(Object.keys(s.ansicht)).not.toContain('bereichName');
   });
+  it('Review I3M (F-24): öffentliche Seite ohne interne IDs; Repository bekommt Sitzungs-Organisation', async () => {
+    const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+    for (const t of ['demoL001xxxxxxxxxxxxxx', 'demoP001xxxxxxxxxxxxxx', 'demoL008xxxxxxxxxxxxxx']) {
+      expect(JSON.stringify(await holeTokenSeite(null, repo, ZEIT, t)), t).not.toMatch(UUID);
+    }
+    const spion = vi.spyOn(repo, 'holeTokenRohdaten');
+    const ver = await sitzung('verantwortlicher');
+    await holeTokenSeite(ver, repo, ZEIT, 'demoL003xxxxxxxxxxxxxx');
+    expect(spion).toHaveBeenCalledWith('demoL003xxxxxxxxxxxxxx', { benutzerId: ver.benutzer.id, organisationId: DEMO_ORG_ID });
+  });
   it('deaktivierter, unbekannter Token und falsches Format → null; falsches Format ohne Repository-Aufruf', async () => {
     const spion = vi.spyOn(repo, 'holeTokenRohdaten');
     expect(await holeTokenSeite(null, repo, ZEIT, 'abc')).toBeNull();
@@ -248,6 +259,16 @@ describe('holeGeraetDetail().nutzung (F-22, F-27)', () => {
     expect(adm.verlauf[0].von.slice(0, 10)).toBe(addTage(HEUTE, -20));
     expect((await holeGeraetDetail(await sitzung('verantwortlicher'), repo, HEUTE, id))!.nutzung!.verlauf).toEqual([]);
     expect((await holeGeraetDetail(await sitzung('sifa'), repo, HEUTE, id))!.nutzung!.verlauf).toEqual([]);
+  });
+  it('Verlauf nur über listeUebernahmeVerlauf und nur für ADM (F-27/US-32)', async () => {
+    const id = await idVon('L-006');
+    const spion = vi.spyOn(repo, 'listeUebernahmeVerlauf');
+    await holeGeraetDetail(await sitzung('verantwortlicher'), repo, HEUTE, id);
+    await holeGeraetDetail(await sitzung('sifa'), repo, HEUTE, id);
+    expect(spion).not.toHaveBeenCalled();
+    await holeGeraetDetail(await sitzung('admin'), repo, HEUTE, id);
+    expect(spion).toHaveBeenCalledTimes(1);
+    expect(spion.mock.calls[0][0]).toBe(id);
   });
   it('P-004 (pseudonymisiert, vor 120 Tagen) erscheint nirgends', async () => {
     const n = (await holeGeraetDetail(await sitzung('admin'), repo, HEUTE, await idVon('P-004')))!.nutzung!;
@@ -368,7 +389,7 @@ describe('Mitarbeiter einladen und Austritt (F-20)', () => {
     expect(r.ok).toBe(true);
     expect((await repo.holeGeraet(await idVon('P-008')))?.zugeordnetAn).toBeNull();
     for (const inv of ['L-002', 'L-008']) {
-      const u = (await repo.listeUebernahmen(DEMO_ORG_ID, await idVon(inv))).find((x) => x.benutzerId === DEMO_BENUTZER_IDS.jonas)!;
+      const u = (await alleUebernahmen(repo, DEMO_ORG_ID, await idVon(inv))).find((x) => x.benutzerId === DEMO_BENUTZER_IDS.jonas)!;
       expect(u.endeArt, inv).toBe('austritt');
     }
     expect((await repo.listeMaengel(DEMO_ORG_ID)).some((m) => m.beschreibung === 'Holm eingerissen')).toBe(true);
@@ -376,7 +397,7 @@ describe('Mitarbeiter einladen und Austritt (F-20)', () => {
   });
   it('Rollenwechsel weg von mitarbeiter löst ebenfalls', async () => {
     await mitgliedAendern(await sitzung('admin'), repo, { mitgliedschaftId: '50000000-0000-4000-8000-000000000010', name: 'Aylin Demir', rolle: 'sifa', bereichIds: [], prueferTypen: [], aktiv: true }, JETZT);
-    expect((await repo.listeUebernahmen(DEMO_ORG_ID, await idVon('P-003'))).find((x) => x.bis !== null)?.endeArt).toBe('austritt');
+    expect((await alleUebernahmen(repo, DEMO_ORG_ID, await idVon('P-003'))).find((x) => x.bis !== null)?.endeArt).toBe('austritt');
   });
 });
 

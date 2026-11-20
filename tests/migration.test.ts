@@ -360,7 +360,7 @@ describe('Migration Inkrement I3M', () => {
   it('Migrationsversionen sind eindeutig (Zeitstempel-Präfix)', () => {
     const versionen = readdirSync(MIGRATIONEN).filter((f) => f.endsWith('.sql')).map((f) => f.split('_')[0]);
     expect(new Set(versionen).size).toBe(versionen.length);
-    expect(versionen.at(-1)).toBe('20261128000000');
+    expect(versionen.at(-1)).toBe('20261129000000');
   });
 
   it('neue Tabellen geraet_token und uebernahme mit RLS und organisation_id', () => {
@@ -468,6 +468,62 @@ describe('Migration Inkrement I3M', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Review I3M (Backend): eigene Migration, 20261128000000 bleibt unverändert
+// ---------------------------------------------------------------------------
+
+const SQL5 = readFileSync(path.join(MIGRATIONEN, '20261129000000_review_i3m.sql'), 'utf8');
+const klein5 = SQL5.replace(/--.*$/gm, '').toLowerCase();
+const block5 = (start: string) => klein5.split(start)[1].split('$$;')[0];
+
+describe('Migration Review I3M', () => {
+  it('F-24: Status-JSON und QR-Seite ohne interne IDs; geraet_id nur für Mitglieder der aktuellen Organisation', () => {
+    const json = block5('create or replace function app.geraet_status_json(');
+    for (const verboten of ["'id'", "'organisation_id'", "'geraet_pruefart_id'", "'geraet_id'", 'zugeordnet_an', 'benutzer_name', 'beschreibung']) {
+      expect(json, verboten).not.toContain(verboten);
+    }
+    expect(json).toContain("'pruefart_nr', pa.nr");
+    const oeffentlich = block5('create or replace function public.geraet_oeffentlich(');
+    expect(oeffentlich).toMatch(/if auth\.uid\(\) is not null and p_organisation = v_org and app\.ist_mitglied\(v_org\) then\s+v_json := v_json \|\| jsonb_build_object\('geraet_id'/);
+    expect(oeffentlich).toContain('security definer');
+    expect(block5('create or replace function public.ma_kurzansichten(')).toContain("'geraet_id', g.id");
+  });
+
+  it('anon: genau geraet_oeffentlich(text, uuid); alte Signatur entfernt', () => {
+    const anon = [...klein5.matchAll(/grant execute on function ([^;]*?) to ([^;]*);/g)].filter((m) => /\banon\b/.test(m[2]));
+    expect(anon.map((m) => m[1].trim())).toEqual(['public.geraet_oeffentlich(text, uuid)']);
+    expect(klein5).toContain('drop function public.geraet_oeffentlich(text);');
+    expect(klein5).toContain('revoke execute on function public.geraet_oeffentlich(text, uuid) from public;');
+  });
+
+  it('F-27/US-32: direkter SELECT nur auf offene Übernahmen (auch MA, auch ADM)', () => {
+    const p = klein5.split('create policy uebernahme_select on public.uebernahme')[1].split(';')[0];
+    expect(p).toMatch(/using \(\s+bis is null and \(/);
+    expect(klein5).toContain('drop policy uebernahme_select on public.uebernahme');
+  });
+
+  it('uebernahmen_verlauf: ein Gerät, nur admin, nur 90 Tage, security definer, nicht für anon', () => {
+    const kopf = klein5.split('create or replace function public.uebernahmen_verlauf(')[1].split('$$')[0];
+    expect(kopf).toMatch(/^p_geraet uuid\)/);
+    expect(kopf).toContain('security definer');
+    expect(kopf).toContain('set search_path = public, pg_temp');
+    expect(kopf).not.toContain('beendet_von');
+    const rumpf = block5('create or replace function public.uebernahmen_verlauf(');
+    expect(rumpf).toContain('u.geraet_id = p_geraet');
+    expect(rumpf).toContain("app.hat_rolle(u.organisation_id, array['admin'])");
+    expect(rumpf).toContain("u.bis > now() - interval '90 days'");
+    expect(rumpf).toContain('u.pseudonymisiert_am is null');
+    expect(klein5).toContain('revoke execute on function public.uebernahmen_verlauf(uuid) from public, anon');
+  });
+
+  it('pg_cron fehlt im Supabase-Kontext → RAISE WARNING mit Anweisung (nicht still)', () => {
+    const block = klein5.split('do $do$')[1].split('$do$;')[0];
+    expect(block).toMatch(/elsif exists \(select 1 from pg_roles where rolname = 'supabase_admin'\) then\s+raise warning/);
+    expect(block).toContain('cron.schedule(v_job');
+    expect(SQL5).toContain('pg_cron aktivieren');
+  });
+});
+
 const PG = process.env.RL_TEST_PG;
 
 describe.skipIf(!PG)('Migration gegen Postgres (RL_TEST_PG)', () => {
@@ -490,6 +546,7 @@ describe.skipIf(!PG)('Migration gegen Postgres (RL_TEST_PG)', () => {
     psql(ziel, '../supabase/migrations/20261126000000_inkrement2.sql');
     psql(ziel, '../supabase/migrations/20261127000000_review_i2.sql');
     psql(ziel, '../supabase/migrations/20261128000000_inkrement3m.sql');
+    psql(ziel, '../supabase/migrations/20261129000000_review_i3m.sql');
     return [psql(ziel, 'sql/rls-szenario.sql'), psql(ziel, 'sql/rls-szenario-i2.sql'), psql(ziel, 'sql/rls-szenario-i3m.sql')]
       .join('\n')
       .split('\n')

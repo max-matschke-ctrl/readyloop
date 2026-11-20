@@ -2,8 +2,17 @@
 import { randomUUID } from 'node:crypto';
 import { anlassErledigtDurch } from '@/domain/anlass';
 import { mangelUebergangErlaubt } from '@/domain/maengel';
+import { imUebernahmeVerlauf } from '@/domain/nutzung';
 import type { Anlass, Geraet, GeraetToken, Id, Mangel, Nachweis, Uebernahme } from '@/domain/types';
-import { SUCHE_MAX, type KurzAuswahl, type KurzRohdaten, type Repository, type TokenRohdaten } from '../types';
+import {
+  SUCHE_MAX,
+  type KurzAuswahl,
+  type KurzRohdaten,
+  type Repository,
+  type StatusRohdaten,
+  type TokenRohdaten,
+  type UebernahmeVerlaufEintrag,
+} from '../types';
 import { erzeugeDemoStand, type DemoStand } from './daten';
 
 const kopie = <T>(wert: T): T => structuredClone(wert);
@@ -223,10 +232,22 @@ export class DemoRepository implements Repository {
   async listeTokens(organisationId: Id): Promise<GeraetToken[]> {
     return kopie(this.stand.tokens.filter((t) => t.organisationId === organisationId));
   }
-  /** Liefert alle Zeilen; die Sichtbarkeit nach F-27 setzen die Dienste durch (Supabase zusätzlich RLS). */
-  async listeUebernahmen(organisationId: Id, geraetId?: Id): Promise<Uebernahme[]> {
+  /** Nur offene Übernahmen (wie Supabase-Filter bis is null); die Sichtbarkeit nach Rolle setzen die Dienste durch. */
+  async listeOffeneUebernahmen(organisationId: Id, geraetId?: Id): Promise<Uebernahme[]> {
     return kopie(
-      this.stand.uebernahmen.filter((u) => u.organisationId === organisationId && (geraetId === undefined || u.geraetId === geraetId)),
+      this.stand.uebernahmen.filter(
+        (u) => u.bis === null && u.organisationId === organisationId && (geraetId === undefined || u.geraetId === geraetId),
+      ),
+    );
+  }
+  /** Wie RPC uebernahmen_verlauf ohne Rollenprüfung (Dienst prüft uebernahmen.lesen): ein Gerät, abgeschlossen, Person
+   *  vorhanden, Ende innerhalb der letzten 90 Tage, ohne beendetVon, neueste zuerst. */
+  async listeUebernahmeVerlauf(geraetId: Id, jetzt: Date): Promise<UebernahmeVerlaufEintrag[]> {
+    return kopie(
+      this.stand.uebernahmen
+        .filter((u) => u.geraetId === geraetId && imUebernahmeVerlauf(u, jetzt))
+        .sort((a, b) => (b.bis ?? '').localeCompare(a.bis ?? '') || a.id.localeCompare(b.id))
+        .map((u) => ({ ...u, beendetVon: null })),
     );
   }
 
@@ -254,6 +275,7 @@ export class DemoRepository implements Repository {
       const vonMir = offen !== null && offen.benutzerId === fuerBenutzerId;
       return {
         ...this.statusRohdaten(g),
+        geraetId: g.id,
         bereichName: this.stand.bereiche.find((b) => b.id === g.bereichId)?.name ?? '',
         zugeordnetMir: g.zugeordnetAn === fuerBenutzerId,
         offeneUebernahme: offen ? { vonMir, seit: vonMir ? offen.von : null } : null,
@@ -261,21 +283,30 @@ export class DemoRepository implements Repository {
     });
   }
 
-  /** Nur aktive Tokens. */
-  async holeTokenRohdaten(token: string): Promise<TokenRohdaten | null> {
+  /** Nur aktive Tokens. eigeneOrganisation nur, wenn fuer.organisationId die Geräte-Organisation ist und der Benutzer dort
+   *  aktives Mitglied ist (wie geraet_oeffentlich). */
+  async holeTokenRohdaten(token: string, fuer: { benutzerId: Id; organisationId: Id } | null): Promise<TokenRohdaten | null> {
     const t = this.stand.tokens.find((x) => x.token === token && x.aktiv);
     const g = t ? this.stand.geraete.find((x) => x.id === t.geraetId) : undefined;
     const org = g ? this.stand.organisationen.find((o) => o.id === g.organisationId) : undefined;
     if (!g || !org) return null;
-    return { ...this.statusRohdaten(g), organisationName: org.name };
+    const mitglied =
+      fuer !== null &&
+      fuer.organisationId === g.organisationId &&
+      this.stand.mitgliedschaften.some((m) => m.organisationId === g.organisationId && m.benutzerId === fuer.benutzerId && m.aktiv);
+    return { ...this.statusRohdaten(g), organisationName: org.name, eigeneOrganisation: mitglied ? { geraetId: g.id } : null };
   }
 
   /**
-   * Gemeinsamer Teil von Kurz- und Token-Rohdaten, wie app.geraet_status_json: nur öffentliche Felder (F-24),
-   * kein Verlauf – je Prüfart nur der neueste Nachweis (mit Prüfername), nur offene Anlässe, offene Mängel nur mit Schwere.
+   * Gemeinsamer Teil von Kurz- und Token-Rohdaten, wie app.geraet_status_json: nur öffentliche Felder (F-24), keine
+   * internen IDs, kein Verlauf – je Prüfart nur der neueste Nachweis (mit Prüfername), nur offene Anlässe, offene Mängel
+   * nur mit Schwere. Prüfarten nummeriert nach Bezeichnung, dann ID (wie row_number() in SQL).
    */
-  private statusRohdaten(g: Geraet): Omit<TokenRohdaten, 'organisationName'> {
-    const pruefarten = this.stand.pruefarten.filter((p) => p.geraetId === g.id);
+  private statusRohdaten(g: Geraet): StatusRohdaten {
+    const pruefarten = this.stand.pruefarten
+      .filter((p) => p.geraetId === g.id)
+      .sort((a, b) => (a.bezeichnung < b.bezeichnung ? -1 : a.bezeichnung > b.bezeichnung ? 1 : a.id.localeCompare(b.id)));
+    const nr = new Map(pruefarten.map((p, i) => [p.id, i + 1]));
     const alleNachweise = this.stand.nachweise.filter((n) => n.geraetId === g.id);
     const neueste = pruefarten
       .map((p) => alleNachweise.filter((n) => n.geraetPruefartId === p.id).sort(nachNeuestem)[0])
@@ -283,8 +314,6 @@ export class DemoRepository implements Repository {
       .sort(nachNeuestem);
     return kopie({
       geraet: {
-        id: g.id,
-        organisationId: g.organisationId,
         bezeichnung: g.bezeichnung,
         inventarnummer: g.inventarnummer,
         hersteller: g.hersteller,
@@ -293,23 +322,22 @@ export class DemoRepository implements Repository {
         betriebsstatus: g.betriebsstatus,
       },
       pruefarten: pruefarten.map((p) => ({
-        id: p.id,
+        nr: nr.get(p.id)!,
         bezeichnung: p.bezeichnung,
         letztePruefung: p.letztePruefung,
         letztePruefungHerkunft: p.letztePruefungHerkunft,
         frist: p.frist ? { monate: p.frist.monate, quelle: p.frist.quelle, stufe: p.frist.stufe, fundstelle: p.frist.fundstelle } : null,
       })),
       nachweise: neueste.map((n) => ({
-        id: n.id,
-        geraetPruefartId: n.geraetPruefartId,
+        pruefartNr: nr.get(n.geraetPruefartId)!,
         pruefdatum: n.pruefdatum,
         ergebnis: n.ergebnis,
         erfasstAm: n.erfasstAm,
         prueferName: n.prueferName,
       })),
       anlaesse: this.stand.anlaesse
-        .filter((a) => a.geraetId === g.id && anlassErledigtDurch(a, alleNachweise).offen)
-        .map((a) => ({ id: a.id, geraetPruefartId: a.geraetPruefartId, datum: a.datum, erfasstAm: a.erfasstAm, aufgehobenAm: a.aufgehobenAm })),
+        .filter((a) => a.geraetId === g.id && nr.has(a.geraetPruefartId) && anlassErledigtDurch(a, alleNachweise).offen)
+        .map((a) => ({ pruefartNr: nr.get(a.geraetPruefartId)!, datum: a.datum, erfasstAm: a.erfasstAm, aufgehobenAm: a.aufgehobenAm })),
       offeneMaengel: this.stand.maengel.filter((m) => m.geraetId === g.id && m.status !== 'behoben').map((m) => ({ schwere: m.schwere })),
     });
   }

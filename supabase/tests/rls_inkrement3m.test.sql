@@ -2,7 +2,7 @@
 -- Lokal ohne pgTAP laufen dieselben Fälle (und mehr) über tests/sql/rls-szenario-i3m.sql (RL_TEST_PG).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(19);
 
 -- Testdaten als Service (RLS umgangen)
 insert into auth.users (id, email) values
@@ -81,7 +81,10 @@ select throws_ok($$select public.mitglied_speichern('{"organisation_id":"0000000
 
 -- Admin
 set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
-select is((select count(*) from public.uebernahme where bis is not null), 1::bigint, 'ADM sieht abgeschlossene Übernahme');
+-- Review I3M (20261129000000_review_i3m.sql): abgeschlossene Übernahmen nur über uebernahmen_verlauf (ein Gerät, 90 Tage)
+select is((select count(*) from public.uebernahme where bis is not null), 0::bigint, 'ADM sieht abgeschlossene Übernahme nicht direkt');
+select is((select count(*) from public.uebernahmen_verlauf('00000000-0000-0000-0000-0000000000e1')), 1::bigint,
+  'ADM sieht abgeschlossene Übernahme über uebernahmen_verlauf');
 update public.mitgliedschaft set aktiv = false where id = '00000000-0000-0000-0000-000000000d10';
 reset role;
 select is((select ende_art from public.uebernahme where geraet_id = '00000000-0000-0000-0000-0000000000e1' and benutzer_id is not null order by von desc limit 1),

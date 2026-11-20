@@ -284,8 +284,12 @@ describe('Einladung per Service-Role (Q-23)', () => {
 describe('I3M (BE-20)', () => {
   it('holeTokenRohdaten → rpc geraet_oeffentlich; null bleibt null', async () => {
     const { client, aufrufe } = fakeSupabase(() => ({ data: null }));
-    expect(await supabaseRepository(client, null).holeTokenRohdaten('a'.repeat(22))).toBeNull();
-    expect(aufrufe).toEqual([expect.objectContaining({ art: 'rpc', name: 'geraet_oeffentlich', args: { p_token: 'a'.repeat(22) } })]);
+    expect(await supabaseRepository(client, null).holeTokenRohdaten('a'.repeat(22), null)).toBeNull();
+    await supabaseRepository(client, ORG).holeTokenRohdaten('b'.repeat(22), { benutzerId: 'u1', organisationId: ORG });
+    expect(aufrufe).toEqual([
+      expect.objectContaining({ art: 'rpc', name: 'geraet_oeffentlich', args: { p_token: 'a'.repeat(22), p_organisation: null } }),
+      expect.objectContaining({ art: 'rpc', name: 'geraet_oeffentlich', args: { p_token: 'b'.repeat(22), p_organisation: ORG } }),
+    ]);
   });
 
   it('listeKurzRohdaten → rpc ma_kurzansichten mit Art, Suche, IDs', async () => {
@@ -315,14 +319,28 @@ describe('I3M (BE-20)', () => {
     expect(aufrufe[3]).toMatchObject({ werte: { zugeordnet_an: null }, filter: [['eq', 'id', u.geraetId]] });
   });
 
-  it('listeTokens/listeUebernahmen lesen gefiltert nach Organisation (und Gerät)', async () => {
+  it('listeTokens/listeOffeneUebernahmen lesen gefiltert nach Organisation, Gerät und bis is null', async () => {
     const { client, aufrufe } = fakeSupabase(() => ({ data: [] }));
     const repo = supabaseRepository(client, ORG);
     await repo.listeTokens(ORG);
-    await repo.listeUebernahmen(ORG, 'g1');
+    await repo.listeOffeneUebernahmen(ORG, 'g1');
     expect(aufrufe.map((a) => [a.tabelle, a.filter])).toEqual([
       ['geraet_token', [['eq', 'organisation_id', ORG]]],
-      ['uebernahme', [['eq', 'organisation_id', ORG], ['eq', 'geraet_id', 'g1']]],
+      ['uebernahme', [['eq', 'organisation_id', ORG], ['eq', 'geraet_id', 'g1'], ['is', 'bis', null]]],
+    ]);
+  });
+
+  it('listeUebernahmeVerlauf → rpc uebernahmen_verlauf je Gerät, kein Tabellenzugriff; ohne beendetVon', async () => {
+    const zeile = {
+      id: 'u1', organisation_id: ORG, geraet_id: 'g1', benutzer_id: 'b1', benutzer_name: 'Aylin Demir',
+      von: '2026-10-30 08:00:00+00', bis: '2026-11-01 08:00:00+00', ende_art: 'rueckgabe',
+    };
+    const { client, aufrufe } = fakeSupabase(() => ({ data: [zeile] }));
+    const verlauf = await supabaseRepository(client, ORG).listeUebernahmeVerlauf('g1', new Date('2026-11-19T10:00:00Z'));
+    expect(aufrufe).toEqual([expect.objectContaining({ art: 'rpc', name: 'uebernahmen_verlauf', args: { p_geraet: 'g1' } })]);
+    expect(aufrufe.some((a) => a.tabelle === 'uebernahme')).toBe(false);
+    expect(verlauf).toEqual([
+      { id: 'u1', organisationId: ORG, geraetId: 'g1', benutzerId: 'b1', benutzerName: 'Aylin Demir', von: '2026-10-30T08:00:00.000Z', bis: '2026-11-01T08:00:00.000Z', endeArt: 'rueckgabe', beendetVon: null },
     ]);
   });
 

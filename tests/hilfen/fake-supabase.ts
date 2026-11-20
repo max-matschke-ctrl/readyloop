@@ -58,6 +58,10 @@ export function fakeSupabase(handler: (a: Aufruf) => Antwort = () => ({ data: []
         a.filter.push(['in', s, w]);
         return b;
       },
+      is(s: string, w: unknown) {
+        a.filter.push(['is', s, w]);
+        return b;
+      },
       order(s: string, o: unknown) {
         a.sortierung = [s, o];
         return b;

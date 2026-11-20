@@ -170,15 +170,20 @@ describe('Mapping I3M hin und zurück', () => {
     for (const k of kurz) expect(zuKurzRohdaten(vonKurzRohdaten(k))).toEqual(k);
     const l002 = kurz.find((k) => k.geraet.inventarnummer === 'L-002')!;
     expect(vonKurzRohdaten(l002).offene_uebernahme).toMatchObject({ von_mir: true });
-    const token = (await repo.holeTokenRohdaten('demoP001xxxxxxxxxxxxxx'))!;
+    const token = (await repo.holeTokenRohdaten('demoP001xxxxxxxxxxxxxx', null))!;
     expect(zuTokenRohdaten(vonTokenRohdaten(token))).toEqual(token);
     expect(vonTokenRohdaten(token)).toMatchObject({ organisation_name: 'Elbtal Fördertechnik GmbH' });
+    expect(Object.keys(vonTokenRohdaten(token))).not.toContain('geraet_id');
+    const mitglied = (await repo.holeTokenRohdaten('demoP001xxxxxxxxxxxxxx', { benutzerId: DEMO_BENUTZER_IDS.jonas, organisationId: DEMO_ORG_ID }))!;
+    expect(zuTokenRohdaten(vonTokenRohdaten(mitglied))).toEqual(mitglied);
+    expect(vonTokenRohdaten(mitglied)).toMatchObject({ geraet_id: mitglied.eigeneOrganisation!.geraetId, gleiche_organisation: true });
   });
   it('JSON aus Postgres: Zeitstempel und Datumswerte normalisiert, seit nur bei eigener Übernahme', () => {
     const roh = zuKurzRohdaten({
-      geraet: { id: 'g', organisation_id: 'o', bezeichnung: 'Leiter', inventarnummer: null, hersteller: null, typ: null, kategorie: 'wechselnd', betriebsstatus: 'in_betrieb' },
-      pruefarten: [{ id: 'p', bezeichnung: 'WP', letzte_pruefung: '2026-10-20', letzte_pruefung_herkunft: 'nachweis', frist: { monate: 12, quelle: 'gbu', stufe: 'C', fundstelle: 'GBU' } }],
-      nachweise: [{ id: 'n', geraet_pruefart_id: 'p', pruefdatum: '2026-10-20', ergebnis: 'ohne_maengel', erfasst_am: '2026-10-20T13:00:00.123456+00:00', pruefer_name: 'Prüfer Paul' }],
+      geraet_id: 'g',
+      geraet: { bezeichnung: 'Leiter', inventarnummer: null, hersteller: null, typ: null, kategorie: 'wechselnd', betriebsstatus: 'in_betrieb' },
+      pruefarten: [{ nr: 1, bezeichnung: 'WP', letzte_pruefung: '2026-10-20', letzte_pruefung_herkunft: 'nachweis', frist: { monate: 12, quelle: 'gbu', stufe: 'C', fundstelle: 'GBU' } }],
+      nachweise: [{ pruefart_nr: 1, pruefdatum: '2026-10-20', ergebnis: 'ohne_maengel', erfasst_am: '2026-10-20T13:00:00.123456+00:00', pruefer_name: 'Prüfer Paul' }],
       anlaesse: [],
       offene_maengel: [{ schwere: 'gering' }],
       bereich_name: 'Lager',
@@ -188,5 +193,19 @@ describe('Mapping I3M hin und zurück', () => {
     expect(roh.nachweise[0].erfasstAm).toBe('2026-10-20T13:00:00.123Z');
     expect(roh.offeneUebernahme).toEqual({ vonMir: false, seit: null });
     expect(roh.pruefarten[0].frist).toEqual({ monate: 12, quelle: 'gbu', stufe: 'C', fundstelle: 'GBU' });
+    expect(roh.geraetId).toBe('g');
+  });
+  it('TokenRohJson: geraet_id nur mit gleiche_organisation = true übernommen', () => {
+    const basis = {
+      geraet: { bezeichnung: 'Leiter', inventarnummer: null, hersteller: null, typ: null, kategorie: 'wechselnd' as const, betriebsstatus: 'in_betrieb' as const },
+      pruefarten: [],
+      nachweise: [],
+      anlaesse: [],
+      offene_maengel: [],
+      organisation_name: 'Betrieb',
+    };
+    expect(zuTokenRohdaten(basis).eigeneOrganisation).toBeNull();
+    expect(zuTokenRohdaten({ ...basis, geraet_id: 'g' }).eigeneOrganisation).toBeNull();
+    expect(zuTokenRohdaten({ ...basis, geraet_id: 'g', gleiche_organisation: true }).eigeneOrganisation).toEqual({ geraetId: 'g' });
   });
 });

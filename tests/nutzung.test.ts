@@ -1,6 +1,7 @@
 // BE-15: Nutzbarkeit (F-21), Übernahme-Hinweis (F-23), Token-Format (F-24), Übernahme-Verlauf (F-27).
 import { describe, expect, it } from 'vitest';
 import { imUebernahmeVerlauf, istTokenFormat, nutzungAus, TOKEN_MUSTER, uebernahmeHinweis } from '@/domain/nutzung';
+import { berechneStatusImKontext } from '@/domain/status';
 import { BETRIEBSSTATUS, FRIST_STATUS, type Betriebsstatus, type FristStatus, type Nutzung } from '@/domain/types';
 
 const ERWARTET_IN_BETRIEB: Record<FristStatus, Nutzung> = {
@@ -72,5 +73,29 @@ describe('imUebernahmeVerlauf (F-27)', () => {
   });
   it('eigene Frist', () => {
     expect(imUebernahmeVerlauf({ bis: vorTagen(10), benutzerId: 'u1' }, jetzt, 7)).toBe(false);
+  });
+});
+
+// Gegenstück zu tests/sql/rls-szenario-i3m.sql, Abschnitt „Übernahme-Sperre“ (app.geraet_nicht_verwenden): gleiche Fälle,
+// gleiche Erwartung in Domäne (src/domain/status.ts) und Datenbank.
+describe('Übernahme-Sperre wie SQL-Szenario (nicht bestanden, Monatsende)', () => {
+  const frist = { monate: 13 };
+  const kontext = { betriebsstatus: 'in_betrieb' as const, anlassOffen: false, nichtBestanden: false };
+  const sperre = (status: FristStatus) =>
+    uebernahmeHinweis({ kategorie: 'wechselnd', betriebsstatus: 'in_betrieb' }, nutzungAus(status, 'in_betrieb'));
+
+  it('31.01.2026 + 13 Monate = 28.02.2027: am Fälligkeitstag übernehmbar, am 01.03. gesperrt', () => {
+    const amTag = berechneStatusImKontext({ frist, letztePruefung: '2026-01-31' }, '2027-02-28', kontext);
+    expect(amTag).toMatchObject({ faelligAm: '2027-02-28', restTage: 0 });
+    expect(sperre(amTag.status)).toBeNull();
+    const danach = berechneStatusImKontext({ frist, letztePruefung: '2026-01-31' }, '2027-03-01', kontext);
+    expect(danach.status).toBe('ueberfaellig');
+    expect(sperre(danach.status)).toBe('nicht_verwenden');
+  });
+
+  it('letzter Nachweis nicht bestanden sperrt trotz gültiger Frist', () => {
+    const s = berechneStatusImKontext({ frist: { monate: 12 }, letztePruefung: '2026-10-21' }, '2026-11-20', { ...kontext, nichtBestanden: true });
+    expect(s).toMatchObject({ status: 'vor_nutzung_pruefen', grund: 'nicht_bestanden' });
+    expect(sperre(s.status)).toBe('nicht_verwenden');
   });
 });

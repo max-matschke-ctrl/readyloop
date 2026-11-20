@@ -35,7 +35,7 @@ import {
   type Sitzung,
   type VorNutzungGrund,
 } from '@/domain/types';
-import type { KurzRohdaten, Repository, TokenRohdaten } from './repo/types';
+import type { KurzRohdaten, Repository, StatusRohdaten } from './repo/types';
 
 export type DienstErgebnis<T extends object = object> =
   | ({ ok: true } & T)
@@ -313,16 +313,17 @@ export function datumVon(zeitpunkt: string): IsoDate {
  * F-21: Status über ALLE Prüfarten und ALLE offenen Mängel des Geräts (unabhängig vom Betrachter), Kontext nach F-9.
  * Enthält keine Personennamen außer dem Prüfernamen des neuesten Nachweises je Prüfart.
  */
-export function statusKernAus(roh: Omit<TokenRohdaten, 'organisationName'>, heute: IsoDate): GeraetStatusKern {
-  const nachNeu = [...roh.nachweise].sort(
-    (a, b) => b.pruefdatum.localeCompare(a.pruefdatum) || b.erfasstAm.localeCompare(a.erfasstAm),
-  );
+export function statusKernAus(roh: StatusRohdaten, heute: IsoDate): GeraetStatusKern {
+  // Rohdaten ohne IDs (F-24): Bezug über die laufende Prüfart-Nummer; lokale Schlüssel nur für anlassErledigtDurch.
+  const nachNeu = roh.nachweise
+    .map((n, i) => ({ ...n, id: `n${i}`, geraetPruefartId: String(n.pruefartNr) }))
+    .sort((a, b) => b.pruefdatum.localeCompare(a.pruefdatum) || b.erfasstAm.localeCompare(a.erfasstAm));
   const pruefarten = roh.pruefarten.map((p) => {
-    const eigene = nachNeu.filter((n) => n.geraetPruefartId === p.id);
+    const eigene = nachNeu.filter((n) => n.pruefartNr === p.nr);
     const letzter = eigene[0];
     const anlassOffen = roh.anlaesse
-      .filter((a) => a.geraetPruefartId === p.id)
-      .some((a) => anlassErledigtDurch(a, eigene).offen);
+      .filter((a) => a.pruefartNr === p.nr)
+      .some((a) => anlassErledigtDurch({ ...a, geraetPruefartId: String(a.pruefartNr) }, eigene).offen);
     const status = berechneStatusImKontext({ frist: p.frist, letztePruefung: p.letztePruefung }, heute, {
       betriebsstatus: roh.geraet.betriebsstatus,
       anlassOffen,
@@ -367,7 +368,7 @@ export function kurzansichtAus(roh: KurzRohdaten, heute: IsoDate): GeraetKurzans
   const u = roh.offeneUebernahme;
   return {
     ...kern,
-    geraetId: roh.geraet.id,
+    geraetId: roh.geraetId,
     bereichName: roh.bereichName,
     offeneMaengel: roh.offeneMaengel.length,
     zugeordnetMir: roh.zugeordnetMir,

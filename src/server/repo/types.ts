@@ -36,21 +36,37 @@ export type KurzAuswahl =
 /** Höchstzahl Treffer der Suche (F-26/US-28). */
 export const SUCHE_MAX = 50;
 
-/** Rohdaten für Kurzansicht und öffentliche Ansicht. Enthält keine Personennamen außer Prüfernamen. */
-export interface KurzRohdaten {
-  geraet: Pick<Geraet, 'id' | 'organisationId' | 'bezeichnung' | 'inventarnummer' | 'hersteller' | 'typ' | 'kategorie' | 'betriebsstatus'>;
-  bereichName: string;
-  pruefarten: (Pick<GeraetPruefart, 'id' | 'bezeichnung' | 'letztePruefung' | 'letztePruefungHerkunft'> & { frist: OeffentlicheFrist | null })[];
-  nachweise: (Pick<Nachweis, 'id' | 'geraetPruefartId' | 'pruefdatum' | 'ergebnis' | 'erfasstAm'> & { prueferName: string | null })[]; // Name nur beim neuesten je Prüfart
-  anlaesse: Pick<Anlass, 'id' | 'geraetPruefartId' | 'datum' | 'erfasstAm' | 'aufgehobenAm'>[];
+/**
+ * Öffentliche Statusdaten (F-21, F-24), wie app.geraet_status_json: keine Personennamen außer Prüfernamen und
+ * KEINE internen IDs (Review I3M). Prüfarten tragen eine laufende Nummer je Gerät (nr, ab 1); Nachweise und Anlässe
+ * verweisen über pruefartNr darauf.
+ */
+export interface StatusRohdaten {
+  geraet: Pick<Geraet, 'bezeichnung' | 'inventarnummer' | 'hersteller' | 'typ' | 'kategorie' | 'betriebsstatus'>;
+  pruefarten: (Pick<GeraetPruefart, 'bezeichnung' | 'letztePruefung' | 'letztePruefungHerkunft'> & { nr: number; frist: OeffentlicheFrist | null })[];
+  nachweise: (Pick<Nachweis, 'pruefdatum' | 'ergebnis' | 'erfasstAm'> & { pruefartNr: number; prueferName: string | null })[]; // nur neuester je Prüfart
+  anlaesse: (Pick<Anlass, 'datum' | 'erfasstAm' | 'aufgehobenAm'> & { pruefartNr: number })[]; // nur offene
   offeneMaengel: { schwere: MangelSchwere }[];
+}
+
+/** Kurzansicht für Mitarbeiter derselben Organisation (RPC ma_kurzansichten): Statusdaten + Geräte-ID + eigener Bezug. */
+export interface KurzRohdaten extends StatusRohdaten {
+  geraetId: Id;
+  bereichName: string;
   zugeordnetMir: boolean;
   offeneUebernahme: { vonMir: boolean; seit: IsoDateTime | null } | null; // seit nur bei vonMir
 }
 
-export interface TokenRohdaten extends Omit<KurzRohdaten, 'bereichName' | 'zugeordnetMir' | 'offeneUebernahme'> {
+/** Öffentliche Ansicht (RPC geraet_oeffentlich). */
+export interface TokenRohdaten extends StatusRohdaten {
   organisationName: string;
+  /** Nur wenn die aktuelle Organisation des Aufrufers die Geräte-Organisation ist und er dort aktives Mitglied ist;
+   *  sonst null (anon, fremde Organisation). */
+  eigeneOrganisation: { geraetId: Id } | null;
 }
+
+/** Abgeschlossene Übernahme im Verlauf (F-27): ohne beendetVon. */
+export type UebernahmeVerlaufEintrag = Omit<Uebernahme, 'beendetVon'> & { beendetVon: null };
 
 export interface Repository {
   // Lesen
@@ -116,13 +132,17 @@ export interface Repository {
   // Lesen I3M
   /** RLS: ADM, VER (Bereich). */
   listeTokens(organisationId: Id): Promise<GeraetToken[]>;
-  /** RLS: eigene; ADM alle; SIF/VER (Bereich) nur offene; PRF keine. Demo liefert alle – Dienste filtern nach F-27. */
-  listeUebernahmen(organisationId: Id, geraetId?: Id): Promise<Uebernahme[]>;
+  /** Nur OFFENE Übernahmen. RLS: MA eigene; ADM/SIF alle der Organisation; VER Bereich; PRF keine. */
+  listeOffeneUebernahmen(organisationId: Id, geraetId?: Id): Promise<Uebernahme[]>;
+  /** F-27/US-32: abgeschlossene Übernahmen genau eines Geräts, nur admin, Ende innerhalb der letzten 90 Tage, Person
+   *  vorhanden, neueste zuerst. Supabase: RPC uebernahmen_verlauf (Nicht-Admin → []). Demo: ohne Rollenprüfung, Dienst prüft. */
+  listeUebernahmeVerlauf(geraetId: Id, jetzt: Date): Promise<UebernahmeVerlaufEintrag[]>;
   /** Nur für Rolle mitarbeiter. Supabase: RPC ma_kurzansichten. */
   listeKurzRohdaten(organisationId: Id, auswahl: KurzAuswahl, fuerBenutzerId: Id): Promise<KurzRohdaten[]>;
-  /** Ohne Sitzung aufrufbar. Nur aktive Tokens. Supabase: RPC geraet_oeffentlich.
-   *  geraet.id/organisationId dienen nur dem Server (TokenSeite.kurz, akteUrl) und gehen nie unverändert an den Client. */
-  holeTokenRohdaten(token: string): Promise<TokenRohdaten | null>;
+  /** Ohne Sitzung aufrufbar (fuer = null). Nur aktive Tokens. Supabase: RPC geraet_oeffentlich(p_token, p_organisation);
+   *  der Benutzer ergibt sich dort aus dem JWT. eigeneOrganisation nur, wenn fuer.organisationId die Geräte-Organisation ist
+   *  und der Benutzer dort aktives Mitglied ist; die Geräte-ID geht nie an anonyme oder fremde Aufrufer. */
+  holeTokenRohdaten(token: string, fuer: { benutzerId: Id; organisationId: Id } | null): Promise<TokenRohdaten | null>;
 
   // Schreiben I3M (je Aufruf atomar)
   /** vorherige: fremde offene Übernahme mit gesetztem bis/endeArt 'uebergabe'. Supabase: RPC uebernahme_starten. */
