@@ -79,7 +79,7 @@ export default async function EtikettenSeite({ searchParams }: { searchParams: S
                 : 'Aufkleber mit QR-Code und Prüfplakette für Geräte Ihrer Bereiche.'
             }
           />
-          <EtikettenAuswahl bereiche={bereiche} bereichId={bereichId} kategorie={kategorie} start={start} geraetIds={geraetIds} />
+          <EtikettenAuswahl bereiche={bereiche} bereichId={bereichId} kategorie={kategorieFilter ?? 'alle'} start={start} geraetIds={geraetIds} />
 
           {etiketten.length === 0 ? (
             <Leerzustand
