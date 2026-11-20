@@ -1,8 +1,9 @@
-# Umsetzung des Designsystems – Pakete für frontend-dev (Stand 20.11.2026)
+# Umsetzung des Designsystems – Pakete für frontend-dev (Stand 20.11.2026, ergänzt um I3M)
 
 Grundlage: `designsystem.md` (Paragrafen in Klammern), `skills-empfehlung.md`.
 Jedes Paket ist für **einen** Lauf geschnitten. Reihenfolge: P1 → P2 → P3a → (P3b) → P4a → P4b → P4c → P5a → P5b → P5c → P6 → P7a/P7b/P7c.
 P7a, P7b und P7c haben keine gemeinsamen Dateien und dürfen parallel laufen. Alle anderen Pakete laufen nacheinander.
+Pakete für I3M (Mitarbeiter) stehen im Abschnitt „I3M“ am Ende.
 
 ## 0. Gilt für jedes Paket (Definition of Done)
 1. Skill `frontend-design` geladen. Vor dem Bau die genannten Abschnitte im Designsystem lesen und in 3–5 Zeilen planen, nach dem Bau gegen §1 (Leitsätze) prüfen.
@@ -175,3 +176,152 @@ P7a, P7b und P7c haben keine gemeinsamen Dateien und dürfen parallel laufen. Al
 
 ## Freigaben Max (20.11.2026)
 Alle Vorschläge aus designsystem.md §9.1–§9.6 freigegeben: Wortmarke Plakette + „Readyloop“, kein Dark Theme im MVP, Jahresring auf `/geraete` (P3b), ochre-600 für Linien, `lucide-react` als Icon-Set, Grundschrift 16 px / Untergrenze 13 px.
+
+---
+
+## I3M – Mitarbeiter, QR-Seite, Etiketten (Stand 20.11.2026)
+
+Gestaltet die Backlog-Pakete FE-12 bis FE-15 (`docs/backlog.md` §6/§7). Die Paketnamen und Komponentennamen aus dem Backlog bleiben, hier kommen Gestaltung, zusätzliche Dateien und Abnahmekriterien dazu. Bei Widersprüchen gilt für **Aussehen und Verhalten** dieses Dokument, für **Daten, Rechte und Texte aus dem Vertrag** der Backlog.
+
+Neue Designsystem-Abschnitte: Leitsätze 6–8 (§1), §2.4 Ausnahme, §5.3 Variante Druck, §5.5, §6.17–§6.22, §7, §8.12–§8.17, §9.7, §10 E-4 bis E-6.
+Hinweis zu §6.17 (Semantik): Verbindlich ist die Lösung in §8.12. Das Band ist eine `<section aria-label="Nutzung">` mit dem Titel als `<p>`, steht im DOM vor dem `<header>` mit h1 und bekommt **kein** `role="status"`; `role="status"` haben nur Meldungen nach einer Aktion.
+
+### Reihenfolge und Parallelität
+```
+FE-11 (Backlog, vorher) ── FE-12 ──┬── FE-13
+                                   ├── FE-14            (parallel zu FE-13, keine gemeinsamen Dateien)
+                                   └── FE-15a ── FE-15  (FE-15a nur nach OK von Max zu §9.7; parallel zu FE-13/FE-14)
+```
+- FE-12 legt die gemeinsamen Bausteine an (`NutzungsHinweis`, `PruefartKurzliste`, `MaAktionen`, Halle-Klassen in `globals.css`). Danach ändert kein anderes I3M-Paket `globals.css`.
+- Ohne Freigabe zu §9.7 entfällt FE-15a, und FE-15 nutzt den Ersatzweg (§9.7).
+
+### I3M-0 Gilt zusätzlich für jedes I3M-Paket
+1. Alle Punkte aus §0.
+2. Halle-Modus §6.18 auf allen Mitarbeiter-Seiten und der QR-Seite: In den DevTools (Elementauswahl) ist kein Touch-Ziel kleiner als 48 × 48 px, die Hauptaktion 56 px hoch, Abstand zwischen Zielen mindestens 12 px.
+3. Prüfung bei 320 px, 360 px und 1280 px: kein seitenweites horizontales Scrollen, gleiche Inhalte und Aktionen.
+4. Graustufen-Test: DevTools → Rendering → „Emulate vision deficiencies: Achromatopsia“. „Nicht verwenden“, „Prüfstatus unklar“ und „Verwendbar“ sind allein über Symbol und Text unterscheidbar.
+5. Kein Personenname außer dem Prüfernamen auf QR-Seite, Meine Geräte und Suche (im HTML-Quelltext nach den Demo-Namen suchen: Katrin Vogel, Dr. Jens Hartmann, Marco Lindner, Sabine Krüger, Aylin Demir; Jonas Richter nur in Kopfleiste/Menü der eigenen Sitzung).
+6. Texte aus dem Vertrag (`NUTZUNG_LABEL`, `UEBERNAHME_HINWEIS_LABEL`, Meldungen der Actions) werden wörtlich verwendet. Zusätzliche UI-Sätze genau wie im Designsystem.
+7. Jede Aktion funktioniert ohne JavaScript (Formular mit Server Action), mit JavaScript ohne Neuladen der Seite.
+
+---
+
+### FE-12 Öffentliche QR-Seite `/g/[token]` und gemeinsame Mitarbeiter-Bausteine
+**Designsystem:** §1 (6–8), §2.4, §5.5 (Plakette 96 „Aktueller Stand“), §6.1 (öffentliche Kopfleiste), §6.3, §6.17, §6.18, §6.19 (nur Aktionstabelle), §6.20, §8.12, §8.1 (Hinweis bei `next`)
+**Dateien:**
+- `src/app/g/[token]/page.tsx`, `src/app/g/[token]/not-found.tsx`
+- neu `src/components/OeffentlicheKopfleiste.tsx` (Glyph, Wortmarke, Link „Anmelden“ mit `next`; ändert `AppHeader.tsx` nicht)
+- neu `src/components/OeffentlicheGeraeteansicht.tsx` (Kennung: Plakette 96 mit Unterzeile „Aktueller Stand“, h1, Inventarnummer, Hersteller · Typ, Betrieb; Fuß mit „Stand“)
+- neu `src/components/NutzungsHinweis.tsx` (Props laut Backlog + `groesse: 'gross' | 'kompakt'`, `naechsteFaelligkeit: IsoDate | null` für die Zeile „Nächste Prüfung bis …“)
+- neu `src/components/PruefartKurzliste.tsx` (§6.20)
+- neu `src/components/MaAktionen.tsx` (Props `{ kurz: GeraetKurzansicht; zurueck: string }`; setzt die Aktionstabelle §6.19 um, inklusive Hinweise vor den Buttons und Erfolgsmeldung am Ort; wird in FE-13 von `MeinGeraetKarte` wiederverwendet)
+- neu `src/components/TokenAktionen.tsx` (Fälle §8.12; für MA delegiert an `MaAktionen`)
+- `src/app/globals.css`: Klassen `.btn-haupt` (56 px) und `.btn-halle` (48 px), Stil `nutzung` (24/30), Stil des Nutzungsbands (brick voll, Symbolkreis weiß)
+- `src/app/login/page.tsx`: Hinweis „Nach der Anmeldung geht es zurück zum Gerät.“, wenn `next` mit `/g/` beginnt (§8.1)
+
+**Inhalt:**
+- Aufbau genau nach §8.12: Nutzungsband groß zuerst (DOM und Bild), dann Kennung, Aktionen, „Prüfungen“ (immer offen), Fuß mit „Stand: TT.MM.JJJJ, HH:MM Uhr“ in Europe/Berlin.
+- `<title>` „{Bezeichnung} – {Nicht verwenden | Prüfstatus unklar | Verwendbar}“.
+- Text im Nutzungsband mit `sr-only`-Trenner „ – “, sodass `textContent` die Vertragstexte enthält (§6.17).
+- Grund-Zeile nach §6.17 (Außer Betrieb / Überfällig seit … / `VOR_NUTZUNG_GRUND_LABEL`).
+- Ohne Frist in der Kurzliste: „Frist über GBU festlegen“ und „Noch keine Prüffrist festgelegt.“
+- `not-found.tsx` nach §8.12 (Leer-Plakette 96 mit „!“, öffentliche Kopfleiste, Aktion „Gerät suchen“).
+
+**Abnahme:**
+- US-18 vollständig in der Demo. L-001 ohne Login: erstes sichtbares Element unter der Kopfleiste (und erstes Element in `main`) ist das brick-Band mit ✕, „Nicht verwenden“ und „Überfällig seit …“; `document.querySelector('main').textContent` enthält „Nicht verwenden – Überfällig“.
+- Ein Gerät mit `unbekannt`/`gbu` zeigt das ochre-50-Band; `textContent` enthält „Prüfstatus unklar – vor Nutzung Verantwortlichen fragen“. Ein Gerät `ok` zeigt das moss-50-Band „Verwendbar“ mit „Nächste Prüfung bis TT.MM.JJJJ.“
+- Je Prüfung sichtbar ohne Aufklappen: Statusmarke, Fällig am, Prüffrist mit Monaten, Quelle und Stufe **mit Text**, Grundlage (Fundstelle), letzte Prüfung mit Herkunft, letzter Nachweis mit Ergebnis und „Prüfer: …“.
+- Ohne Sitzung: öffentliche Kopfleiste ohne Menü; bei `wechselnd` zwei Sekundärbuttons „Anmelden und übernehmen“, „Anmelden und Mangel melden“ (je 48 px), sonst nur letzterer. Beide führen auf `/login?next=/g/{token}` und dort steht der Rücksprung-Hinweis.
+- Als MA (Demo Jonas) auf L-002: Button „Zurückgeben“ (56 px) bzw. nach Rückgabe „Gerät übernehmen“; nach dem Tipp steht die Meldung zwischen Kennung und Aktionen und hat den Fokus. Ohne JavaScript funktioniert beides (Seite lädt neu, Meldung sichtbar).
+- Als MA auf L-001: kein Übernehmen-Button, Fehler-Hinweis mit `UEBERNAHME_HINWEIS_LABEL.nicht_verwenden`, „Mangel melden“ als Hauptaktion 56 px.
+- Als VER Lager auf L-003: Sekundärbutton „Geräteakte öffnen“. Auf P-001: keiner, kein Hinweis auf fremde Bereiche.
+- Ungültiger Token (`abc`, unbekannt, erneuert): identische Seite „Dieser Aufkleber ist nicht gültig.“, HTTP 404.
+- Kein Bereichsname, kein PDF-Link, kein Halter auf der Seite.
+- I3M-0 Punkte 2–5.
+
+### FE-13 Meine Geräte, Gerät suchen, Mangel melden
+**Designsystem:** §6.6 (Mangel-, Übernahmezeile), §6.10 (Mitarbeiter-Formulare), §6.17 kompakt, §6.18, §6.19, §6.22, §7, §8.13, §8.14, §8.15
+**Dateien:**
+- `src/app/meine-geraete/page.tsx`, `src/app/meine-geraete/suchen/page.tsx`, `src/app/mangel-melden/[geraetId]/page.tsx`
+- neu `src/components/MeinGeraetKarte.tsx` (Prop `variante: 'meine' | 'treffer'`; nutzt `NutzungsHinweis` kompakt, `PruefartKurzliste`, `MaAktionen` aus FE-12 unverändert)
+- neu `src/components/GeraeteSucheForm.tsx`
+- neu `src/components/MangelMeldenForm.tsx`
+- `src/app/not-found.tsx`: für Rolle MA Link „Zu meinen Geräten“ (§8.11)
+
+**Inhalt:**
+- `/meine-geraete` nach §8.13: Abschnitte „Von mir übernommen (n)“ vor „Mir zugeordnet (n)“, Sammelmeldung oben bei „Nicht verwenden“ mit Ankerlinks, Leerzustand mit Primär „Gerät suchen“ und QR-Hinweis.
+- Karte nach §6.19: kompaktes Band nur bei `nicht_verwenden`/`unklar`, sonst Statusmarke „✓ Verwendbar“; Disclosure „Prüfungen (n)“ zu bei `verwendbar`, sonst offen; Aktionen über `MaAktionen`. Ab `lg` Zeilenkarte (Grid `56px 1fr 16rem`).
+- `/meine-geraete/suchen` nach §8.14 und §6.22 (GET-Formular, Ergebniszeile `aria-live`, Hinweis unter 2 Zeichen, Leerzustand, Hinweis bei 50 Treffern).
+- `/mangel-melden/[geraetId]` nach §8.15: Gerätezusammenfassung mit kompaktem Band, Warnung, Radio-Kacheln 64 px ohne Vorauswahl mit Erklärsätzen, Zusatzhinweis bei „Gefährlich“ per CSS `:has(:checked)`, Textfeld 4 Zeilen, Hauptaktion 56 px (mobil feste Leiste), Erfolg ersetzt das Formular, Rücklink über `zurueck` (nur relativ, sonst `/meine-geraete`).
+
+**Abnahme:**
+- US-17 in der Demo: Jonas sieht „Von mir übernommen“ mit L-008 zuerst (brick-Band „Nicht verwenden“, Grund, „Zurückgeben“ als Hauptaktion) und L-002, darunter „Mir zugeordnet“ mit P-008 (Statusmarke „✓ Verwendbar“, Disclosure zu). Oben die Sammelmeldung „1 Gerät nicht verwenden.“ mit Ankerlink zu L-008.
+- Geschlossene Disclosure zeigt keine Frist. Geöffnet steht jede Frist mit Stufe (Text) und Quelle.
+- US-28 per Suche am PC (1280 px, nur Tastatur): `/meine-geraete/suchen` → „hubwagen“ → Enter → Tab bis „Gerät übernehmen“ → Enter → Meldung mit Fokus. Bei P-003 steht vor dem Button der Hinweis „Wird von einer anderen Person genutzt. …“, kein Name.
+- Eingabe „a“: Hinweis „Bitte mindestens 2 Zeichen eingeben.“, keine Treffer, kein Fehlerrahmen.
+- US-30: „Mangel melden“ ohne Schwere absenden → Feldfehler an der Gruppe; mit 3 Zeichen → Feldfehler `beschreibung`. Bei Wahl „Gefährlich“ erscheint der Zusatzhinweis ohne JavaScript. Nach dem Speichern ersetzt die Erfolgsmeldung das Formular, Fokus darauf; bei „Gefährlich“ zeigt das Band darüber jetzt „Nicht verwenden – Gefährlicher Mangel offen“ (V-001).
+- Ab 1024 px Zeilenkarten, darunter Karten; bei 1280 px liegen Plakette, Kennung und Aktionen in einer Zeile.
+- US-33: alle Schritte bei 360 px mit Zielen ≥ 48 px; „Abmelden“ im Menü auf jeder Seite.
+- I3M-0 Punkte 2–5.
+
+### FE-14 Geräteakte: Abschnitt „Nutzung und Aufkleber“
+**Designsystem:** §6.7, §6.10 (Disclosure), §6.13, §8.5 (Position), §8.16, §10 E-5
+**Dateien:**
+- `src/app/geraete/[id]/page.tsx` (nur Abschnitt einbinden: rechte Spalte nach „Betrieb und Standort“, einspaltig nach den Stammdaten)
+- neu `src/components/NutzungAbschnitt.tsx`, `ZuordnungForm.tsx`, `UebernahmeBeendenForm.tsx`, `EtikettErneuernForm.tsx`, `UebernahmeVerlauf.tsx`
+
+**Inhalt:**
+- Aufbau nach §8.16 für personenbezogen, wechselnd und ortsgebunden. Datum/Uhrzeit in Mono.
+- `ZuordnungForm` in Disclosure „Zuordnung ändern“ (geschlossen mit aktuellem Wert), Select mit „– keine Zuordnung –“, Primär „Zuordnung speichern“; ohne Optionen Satz und ggf. Link „Mitarbeiter einladen“.
+- `UebernahmeBeendenForm`: Sekundärbutton „Übernahme beenden“, ohne Rückfrage.
+- `UebernahmeVerlauf`: Tabelle §6.7 (Person, Von, Bis, Ende), h3 „Übernahmen der letzten 90 Tage“, Satz „Ältere Einträge werden automatisch ohne Namen gespeichert.“ Ohne Sortier- und Filterfunktion.
+- Aufkleber: Kurz-URL in Mono, Sekundär-Link „Etikett drucken“ → `/etiketten?geraet={id}`, Disclosure „Aufkleber erneuern“ mit Warnung, Pflicht-Checkbox `bestaetigung`, gefährlichem Button „Aufkleber erneuern“ (E-5, kein `<dialog>`).
+
+**Abnahme:**
+- ADM auf L-006: Tabelle mit einem Eintrag (Aylin Demir, Ende „Zurückgegeben“). VER und SIF auf L-006: keine Tabelle, „Frei“.
+- VER Lager auf L-002: „Genutzt von Jonas Richter, seit …“ und „Übernahme beenden“ → Meldung „Übernahme beendet“, danach „Frei“.
+- ADM auf P-008: Disclosure zeigt geschlossen „Zugeordnet an: …“ bzw. „Niemandem zugeordnet“; Zuordnung an Aylin speichern und lösen funktioniert (US-29).
+- SIF: sieht Halter, aber keine Formulare und keinen Teil „Aufkleber“. PRF: Abschnitt fehlt ganz.
+- „Aufkleber erneuern“ ohne Checkbox → Feldfehler an der Checkbox mit dem Schema-Text; mit Checkbox → Meldung „Aufkleber erneuert. …“, neue Kurz-URL sichtbar (US-31).
+- Der Aktenkopf ist unverändert (kein Halter im Kopf).
+
+### FE-15a Prüfplakette Variante Druck (nur nach OK von Max zu §9.7)
+**Designsystem:** §5.3 (Druck), §5.5, §9.7
+**Dateien:** `src/components/Pruefplakette.tsx` (+ Test, falls vorhanden). Kein anderes Paket ändert diese Datei gleichzeitig.
+**Inhalt:**
+- Neue optionale Prop `druck?: boolean`. Bei `true`: alle Farben `black` bzw. `white`, aktives Segment schwarz gefüllt, inaktive Segmente weiß, Strichstärke der Segmentrahmen 1,5 (viewBox-Einheiten, entspricht bei 13 mm etwa 0,3 mm), GBU weiter gestrichelt, Mitte wie bisher (Jahr, „GBU“, „?“, „§“; „!“ in Schwarz statt brick).
+- `width`/`height` bei `druck` auf `100%`, damit das Etikett die Größe in mm setzt (`groesse` wird ignoriert).
+- Kein `color-mix` in der Druckvariante.
+- `aria-label` unverändert sinngemäß, aber ohne Statuswort: „Nächste Prüfung 03/2027“.
+
+**Abnahme:**
+- In einem 13-mm-Container gerendert und als PDF gedruckt: Ring, gefüllter Monat und Jahr bei 100 % Zoom klar erkennbar, keine Graustufen-Flächen.
+- Ohne `druck` ist die Plakette in allen bisherigen Varianten pixelgleich (bestehende Tests grün, Sichtprüfung `/geraete`).
+
+### FE-15 Etiketten drucken `/etiketten`
+**Designsystem:** §5.5, §6.15 (Printer-Icon), §6.21, §7, §8.17
+**Dateien:** `src/app/etiketten/page.tsx`, `src/app/etiketten/druck.css`, neu `src/components/Etikett.tsx`, `QrCode.tsx`, `EtikettenAuswahl.tsx`, neu `src/components/EtikettenBogen.tsx` (teilt die Etiketten in Bögen à 24, berücksichtigt `start`)
+**Inhalt:**
+- Seite nach §8.17: Bedienteil (Auswahl, Anzahl mit Bögen, Primär „Drucken“ mit Printer-Icon, Hinweis „So drucken Sie richtig“), Vorschau maßstäblich in einem eigenen horizontal scrollenden Container.
+- Einzelgerät (`?geraet=`): Auswahl ausgeblendet, Pfad und Satz nach §8.17.
+- Soll: Select „Erstes freies Feld auf dem Bogen“ (1–24, URL-Parameter `start`), leere Felder vorne.
+- `Etikett` nach §6.21: Sicherheitsrand 4/5 mm, QR 21 × 21 mm inklusive Ruhezone, darunter „Aktueller Status:“ / „QR scannen“; rechts Plakette Druck 13 mm mit „Nächste Prüfung“, Monat/Jahr, „Stand …“; Bezeichnung einzeilig mit „…“, Inventarnummer Mono, Betrieb, Kurz-URL zweizeilig (Host+„/g/“, Token). Schriftgrößen in pt wie §6.21.
+- `QrCode`: SVG `viewBox` = Modulzahl + 8 (Ruhezone 4 je Seite), weißer Hintergrund, Module `black`, `shape-rendering="crispEdges"`, `role="img"`, `aria-label` „QR-Code für {Bezeichnung}“.
+- `druck.css` exakt nach §8.17 (A4, Rand 0, Bogen 210 × 296 mm, oben 0,5 mm, Grid 3 × 70 mm / 8 × 37 mm, `break-after: page`). Am Bildschirm Schnittrand gestrichelt steel-200. Kopfleiste, Demo-Banner und Bedienteil `@media print { display: none }`.
+- Ohne Freigabe §9.7 (Ersatzweg): normale `Pruefplakette` in Statusfarbe mit `print-color-adjust: exact` in einem 13-mm-Container, Zeile „Stand …“ bleibt.
+
+**Abnahme:**
+- US-31: VER Lager, Bereich Lager, Kategorie „Wechselnder Einsatzort“ → 4 Etiketten (L-001, L-002, L-006, L-008), Anzahlzeile „4 Etiketten · 1 Bogen A4 (24 je Bogen)“.
+- Druckvorschau in Chrome und Firefox (Skalierung 100 %, Ränder „Keine“): genau eine A4-Seite je 24 Etiketten, keine leere Folgeseite, kein Etikett über einen Seitenumbruch geteilt. 30 Etiketten (z. B. ADM, Kategorie leer bzw. alle) → 2 Seiten.
+- Ausdruck auf Normalpapier gegen einen 70 × 37-Bogen gehalten: Etikettenränder liegen innerhalb ±1 mm. Kein Inhalt näher als 4 mm am oberen/unteren und 5 mm am seitlichen Etikettrand.
+- Gedruckter QR lässt sich mit der Kamera-App eines Handys aus etwa 20 cm öffnen und führt auf `/g/{token}` genau dieses Geräts.
+- Lange Bezeichnung (> 30 Zeichen) wird mit „…“ gekürzt, der QR bleibt 21 mm.
+- Etikett ohne Inventarnummer: Zeile entfällt, kein leerer Abstand. Status `gbu`: „Frist über GBU festlegen“ statt Monat/Jahr.
+- `/etiketten?geraet={P-001}` als VER Lager: Leerzustand „Keine Geräte für diese Auswahl.“
+- MA, PRF, SIF: `/etiketten` → 404 (unverändert aus BE).
+- Am Bildschirm bei 360 px: Bedienteil ohne horizontales Scrollen der Seite, nur die Vorschau scrollt.
+
+### Offene Abhängigkeiten I3M
+- **Max:** Freigabe §9.7 (einfarbige Plakette auf dem Etikett). Ohne Freigabe entfällt FE-15a, FE-15 nutzt den Ersatzweg.
+- **backend-dev:** keine neuen Anforderungen. Genutzt werden nur Felder aus dem Vertrag §7. Für „Überfällig seit …“ im Nutzungsband reicht `naechsteFaelligkeit`; die Uhrzeit für „Stand“ kommt aus `ansicht.stand`.
+- **requirements-engineer:** Backlog FE-14 nennt einen Bestätigungsdialog für „Aufkleber erneuern“; gestaltet ist eine Disclosure mit Pflicht-Checkbox (§10 E-5). Bitte im Backlog nachziehen. FE-15a als neues Paket aufnehmen (abhängig von §9.7).
