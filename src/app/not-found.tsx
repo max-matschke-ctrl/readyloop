@@ -11,7 +11,9 @@ export default async function NichtGefunden() {
     ? { href: '/login', text: 'Zur Anmeldung' }
     : sitzung.rolle === 'pruefer'
       ? { href: '/pruefer', text: 'Zu den Prüfaufgaben' }
-      : { href: '/geraete', text: 'Zur Geräteliste' };
+      : sitzung.rolle === 'mitarbeiter'
+        ? { href: '/meine-geraete', text: 'Zu meinen Geräten' }
+        : { href: '/geraete', text: 'Zur Geräteliste' };
 
   const inhalt = (
     <Leerzustand

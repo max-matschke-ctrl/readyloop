@@ -9,5 +9,6 @@ export default async function Startseite() {
   if (status === 'ohne_mitgliedschaft') redirect('/kein-zugang');
   const sitzung = await holeSitzung();
   if (!sitzung) redirect('/login');
+  if (sitzung.rolle === 'mitarbeiter') redirect('/meine-geraete');
   redirect(sitzung.rolle === 'pruefer' ? '/pruefer' : '/geraete');
 }

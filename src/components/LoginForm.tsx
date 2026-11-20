@@ -10,14 +10,21 @@ const BESCHREIBUNG: Record<DemoRolle, string> = {
   sifa: 'Alle Bereiche lesen, Fristen freigeben oder über GBU festlegen, Anlässe und Mängel erfassen.',
   verantwortlicher: 'Eigener Bereich (Lager): Geräte anlegen, Fristen freigeben, Nachweise und Mängel erfassen.',
   pruefer: 'Zugewiesene Prüfungen sehen, Nachweise hochladen, Mängel melden. Zwei Demo-Betriebe.',
+  mitarbeiter: 'Eigene Geräte sehen, wechselnde Geräte übernehmen und zurückgeben, Mängel melden.',
 };
 
+/** Rücksprungziel (F-20) als verstecktes Feld; der Server prüft es mit sichererRuecksprung. */
+function NextFeld({ next }: { next?: string }) {
+  return next ? <input type="hidden" name="next" value={next} /> : null;
+}
+
 /** Demo-Modus: Rollenwahl per Cookie. */
-export function DemoRollenWahl() {
+export function DemoRollenWahl({ next }: { next?: string }) {
   const { state, formAction, pending, onSubmit } = useFormularAction(setzeDemoRolle);
 
   return (
     <form action={formAction} onSubmit={onSubmit} className="space-y-3">
+      <NextFeld next={next} />
       <fieldset>
         <legend className="mb-2 text-sm text-steel">Demo ohne Konto: Rolle wählen.</legend>
         <ul className="grid gap-2">
@@ -48,11 +55,12 @@ export function DemoRollenWahl() {
 }
 
 /** Modus supabase: E-Mail und Passwort. Fehlermeldung unterscheidet nicht (kommt vom Server). */
-export function LoginForm() {
+export function LoginForm({ next }: { next?: string }) {
   const { state, formAction, pending, onSubmit } = useFormularAction(anmelden);
 
   return (
     <form action={formAction} onSubmit={onSubmit} className="space-y-4" noValidate>
+      <NextFeld next={next} />
       <FeldGruppe id="login-email" feld="email" label="E-Mail" state={state}>
         {(p) => <input {...p} name="email" type="email" autoComplete="username" inputMode="email" required className="feld" />}
       </FeldGruppe>

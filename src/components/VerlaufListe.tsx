@@ -146,6 +146,11 @@ function beschreibung(e: Ereignis, pruefartNamen: Map<Id, string>): { titel: str
       if (d.eingeladen === true) details.push('eingeladen');
       return { titel, details };
     }
+    // I3M (F-28): bewusst ohne Person (F-27), nur ob zugeordnet oder gelöst.
+    case 'zuordnung_geaendert':
+      return { titel: d.zugeordnet === false ? 'Zuordnung gelöst' : titel, details };
+    case 'etikett_erneuert':
+      return { titel, details: [...details, 'alter Aufkleber ungültig'] };
   }
 }
 
