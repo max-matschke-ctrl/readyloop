@@ -20,10 +20,10 @@ function href(params: Props['params'], status?: FristStatus): string {
   return s ? `/geraete?${s}` : '/geraete';
 }
 
-const FELD =
+export const ZAEHLER_FELD =
   'relative flex h-full min-h-[5.5rem] flex-col justify-between gap-1 px-3 pb-2.5 pt-2 focus-visible:z-10 focus-visible:-outline-offset-2';
-const AKTIV = 'bg-steel-50 shadow-[inset_0_0_0_2px_var(--color-steel)]';
-const INAKTIV = 'bg-white hover:bg-steel-50';
+export const ZAEHLER_AKTIV = 'bg-steel-50 shadow-[inset_0_0_0_2px_var(--color-steel)]';
+export const ZAEHLER_INAKTIV = 'bg-white hover:bg-steel-50';
 
 /**
  * Zählerleiste (§6.8): eine zusammenhängende Fläche, Felder durch Linien geteilt, zugleich Statusfilter.
@@ -42,7 +42,7 @@ export function StatusZaehler({ zaehler, gesamt, aktiv, params }: Props) {
               <Link
                 href={href(params, s)}
                 aria-current={ist ? 'true' : undefined}
-                className={`${FELD} ${ist ? AKTIV : INAKTIV}`}
+                className={`${ZAEHLER_FELD} ${ist ? ZAEHLER_AKTIV : ZAEHLER_INAKTIV}`}
                 style={{
                   borderTopWidth: 3,
                   borderTopStyle: s === 'gbu' ? 'dashed' : 'solid',
@@ -66,7 +66,7 @@ export function StatusZaehler({ zaehler, gesamt, aktiv, params }: Props) {
           <Link
             href={href(params)}
             aria-current={!aktiv ? 'true' : undefined}
-            className={`${FELD} border-t-[3px] border-steel-200 ${!aktiv ? AKTIV : INAKTIV}`}
+            className={`${ZAEHLER_FELD} border-t-[3px] border-steel-200 ${!aktiv ? ZAEHLER_AKTIV : ZAEHLER_INAKTIV}`}
           >
             <span className="font-display text-[1.75rem] font-semibold leading-8 tabular-nums text-ink">{gesamt}</span>
             <span className="text-xs leading-tight text-ink">Alle Geräte</span>

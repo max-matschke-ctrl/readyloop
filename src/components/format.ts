@@ -35,3 +35,11 @@ export function restTageText(restTage: number | null): string | null {
 export function monate(n: number): string {
   return n === 1 ? '1 Monat' : `${n} Monate`;
 }
+
+const TAG = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+/** 'TT.MM.JJJJ' eines Zeitpunkts in Europe/Berlin. */
+export function tagVon(wert: IsoDateTime): string {
+  const d = new Date(wert);
+  return Number.isNaN(d.getTime()) ? wert : TAG.format(d);
+}

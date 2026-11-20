@@ -2,7 +2,8 @@
 
 import type { IsoDate } from '@/domain/types';
 import { mangelBeheben } from '@/server/actions';
-import { ActionMeldung, FeldFehler, feldProps, useFormularAction } from './formular';
+import { Meldung } from './Meldung';
+import { AbsendenButton, ActionMeldung, Aktionsleiste, FeldGruppe, Fehleruebersicht, useFormularAction } from './formular';
 
 interface Props {
   mangelId: string;
@@ -15,64 +16,30 @@ interface Props {
 export function MangelBehebenForm({ mangelId, heute, fruehestens }: Props) {
   const { state, formAction, pending, onSubmit } = useFormularAction(mangelBeheben);
   return (
-    <form action={formAction} onSubmit={onSubmit} className="space-y-3" noValidate>
+    <form action={formAction} onSubmit={onSubmit} className="space-y-4" noValidate>
       <input type="hidden" name="mangelId" value={mangelId} />
-      <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
-        <div>
-          <label htmlFor="beheben-am" className="label">
-            Behoben am
-          </label>
-          <input
-            id="beheben-am"
-            name="behobenAm"
-            type="date"
-            required
-            min={fruehestens}
-            max={heute}
-            defaultValue={heute}
-            className="feld font-mono"
-            {...feldProps(state, 'behobenAm')}
-          />
-          <FeldFehler state={state} feld="behobenAm" />
-        </div>
-        <div>
-          <label htmlFor="beheben-durch" className="label">
-            Behoben durch (Person oder Firma)
-          </label>
-          <input
-            id="beheben-durch"
-            name="behobenDurch"
-            type="text"
-            required
-            minLength={2}
-            maxLength={120}
-            className="feld"
-            {...feldProps(state, 'behobenDurch')}
-          />
-          <FeldFehler state={state} feld="behobenDurch" />
-        </div>
-      </div>
-      <div>
-        <label htmlFor="beheben-massnahme" className="label">
-          Maßnahme
-        </label>
-        <textarea
-          id="beheben-massnahme"
-          name="behebung"
-          rows={2}
-          required
-          minLength={5}
-          maxLength={1000}
-          className="feld"
-          {...feldProps(state, 'behebung')}
-        />
-        <FeldFehler state={state} feld="behebung" />
-      </div>
-      <p className="text-xs text-steel">Die Behebung ist endgültig. Ein neuer Befund wird als neuer Mangel erfasst.</p>
+      <Fehleruebersicht
+        state={state}
+        felder={{
+          behobenAm: { id: 'beheben-am', label: 'Behoben am' },
+          behobenDurch: { id: 'beheben-durch', label: 'Behoben durch' },
+          behebung: { id: 'beheben-massnahme', label: 'Maßnahme' },
+        }}
+      />
+      <FeldGruppe id="beheben-am" feld="behobenAm" label="Behoben am" state={state}>
+        {(p) => <input {...p} name="behobenAm" type="date" required min={fruehestens} max={heute} defaultValue={heute} className="feld max-w-48 font-mono" />}
+      </FeldGruppe>
+      <FeldGruppe id="beheben-durch" feld="behobenDurch" label="Behoben durch" hilfe="Person oder Firma." state={state}>
+        {(p) => <input {...p} name="behobenDurch" type="text" required minLength={2} maxLength={120} className="feld" />}
+      </FeldGruppe>
+      <FeldGruppe id="beheben-massnahme" feld="behebung" label="Maßnahme" state={state}>
+        {(p) => <textarea {...p} name="behebung" rows={2} required minLength={5} maxLength={1000} className="feld" />}
+      </FeldGruppe>
+      <Meldung art="hinweis">Die Behebung ist endgültig. Ein neuer Befund wird als neuer Mangel erfasst.</Meldung>
       <ActionMeldung state={state} />
-      <button type="submit" className="btn btn-primaer" disabled={pending}>
-        {pending ? 'Wird gespeichert …' : 'Als behoben speichern'}
-      </button>
+      <Aktionsleiste>
+        <AbsendenButton pending={pending}>Als behoben speichern</AbsendenButton>
+      </Aktionsleiste>
     </form>
   );
 }
