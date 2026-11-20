@@ -1,10 +1,11 @@
 import { STUFE_LABEL, type Stufe } from '@/domain/types';
 
+/** Stufe-Marke (§6.5): Quadrat 20 px, steel-50, Rahmen steel-400. In Tabellen allein mit title, in der Akte mit Text. */
 export function StufeBadge({ stufe }: { stufe: Stufe }) {
   return (
     <abbr
       title={`Stufe ${stufe}: ${STUFE_LABEL[stufe]}`}
-      className="inline-flex size-5 items-center justify-center rounded border border-steel/60 bg-steel-hell font-mono text-xs font-bold text-ink no-underline"
+      className="inline-flex size-5 shrink-0 items-center justify-center rounded-feld border border-steel-400 bg-steel-50 font-display text-xs font-semibold text-ink no-underline"
     >
       <span className="sr-only">Stufe </span>
       {stufe}
