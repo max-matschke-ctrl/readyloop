@@ -3,6 +3,8 @@
 // Mail-Scanner und Link-Vorschauen ihn beim GET nicht verbrauchen. Prüfung und Bereinigung von next: Server.
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { AuthRahmen } from '@/components/AuthRahmen';
+import { Meldung } from '@/components/Meldung';
 import { bestaetigeOtp } from '@/server/actions';
 
 export const metadata: Metadata = { title: 'Link bestätigen', robots: { index: false, follow: false } };
@@ -37,41 +39,30 @@ export default async function BestaetigenSeite({ searchParams }: { searchParams:
   const next = einzeln(sp.next) ?? '';
   const text = typ ? TEXTE[typ] : undefined;
 
+  if (tokenHash && text && typ) {
+    return (
+      <AuthRahmen titel={text.titel} text={text.erklaerung}>
+        <form action={bestaetigeOtp}>
+          <input type="hidden" name="token_hash" value={tokenHash} />
+          <input type="hidden" name="type" value={typ} />
+          <input type="hidden" name="next" value={next} />
+          <button type="submit" className="btn btn-primaer w-full">
+            {text.button}
+          </button>
+        </form>
+        <p className="text-xs text-steel">Der Link ist nur einmal verwendbar und läuft nach kurzer Zeit ab.</p>
+      </AuthRahmen>
+    );
+  }
+
   return (
-    <main className="mx-auto max-w-md px-4 py-10">
-      <p className="font-display text-2xl font-bold">Readyloop</p>
-      <div className="karte mt-6 space-y-4 p-5">
-        {tokenHash && text && typ ? (
-          <>
-            <h1 className="text-lg font-semibold">{text.titel}</h1>
-            <p className="text-sm text-steel">{text.erklaerung}</p>
-            <form action={bestaetigeOtp}>
-              <input type="hidden" name="token_hash" value={tokenHash} />
-              <input type="hidden" name="type" value={typ} />
-              <input type="hidden" name="next" value={next} />
-              <button type="submit" className="btn btn-primaer w-full">
-                {text.button}
-              </button>
-            </form>
-            <p className="text-xs text-steel">Der Link ist nur einmal verwendbar und läuft nach kurzer Zeit ab.</p>
-          </>
-        ) : (
-          <>
-            <h1 className="text-lg font-semibold">Link unvollständig</h1>
-            <p role="alert" className="rounded border border-brick/50 bg-brick/10 px-3 py-2 text-sm">
-              <span aria-hidden="true" className="mr-1 font-bold">
-                ✕
-              </span>
-              Der Link ist unvollständig oder ungültig. Bitte fordern Sie einen neuen Link an.
-            </p>
-            <p className="text-sm">
-              <Link href="/login" className="link">
-                ← Zur Anmeldung
-              </Link>
-            </p>
-          </>
-        )}
-      </div>
-    </main>
+    <AuthRahmen titel="Link unvollständig">
+      <Meldung art="fehler" text="Bitte fordern Sie einen neuen Link an.">
+        Der Link ist unvollständig oder ungültig.
+      </Meldung>
+      <Link href="/login" className="btn btn-sekundaer">
+        Zur Anmeldung
+      </Link>
+    </AuthRahmen>
   );
 }

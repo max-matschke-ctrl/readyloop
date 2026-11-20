@@ -2,7 +2,18 @@
 
 import { useState } from 'react';
 import { fristFreigeben } from '@/server/actions';
-import { ActionMeldung, FeldFehler, feldProps, useFormularAction } from './formular';
+import { Meldung } from './Meldung';
+import { Unteraufklapper } from './Unteraufklapper';
+import {
+  AbsendenButton,
+  ActionMeldung,
+  Aktionsleiste,
+  FeldFehler,
+  FeldGruppe,
+  Fehleruebersicht,
+  useFormularAction,
+  useGeprueftesFormular,
+} from './formular';
 
 interface Props {
   geraetPruefartId: string;
@@ -36,7 +47,7 @@ export function FristFreigabeForm({
   aktuelleMonate = null,
 }: Props) {
   const vorschlag = useFormularAction(fristFreigeben);
-  const gbu = useFormularAction(fristFreigeben);
+  const gbu = useGeprueftesFormular(fristFreigeben);
   const id = (feld: string) => `${feld}-${geraetPruefartId}`;
   const [monateEingabe, setMonateEingabe] = useState<string>(nachErgebnis?.monate ? String(nachErgebnis.monate) : '');
   const richtung = richtungText(aktuelleMonate, Number(monateEingabe));
@@ -47,36 +58,44 @@ export function FristFreigabeForm({
         <form action={vorschlag.formAction} onSubmit={vorschlag.onSubmit} className="space-y-2">
           <input type="hidden" name="geraetPruefartId" value={geraetPruefartId} />
           <input type="hidden" name="modus" value="vorschlag" />
-          <button type="submit" className="btn btn-primaer" disabled={vorschlag.pending}>
-            {vorschlag.pending ? 'Wird freigegeben …' : 'Vorschlag freigeben'}
-          </button>
-          <span className="sr-only">: {vorschlagText}</span>
+          <AbsendenButton pending={vorschlag.pending}>
+            Vorschlag freigeben<span className="sr-only">: {vorschlagText}</span>
+          </AbsendenButton>
           <ActionMeldung state={vorschlag.state} />
         </form>
       )}
 
-      <details open={gbuOffen} id={id('gbu-form')} className="rounded border border-steel/25 bg-paper/60">
-        <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
-          {nachErgebnis ? 'Frist nach Prüfung festlegen' : gbuTitel}
-        </summary>
-        <form action={gbu.formAction} onSubmit={gbu.onSubmit} className="space-y-3 px-3 pb-3 pt-1">
+      <Unteraufklapper
+        id={id('gbu-form')}
+        offen={gbuOffen}
+        titel={nachErgebnis ? 'Frist nach Prüfung festlegen' : gbuTitel}
+        zusammenfassung={aktuelleMonate !== null ? `Aktuell: ${aktuelleMonate} Monate` : 'Mit Fundstelle und Begründung aus der GBU'}
+      >
+        <form action={gbu.formAction} onSubmit={gbu.onSubmit} noValidate={gbu.noValidate} className="space-y-4">
           <input type="hidden" name="geraetPruefartId" value={geraetPruefartId} />
           <input type="hidden" name="modus" value="gbu" />
           <input type="hidden" name="nachweisId" value={nachErgebnis?.nachweisId ?? ''} />
+          <Fehleruebersicht
+            state={gbu.state}
+            felder={{
+              monate: { id: id('monate'), label: 'Frist' },
+              fundstelle: { id: id('fundstelle'), label: 'Fundstelle in der GBU' },
+              begruendung: { id: id('begruendung'), label: 'Begründung' },
+            }}
+          />
           {nachErgebnis && (
             <p className="text-sm">
               Bezug: {nachErgebnis.nachweisText}
-              {nachErgebnis.monate !== null && <> · Empfehlung des Prüfers: {nachErgebnis.monate} Monate</>}
+              {nachErgebnis.monate !== null && <>. Empfehlung des Prüfers: {nachErgebnis.monate} Monate</>}
             </p>
           )}
-          {hinweisObergrenze && <p className="text-xs text-steel">{hinweisObergrenze}</p>}
-          <div className="grid gap-3 sm:grid-cols-[8rem_1fr]">
-            <div>
-              <label htmlFor={id('monate')} className="label">
-                Frist (Monate)
-              </label>
+          {hinweisObergrenze && (
+            <Meldung art="hinweis">{hinweisObergrenze}</Meldung>
+          )}
+          <FeldGruppe id={id('monate')} feld="monate" label="Frist" einheit="Monate" state={gbu.state}>
+            {(p) => (
               <input
-                id={id('monate')}
+                {...p}
                 name="monate"
                 type="number"
                 inputMode="numeric"
@@ -85,17 +104,19 @@ export function FristFreigabeForm({
                 required
                 value={monateEingabe}
                 onChange={(e) => setMonateEingabe(e.currentTarget.value)}
-                className="feld font-mono"
-                {...feldProps(gbu.state, 'monate')}
+                className="feld pr-20 font-mono"
               />
-              <FeldFehler state={gbu.state} feld="monate" />
-            </div>
-            <div>
-              <label htmlFor={id('fundstelle')} className="label">
-                Fundstelle GBU
-              </label>
+            )}
+          </FeldGruppe>
+          {richtung && (
+            <p className="-mt-2 text-xs text-steel" aria-live="polite">
+              Neue Frist ist {richtung}.
+            </p>
+          )}
+          <FeldGruppe id={id('fundstelle')} feld="fundstelle" label="Fundstelle in der GBU" state={gbu.state}>
+            {(p) => (
               <input
-                id={id('fundstelle')}
+                {...p}
                 name="fundstelle"
                 type="text"
                 minLength={3}
@@ -103,40 +124,26 @@ export function FristFreigabeForm({
                 required
                 placeholder="z. B. GBU Lager 2026, Abschn. 4.2"
                 className="feld"
-                {...feldProps(gbu.state, 'fundstelle')}
               />
-              <FeldFehler state={gbu.state} feld="fundstelle" />
-            </div>
-          </div>
-          <div>
-            <label htmlFor={id('begruendung')} className="label">
-              Begründung
-            </label>
-            <textarea
-              id={id('begruendung')}
-              name="begruendung"
-              rows={3}
-              minLength={10}
-              maxLength={1000}
-              required
-              className="feld"
-              {...feldProps(gbu.state, 'begruendung')}
-            />
-            <FeldFehler state={gbu.state} feld="begruendung" />
-          </div>
-          {richtung && (
-            <p className="text-xs text-steel" aria-live="polite">
-              Neue Frist ist {richtung}.
-            </p>
-          )}
+            )}
+          </FeldGruppe>
+          <FeldGruppe
+            id={id('begruendung')}
+            feld="begruendung"
+            label="Begründung"
+            hilfe="Warum gilt diese Frist? Mindestens 10 Zeichen."
+            state={gbu.state}
+          >
+            {(p) => <textarea {...p} name="begruendung" rows={3} minLength={10} maxLength={1000} required className="feld" />}
+          </FeldGruppe>
           <FeldFehler state={gbu.state} feld="nachweisId" />
           <FeldFehler state={gbu.state} feld="geraetPruefartId" />
           <ActionMeldung state={gbu.state} />
-          <button type="submit" className="btn btn-primaer" disabled={gbu.pending}>
-            {gbu.pending ? 'Wird gespeichert …' : 'Frist festlegen und freigeben'}
-          </button>
+          <Aktionsleiste>
+            <AbsendenButton pending={gbu.pending}>Frist festlegen und freigeben</AbsendenButton>
+          </Aktionsleiste>
         </form>
-      </details>
+      </Unteraufklapper>
     </div>
   );
 }

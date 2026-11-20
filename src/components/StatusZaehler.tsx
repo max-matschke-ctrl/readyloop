@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { FRIST_STATUS, type FristStatus } from '@/domain/types';
+import type { FristStatus } from '@/domain/types';
 import { StatusSymbol } from './StatusAmpel';
-import { STATUS_FARBE, STATUS_KURZ } from './status';
+import { STATUS_KURZ, STATUS_RAND, STATUS_REIHENFOLGE } from './status';
 
 interface Props {
   zaehler: Record<FristStatus, number>;
@@ -20,32 +20,41 @@ function href(params: Props['params'], status?: FristStatus): string {
   return s ? `/geraete?${s}` : '/geraete';
 }
 
+export const ZAEHLER_FELD =
+  'relative flex h-full min-h-[5.5rem] flex-col justify-between gap-1 px-3 pb-2.5 pt-2 focus-visible:z-10 focus-visible:-outline-offset-2';
+export const ZAEHLER_AKTIV = 'bg-steel-50 shadow-[inset_0_0_0_2px_var(--color-steel)]';
+export const ZAEHLER_INAKTIV = 'bg-white hover:bg-steel-50';
+
+/**
+ * Zählerleiste (§6.8): eine zusammenhängende Fläche, Felder durch Linien geteilt, zugleich Statusfilter.
+ * Reihenfolge nach Dringlichkeit, „Alle“ rechts abgesetzt. Felder mit 0 gedämpft.
+ */
 export function StatusZaehler({ zaehler, gesamt, aktiv, params }: Props) {
   return (
     <nav aria-label="Nach Status filtern">
-      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-        <li>
-          <Link
-            href={href(params)}
-            aria-current={!aktiv ? 'true' : undefined}
-            className={`karte flex h-full flex-col px-3 py-2 hover:border-steel ${!aktiv ? 'border-steel ring-1 ring-steel' : ''}`}
-          >
-            <span className="font-mono text-2xl font-semibold">{gesamt}</span>
-            <span className="text-xs text-steel">Alle Geräte</span>
-          </Link>
-        </li>
-        {FRIST_STATUS.map((s) => {
+      <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-flaeche border border-steel-200 bg-steel-200 sm:grid-cols-3 lg:grid-cols-[repeat(6,minmax(0,1fr))_minmax(0,1.15fr)]">
+        {STATUS_REIHENFOLGE.map((s) => {
           const ist = aktiv === s;
+          const anzahl = zaehler[s];
+          const leer = anzahl === 0;
           return (
             <li key={s}>
               <Link
                 href={href(params, s)}
                 aria-current={ist ? 'true' : undefined}
-                className={`karte flex h-full flex-col border-l-4 px-3 py-2 hover:border-steel ${ist ? 'ring-1 ring-steel' : ''}`}
-                style={{ borderLeftColor: STATUS_FARBE[s], borderLeftStyle: s === 'gbu' ? 'dashed' : 'solid' }}
+                className={`${ZAEHLER_FELD} ${ist ? ZAEHLER_AKTIV : ZAEHLER_INAKTIV}`}
+                style={{
+                  borderTopWidth: 3,
+                  borderTopStyle: s === 'gbu' ? 'dashed' : 'solid',
+                  borderTopColor: leer ? 'var(--color-steel-200)' : STATUS_RAND[s],
+                }}
               >
-                <span className="font-mono text-2xl font-semibold">{zaehler[s]}</span>
-                <span className="flex items-center gap-1 text-xs text-ink">
+                <span
+                  className={`font-display text-[1.75rem] font-semibold leading-8 tabular-nums ${leer ? 'text-steel' : 'text-ink'}`}
+                >
+                  {anzahl}
+                </span>
+                <span className="flex items-center gap-1.5 text-xs leading-tight text-ink">
                   <StatusSymbol status={s} />
                   {STATUS_KURZ[s]}
                 </span>
@@ -53,6 +62,16 @@ export function StatusZaehler({ zaehler, gesamt, aktiv, params }: Props) {
             </li>
           );
         })}
+        <li className="col-span-2 sm:col-span-3 lg:col-span-1 lg:border-l-4 lg:border-steel-200">
+          <Link
+            href={href(params)}
+            aria-current={!aktiv ? 'true' : undefined}
+            className={`${ZAEHLER_FELD} border-t-[3px] border-steel-200 ${!aktiv ? ZAEHLER_AKTIV : ZAEHLER_INAKTIV}`}
+          >
+            <span className="font-display text-[1.75rem] font-semibold leading-8 tabular-nums text-ink">{gesamt}</span>
+            <span className="text-xs leading-tight text-ink">Alle Geräte</span>
+          </Link>
+        </li>
       </ul>
     </nav>
   );

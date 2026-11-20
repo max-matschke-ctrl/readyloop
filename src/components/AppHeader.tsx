@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import { ChevronDown, LogOut } from 'lucide-react';
 import { can } from '@/domain/rechte';
 import { ROLLE_LABEL, type Sitzung } from '@/domain/types';
 import { abmelden } from '@/server/actions';
+import { PlaketteGlyph } from './PlaketteGlyph';
 
 export type NavSchluessel = 'geraete' | 'pruefer' | 'maengel' | 'verwaltung';
 
@@ -10,7 +12,11 @@ interface Props {
   aktiv?: NavSchluessel;
 }
 
-/** Navigation nach Rechten. Nur Anzeige – die Seiten prüfen die Rechte serverseitig selbst. */
+/**
+ * Kopfleiste (§6.1): 56 px steel, Wortmarke (Glyph + „Readyloop“), Textnavigation, Menü als <details>.
+ * Unter 640 px liegt die Navigation in einer zweiten, horizontal scrollbaren Zeile.
+ * Navigation nach Rechten ist nur Anzeige – die Seiten prüfen die Rechte serverseitig selbst.
+ */
 export function AppHeader({ sitzung, aktiv }: Props) {
   const nav: { href: string; label: string; key: NavSchluessel }[] = [];
   if (can(sitzung.rolle, 'geraet.lesen') && sitzung.rolle !== 'pruefer') {
@@ -28,24 +34,32 @@ export function AppHeader({ sitzung, aktiv }: Props) {
   const mehrereOrganisationen = sitzung.organisationen.length > 1;
 
   return (
-    <header className="border-b border-steel/20 bg-white">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2.5">
-        <Link href="/" className="font-display text-lg font-bold tracking-tight text-ink">
+    <header className="bg-steel text-white [&_:focus-visible]:outline-white">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 px-4 md:px-6 xl:px-8">
+        <Link
+          href="/"
+          className="order-1 flex h-14 items-center gap-2 font-display text-lg font-semibold tracking-[-0.01em]"
+        >
+          <PlaketteGlyph ton="weiss" groesse={24} />
           Readyloop
         </Link>
+
         {nav.length > 0 && (
-          <nav aria-label="Hauptnavigation">
-            <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          <nav
+            aria-label="Hauptnavigation"
+            className="order-3 -mx-4 w-[calc(100%+2rem)] overflow-x-auto border-t border-white/20 px-4 sm:order-2 sm:mx-0 sm:w-auto sm:border-t-0 sm:px-0"
+          >
+            <ul className="flex gap-x-5 whitespace-nowrap text-sm">
               {nav.map((n) => (
                 <li key={n.href}>
                   <Link
                     href={n.href}
                     aria-current={aktiv === n.key ? 'page' : undefined}
-                    className={
+                    className={`flex h-11 items-center border-b-[3px] pt-[3px] sm:h-14 ${
                       aktiv === n.key
-                        ? 'font-semibold text-ink underline decoration-2 underline-offset-[6px]'
-                        : 'text-steel hover:text-ink'
-                    }
+                        ? 'border-white font-semibold text-white'
+                        : 'border-transparent text-white/80 hover:text-white'
+                    }`}
                   >
                     {n.label}
                   </Link>
@@ -54,26 +68,43 @@ export function AppHeader({ sitzung, aktiv }: Props) {
             </ul>
           </nav>
         )}
-        <div className="ml-auto flex items-center gap-3 text-sm">
-          <div className="text-right leading-tight">
-            <p className="font-medium">{sitzung.benutzer.name}</p>
-            <p className="text-xs text-steel">
-              {ROLLE_LABEL[sitzung.rolle]} · <span className="text-ink">{sitzung.organisation.name}</span>
+
+        <div className="order-2 ml-auto flex h-14 items-center gap-4 text-sm sm:order-3">
+          <span className="hidden max-w-56 truncate text-white/80 md:inline">{sitzung.organisation.name}</span>
+          <details className="group relative">
+            <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1.5 rounded-feld px-2 hover:bg-steel-800 [&::-webkit-details-marker]:hidden">
+              <span className="hidden max-w-40 truncate sm:inline">{sitzung.benutzer.name}</span>
+              <span className="sm:hidden">Menü</span>
+              <ChevronDown
+                aria-hidden="true"
+                size={16}
+                strokeWidth={1.75}
+                className="transition-transform duration-[var(--dauer-kurz)] group-open:rotate-180"
+              />
+            </summary>
+            <div className="absolute right-0 z-20 mt-1 w-64 rounded-flaeche border border-steel-200 bg-white p-1 text-ink shadow-pop [&_:focus-visible]:outline-steel">
+              <div className="px-3 py-2">
+                <p className="font-medium [overflow-wrap:anywhere]">{sitzung.benutzer.name}</p>
+                <p className="text-steel">{ROLLE_LABEL[sitzung.rolle]}</p>
+                <p className="text-steel [overflow-wrap:anywhere]">{sitzung.organisation.name}</p>
+              </div>
+              <hr className="my-1 border-steel-200" />
               {mehrereOrganisationen && (
-                <>
-                  {' · '}
-                  <Link href="/organisation" className="link">
-                    Betrieb wechseln
-                  </Link>
-                </>
+                <Link href="/organisation" className="flex min-h-10 items-center rounded-feld px-3 hover:bg-steel-50">
+                  Betrieb wechseln
+                </Link>
               )}
-            </p>
-          </div>
-          <form action={abmelden}>
-            <button type="submit" className="btn btn-sekundaer">
-              Abmelden
-            </button>
-          </form>
+              <form action={abmelden}>
+                <button
+                  type="submit"
+                  className="flex min-h-10 w-full items-center gap-2 rounded-feld px-3 text-left hover:bg-steel-50"
+                >
+                  <LogOut aria-hidden="true" size={16} strokeWidth={1.75} />
+                  Abmelden
+                </button>
+              </form>
+            </div>
+          </details>
         </div>
       </div>
     </header>

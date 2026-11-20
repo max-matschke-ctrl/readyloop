@@ -1,27 +1,35 @@
 import { BETRIEBSSTATUS_LABEL, type Betriebsstatus } from '@/domain/types';
 
-/** Zeigt nur Abweichungen von „in Betrieb“; Text immer sichtbar (nicht nur Farbe). */
+/**
+ * Betriebsstatus-Marke (§6.6): neutral (steel-50, Rahmen steel-200). Nur „außer Betrieb“ bekommt
+ * brick-50 mit ✕, weil das Gerät dann nicht benutzt werden darf. Text immer sichtbar.
+ * Zeigt nur Abweichungen von „in Betrieb“, außer mit `immer` (Aktenkopf).
+ */
 export function BetriebsstatusBadge({
   status,
   immer = false,
   className = '',
 }: {
   status: Betriebsstatus;
-  /** true: auch „In Betrieb“ anzeigen (Gerätekopf). */
   immer?: boolean;
   className?: string;
 }) {
   if (status === 'in_betrieb' && !immer) return null;
-  const aus = status !== 'in_betrieb';
+  const warnung = status === 'ausser_betrieb';
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-medium ${
-        aus ? 'border-steel bg-steel-hell text-ink' : 'border-moss/50 text-ink'
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium text-ink ${
+        warnung ? 'border-brick bg-brick-50' : 'border-steel-200 bg-steel-50'
       } ${className}`}
     >
-      <span aria-hidden="true" className="font-mono">
-        {aus ? '⏻' : '●'}
-      </span>
+      {warnung && (
+        <span
+          aria-hidden="true"
+          className="inline-flex size-[1.125rem] shrink-0 items-center justify-center rounded-full bg-brick text-[0.6875rem] font-bold leading-none text-white"
+        >
+          ✕
+        </span>
+      )}
       {BETRIEBSSTATUS_LABEL[status]}
     </span>
   );

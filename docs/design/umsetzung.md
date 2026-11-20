@@ -1,7 +1,7 @@
 # Umsetzung des Designsystems – Pakete für frontend-dev (Stand 20.11.2026)
 
 Grundlage: `designsystem.md` (Paragrafen in Klammern), `skills-empfehlung.md`.
-Jedes Paket ist für **einen** Lauf geschnitten. Reihenfolge: P1 → P2 → P3a → (P3b) → P4a → P4b → P5a → P5b → P5c → P6 → P7a/P7b/P7c.
+Jedes Paket ist für **einen** Lauf geschnitten. Reihenfolge: P1 → P2 → P3a → (P3b) → P4a → P4b → P4c → P5a → P5b → P5c → P6 → P7a/P7b/P7c.
 P7a, P7b und P7c haben keine gemeinsamen Dateien und dürfen parallel laufen. Alle anderen Pakete laufen nacheinander.
 
 ## 0. Gilt für jedes Paket (Definition of Done)
@@ -63,7 +63,7 @@ P7a, P7b und P7c haben keine gemeinsamen Dateien und dürfen parallel laufen. Al
 ## P3b Jahresring (nur nach OK von Max, Designsystem §9.3)
 **Dateien:** neu `src/components/Jahresring.tsx`, `src/app/geraete/page.tsx`
 **Skill zusätzlich:** dataviz
-**Inhalt:** Plakettenvariante nach §5.3. Zählung je Kalendermonat aus `naechsteFaelligkeit` der ungefilterten Liste, nur Termine ab heute bis heute + 12 Monate. `heute()` aus `@/server/data` verwenden, kein `new Date()` im Client. Füllung in vier Steel-Stufen, Mitte die Summe. Daneben ein versteckter, für Screenreader lesbarer Monatsüberblick (`<dl>` oder Tabelle).
+**Inhalt:** Plakettenvariante nach §5.3. Zählung je Kalendermonat aus `naechsteFaelligkeit` der ungefilterten Liste, ~~nur Termine ab heute bis heute + 12 Monate~~ (korrigiert durch §10 E-3, siehe P4c: 12 Kalendermonate ab dem aktuellen Monat). `heute()` aus `@/server/data` verwenden, kein `new Date()` im Client. Füllung in vier Steel-Stufen, Mitte die Summe. Daneben ein versteckter, für Screenreader lesbarer Monatsüberblick (`<dl>` oder Tabelle).
 **Abnahme:**
 - Die Summe in der Mitte entspricht der Zahl der Fälligkeiten in den nächsten 12 Monaten in den Demodaten.
 - Es kommen keine Statusfarben vor. Das Element hat `role="img"` mit Zusammenfassung und dazu den lesbaren Überblick.
@@ -86,6 +86,29 @@ P7a, P7b und P7c haben keine gemeinsamen Dateien und dürfen parallel laufen. Al
 - Die Disclosure „Frist festlegen“ ist offen, wenn heute schon `gbuOffen` greift (gleiche Bedingung wie bisher). Der Anker `#gbu-form-…` funktioniert weiter.
 - Kein Text unter 13 px, keine Versalien.
 - Alle Formulare funktionieren wie vorher. Die Optik der Formulare selbst folgt in P5c.
+
+## P4c Nachbesserung Prüfartkarte und Jahresring (Designsystem §10 E-1, E-3)
+**Dateien:** `src/components/PruefartKarte.tsx`, `src/components/Pruefplakette.tsx`, `src/components/StatusAmpel.tsx`, `src/components/Jahresring.tsx` (+ zugehörige Tests, falls vorhanden)
+**Nicht ändern:** `BetriebsstatusBadge.tsx` (E-2: Umsetzung korrekt), `src/domain/` (Status bleibt `gbu`).
+**Inhalt:**
+1. **Frist nicht freigegeben (E-1).** Fall: `!frist && vorschlag.art !== 'gbu'` (Status ist dann `gbu`).
+   - `Pruefplakette`: optionale Prop `ohneFreigabe?: boolean`. Nur wirksam bei `status === 'gbu'`: Mitte „§“ (Schriftgröße wie „?“), `aria-label`/`title` „Keine freigegebene Frist: Vorschlag liegt zur Freigabe vor“. Ring gestrichelt wie GBU (§5.2).
+   - `StatusAmpel`: optionale Prop `text?: string`, die den Anzeigetext und `title` ersetzt. Symbol und Form bleiben (§, gestrichelt).
+   - `PruefartKarte`: in diesem Fall `ohneFreigabe` an die Plakette und `text="Frist nicht freigegeben"` an die Statusmarke übergeben. Die Fristzeile bleibt wie umgesetzt.
+   - `PruefartKarte`: die Disclosure „Frist festlegen“ ist offen bei `darfFreigeben && (gbuOffen || !frist)`. `gbuOffen` selbst und die Übergabe an `FristFreigabeForm` bleiben **unverändert**.
+2. **Jahresring-Fenster (E-3).**
+   - Fenster = 12 Kalendermonate: aktueller Monat bis einschließlich des 11. Folgemonats. Gezählt werden Termine `>= heute` und `<=` letzter Tag dieses Monats. `monate` hat genau 12 Einträge, die Doppelzählung über `jeSegment` entfällt (ein Eintrag je Segment).
+   - Segment des aktuellen Monats nach den übrigen zeichnen, mit `stroke` ink und `strokeWidth` 1,5 (Markierung Fensteranfang).
+   - Sichtbarer Text statt „fällig in den nächsten 12 Monaten“: „fällig {Mon. JJJJ} – {Mon. JJJJ}“ (z. B. „fällig Nov. 2026 – Okt. 2027“). `aria-label` entsprechend: „{n} Fälligkeiten von November 2026 bis Oktober 2027, die meisten im …“.
+   - Legende um einen Eintrag „Rahmen dunkel: aktueller Monat“ ergänzen (Rahmen-Muster wie im Ring, 13 px Text).
+   - Screenreader-`<dl>` zeigt dieselben 12 Monate wie der Ring.
+**Abnahme:**
+- Demodaten mit freigegebenem Katalogeintrag, aber ohne freigegebene Frist: Plakette zeigt „§“, Statusmarke „Frist nicht freigegeben“, Fristzeile „Frist nicht freigegeben …“ mit Vorschlag, Stufe und Quelle, kein Fälligkeitsdatum. Mit Freigaberecht ist „Frist festlegen“ offen und der Button für den Vorschlag ist ohne Klick sichtbar.
+- Fall „GBU ohne Eintrag“ bzw. „nur Entwurf“: unverändert („GBU“ in der Plakette, „Frist über GBU festlegen“).
+- Geräteliste, Zählerleiste und Prüferaufgaben sind unverändert (nur die Karte ändert sich).
+- Jahresring: Ein Termin am selben Kalendertag im nächsten Jahr (z. B. 20.11.2027 bei heute 20.11.2026) wird **nicht** mitgezählt, ein Termin am 31.10.2027 schon. Kein Segment fasst zwei Monate zusammen. Summe in der Mitte = Summe der 12 Listeneinträge.
+- Unit-Test für die Fenstergrenzen (Monatsanfang, Monatsende, Jahreswechsel, 29.02.), ohne `new Date()` im Client.
+- Kontrast: Rahmen ink auf allen vier Füllstufen sichtbar (auf steel-Füllung mit weißem Spalt oder doppeltem Strich prüfen, falls die Linie verschwindet).
 
 ## P5a Formulare: Bausteine und `/geraete/neu`
 **Dateien:** `src/components/formular.tsx`, `src/components/GeraetAnlegenForm.tsx`, `src/app/geraete/neu/page.tsx`
@@ -146,5 +169,9 @@ P7a, P7b und P7c haben keine gemeinsamen Dateien und dürfen parallel laufen. Al
 
 ## Offene Abhängigkeiten
 - **Max:** Freigabe der Vorschläge §9.1–§9.6 im Designsystem. P3b und `lucide-react` warten darauf, alle anderen Pakete nicht.
-- **requirements-engineer:** Q-10 in `docs/requirements.md` als gelöst eintragen (skills-empfehlung §3). Die Pakete P1–P7 in `docs/backlog.md` übernehmen.
+- **requirements-engineer:** Q-10 in `docs/requirements.md` als gelöst eintragen (skills-empfehlung §3). Die Pakete P1–P7 und P4c in `docs/backlog.md` übernehmen.
+- **requirements-engineer (neu, §10 E-1):** Fachlich klären, ob Prüfarten mit freigegebenem Katalog- oder Herstellervorschlag, aber ohne freigegebene Frist auf Listenebene (Zählerleiste, Geräteliste, Prüferaufgaben) weiter als „Frist über GBU festlegen“ gelten oder einen eigenen Status bzw. ein eigenes Label bekommen. Bis dahin bleibt die Liste unverändert.
 - **backend-dev:** optional neues Fälligkeitsdatum als Rückgabe von „Nachweis speichern“ (P5b) und Zahl der Überfälligen je Betrieb (P7c).
+
+## Freigaben Max (20.11.2026)
+Alle Vorschläge aus designsystem.md §9.1–§9.6 freigegeben: Wortmarke Plakette + „Readyloop“, kein Dark Theme im MVP, Jahresring auf `/geraete` (P3b), ochre-600 für Linien, `lucide-react` als Icon-Set, Grundschrift 16 px / Untergrenze 13 px.

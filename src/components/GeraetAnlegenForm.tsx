@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useId, useMemo, useState } from 'react';
 import {
   DATUMSHERKUNFT_LABEL,
@@ -14,7 +15,16 @@ import {
 } from '@/domain/types';
 import { geraetAnlegen } from '@/server/actions';
 import { StufeBadge } from './StufeBadge';
-import { ActionMeldung, FeldFehler, feldProps, useFormularAction } from './formular';
+import { Meldung } from './Meldung';
+import {
+  AbsendenButton,
+  ActionMeldung,
+  Aktionsleiste,
+  FeldGruppe,
+  Fehleruebersicht,
+  fehlerId,
+  useGeprueftesFormular,
+} from './formular';
 import { monate } from './format';
 
 const SONSTIGES = 'sonstiges';
@@ -84,13 +94,16 @@ function PruefartenFehler({ state }: { state: ActionState }) {
   const eintraege = Object.entries(state.feldfehler ?? {}).filter(([k, v]) => k.startsWith('pruefartenJson') && v?.length);
   if (eintraege.length === 0) return null;
   return (
-    <ul id="fehler-pruefartenJson" className="mt-2 list-inside list-disc text-sm text-brick">
+    <ul id={fehlerId('pruefartenJson')} className="space-y-1 text-sm font-medium text-brick">
       {eintraege.map(([k, v]) => {
         const nr = /pruefartenJson\.(\d+)/.exec(k)?.[1];
         return (
-          <li key={k}>
-            {nr !== undefined && `Prüfart ${Number(nr) + 1}: `}
-            {v!.join(' ')}
+          <li key={k} className="flex items-start gap-1.5">
+            <span aria-hidden="true">✕</span>
+            <span>
+              {nr !== undefined && `Prüfart ${Number(nr) + 1}: `}
+              {v!.join(' ')}
+            </span>
           </li>
         );
       })}
@@ -98,14 +111,17 @@ function PruefartenFehler({ state }: { state: ActionState }) {
   );
 }
 
+const LEGENDE = 'mb-4 font-sans text-[1.0625rem] font-semibold leading-6 text-ink';
+
 interface Props {
   bereiche: Bereich[];
   gruppen: GeraetegruppeOption[];
   heute: IsoDate;
 }
 
+/** Gerät anlegen (§8.6): Gruppen „Gerät“, „Kennung“, „Prüfarten“, einspaltig, 40 rem. */
 export function GeraetAnlegenForm({ bereiche, gruppen, heute }: Props) {
-  const { state, formAction, pending, onSubmit } = useFormularAction(geraetAnlegen);
+  const { state, formAction, pending, onSubmit, noValidate } = useGeprueftesFormular(geraetAnlegen);
   const uid = useId();
   const [bereichId, setBereichId] = useState(bereiche.length === 1 ? bereiche[0]!.id : '');
   const [gruppe, setGruppe] = useState('');
@@ -124,306 +140,316 @@ export function GeraetAnlegenForm({ bereiche, gruppen, heute }: Props) {
   const entfernen = (key: string) => setZeilen((alt) => alt.filter((z) => z.key !== key));
 
   const f = (name: string) => `${uid}-${name}`;
+  const zf = (z: Zeile, name: string) => `${uid}-${z.key}-${name}`;
+
+  // Feld → id und Label für die Fehlerübersicht. Zeilenfelder haben keinen name, ihr Schlüssel ist die id.
+  const felder: Record<string, { id?: string; label: string }> = {
+    bezeichnung: { id: f('bezeichnung'), label: 'Bezeichnung' },
+    kategorie: { id: f('kategorie'), label: 'Kategorie' },
+    bereichId: { id: f('bereichId'), label: 'Bereich' },
+    einsatzort: { id: f('einsatzort'), label: 'Einsatzort' },
+    inventarnummer: { id: f('inventarnummer'), label: 'Inventarnummer' },
+    seriennummer: { id: f('seriennummer'), label: 'Seriennummer' },
+    hersteller: { id: f('hersteller'), label: 'Hersteller' },
+    typ: { id: f('typ'), label: 'Typ' },
+    baujahr: { id: f('baujahr'), label: 'Baujahr' },
+    geraetegruppe: { id: f('geraetegruppe'), label: 'Gerätegruppe' },
+    pruefartenJson: { id: f('geraetegruppe'), label: 'Prüfarten' },
+  };
+  zeilen.forEach((z, i) => {
+    const name = z.bezeichnung.trim() || `Prüfart ${i + 1}`;
+    for (const [teil, label] of [
+      ['bezeichnung', `Prüfart ${i + 1}`],
+      ['hf', `${name}, Herstellerfrist`],
+      ['hfq', `${name}, Quelle der Herstellerfrist`],
+      ['datum', `${name}, letzte Prüfung`],
+      ['herkunft', `${name}, Herkunft des Datums`],
+    ] as const) {
+      felder[zf(z, teil)] = { id: zf(z, teil), label };
+    }
+  });
 
   return (
-    <form action={formAction} onSubmit={onSubmit} className="space-y-6">
-      <fieldset className="karte grid gap-4 p-4 sm:grid-cols-2">
-        <legend className="px-1 font-display font-semibold">Stammdaten</legend>
-        <div className="sm:col-span-2">
-          <label htmlFor={f('bezeichnung')} className="label">
-            Bezeichnung *
-          </label>
-          <input id={f('bezeichnung')} name="bezeichnung" required minLength={2} maxLength={120} className="feld" {...feldProps(state, 'bezeichnung')} />
-          <FeldFehler state={state} feld="bezeichnung" />
-        </div>
-        <div>
-          <label htmlFor={f('inventarnummer')} className="label">
-            Inventarnummer
-          </label>
-          <input id={f('inventarnummer')} name="inventarnummer" maxLength={60} className="feld font-mono" {...feldProps(state, 'inventarnummer')} />
-          <FeldFehler state={state} feld="inventarnummer" />
-        </div>
-        <div>
-          <label htmlFor={f('kategorie')} className="label">
-            Kategorie *
-          </label>
-          <select id={f('kategorie')} name="kategorie" required defaultValue="" className="feld" {...feldProps(state, 'kategorie')}>
-            <option value="" disabled>
-              bitte wählen
-            </option>
-            {GERAETE_KATEGORIEN.map((k) => (
-              <option key={k} value={k}>
-                {KATEGORIE_LABEL[k]}
-              </option>
-            ))}
-          </select>
-          <FeldFehler state={state} feld="kategorie" />
-        </div>
-        <div>
-          <label htmlFor={f('bereichId')} className="label">
-            Bereich *
-          </label>
-          <select
-            id={f('bereichId')}
-            name="bereichId"
-            required
-            value={bereichId}
-            onChange={(e) => setBereichId(e.target.value)}
-            className="feld"
-            {...feldProps(state, 'bereichId')}
+    <form action={formAction} onSubmit={onSubmit} noValidate={noValidate} className="max-w-[40rem] space-y-8">
+      <Fehleruebersicht state={state} felder={felder} />
+
+      <fieldset>
+        <legend className={LEGENDE}>Gerät</legend>
+        <div className="space-y-4">
+          <FeldGruppe id={f('bezeichnung')} feld="bezeichnung" label="Bezeichnung" state={state} hilfe="So, wie es im Betrieb genannt wird, z. B. „Bohrhammer Hilti TE 30“.">
+            {(p) => <input {...p} name="bezeichnung" required minLength={2} maxLength={120} className="feld" />}
+          </FeldGruppe>
+          <FeldGruppe id={f('kategorie')} feld="kategorie" label="Kategorie" state={state}>
+            {(p) => (
+              <select {...p} name="kategorie" required defaultValue="" className="feld">
+                <option value="" disabled>
+                  Bitte wählen
+                </option>
+                {GERAETE_KATEGORIEN.map((k) => (
+                  <option key={k} value={k}>
+                    {KATEGORIE_LABEL[k]}
+                  </option>
+                ))}
+              </select>
+            )}
+          </FeldGruppe>
+          <FeldGruppe id={f('bereichId')} feld="bereichId" label="Bereich" state={state}>
+            {(p) => (
+              <select {...p} name="bereichId" required value={bereichId} onChange={(e) => setBereichId(e.target.value)} className="feld">
+                <option value="" disabled>
+                  Bitte wählen
+                </option>
+                {bereiche.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </FeldGruppe>
+          <FeldGruppe
+            id={f('einsatzort')}
+            feld="einsatzort"
+            label="Einsatzort"
+            optional
+            state={state}
+            hilfe="Ein abweichender Einsatzort kann kürzere Fristen bedeuten, z. B. Baustelle."
           >
-            <option value="" disabled>
-              bitte wählen
-            </option>
-            {bereiche.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-          <FeldFehler state={state} feld="bereichId" />
-        </div>
-        <div>
-          <label htmlFor={f('einsatzort')} className="label">
-            Einsatzort
-          </label>
-          <select id={f('einsatzort')} name="einsatzort" defaultValue="" className="feld" {...feldProps(state, 'einsatzort')}>
-            <option value="">wie Bereich{bereich ? ` (${EINSATZORT_LABEL[bereich.einsatzort]})` : ''}</option>
-            {EINSATZORTE.map((o) => (
-              <option key={o} value={o}>
-                {EINSATZORT_LABEL[o]}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-xs text-steel">Abweichender Einsatzort kann kürzere Fristen bedeuten (z. B. Baustelle).</p>
-          <FeldFehler state={state} feld="einsatzort" />
-        </div>
-        <div>
-          <label htmlFor={f('hersteller')} className="label">
-            Hersteller
-          </label>
-          <input id={f('hersteller')} name="hersteller" maxLength={120} className="feld" {...feldProps(state, 'hersteller')} />
-          <FeldFehler state={state} feld="hersteller" />
-        </div>
-        <div>
-          <label htmlFor={f('typ')} className="label">
-            Typ
-          </label>
-          <input id={f('typ')} name="typ" maxLength={120} className="feld" {...feldProps(state, 'typ')} />
-          <FeldFehler state={state} feld="typ" />
-        </div>
-        <div>
-          <label htmlFor={f('seriennummer')} className="label">
-            Seriennummer
-          </label>
-          <input id={f('seriennummer')} name="seriennummer" maxLength={120} className="feld font-mono" {...feldProps(state, 'seriennummer')} />
-          <FeldFehler state={state} feld="seriennummer" />
-        </div>
-        <div>
-          <label htmlFor={f('baujahr')} className="label">
-            Baujahr
-          </label>
-          <input
-            id={f('baujahr')}
-            name="baujahr"
-            type="number"
-            inputMode="numeric"
-            min={1950}
-            max={2100}
-            className="feld font-mono"
-            {...feldProps(state, 'baujahr')}
-          />
-          <FeldFehler state={state} feld="baujahr" />
+            {(p) => (
+              <select {...p} name="einsatzort" defaultValue="" className="feld">
+                <option value="">Wie Bereich{bereich ? ` (${EINSATZORT_LABEL[bereich.einsatzort]})` : ''}</option>
+                {EINSATZORTE.map((o) => (
+                  <option key={o} value={o}>
+                    {EINSATZORT_LABEL[o]}
+                  </option>
+                ))}
+              </select>
+            )}
+          </FeldGruppe>
         </div>
       </fieldset>
 
-      <fieldset className="karte space-y-4 p-4">
-        <legend className="px-1 font-display font-semibold">Gerätegruppe und Prüfarten</legend>
-        <div className="max-w-md">
-          <label htmlFor={f('geraetegruppe')} className="label">
-            Gerätegruppe *
-          </label>
-          <select
-            id={f('geraetegruppe')}
-            name="geraetegruppe"
-            required
-            value={gruppe}
-            onChange={(e) => gruppeWaehlen(e.target.value)}
-            className="feld"
-            {...feldProps(state, 'geraetegruppe')}
-          >
-            <option value="" disabled>
-              bitte wählen
-            </option>
-            {gruppen.map((g) => (
-              <option key={g.schluessel} value={g.schluessel}>
-                {g.label}
-              </option>
-            ))}
-            <option value={SONSTIGES}>Sonstiges (ohne Katalogeintrag)</option>
-          </select>
-          <FeldFehler state={state} feld="geraetegruppe" />
+      <fieldset>
+        <legend className={LEGENDE}>Kennung</legend>
+        <div className="space-y-4">
+          <FeldGruppe id={f('inventarnummer')} feld="inventarnummer" label="Inventarnummer" optional state={state}>
+            {(p) => <input {...p} name="inventarnummer" maxLength={60} className="feld max-w-xs font-mono" />}
+          </FeldGruppe>
+          <FeldGruppe id={f('seriennummer')} feld="seriennummer" label="Seriennummer" optional state={state}>
+            {(p) => <input {...p} name="seriennummer" maxLength={120} className="feld max-w-xs font-mono" />}
+          </FeldGruppe>
+          <FeldGruppe id={f('hersteller')} feld="hersteller" label="Hersteller" optional state={state}>
+            {(p) => <input {...p} name="hersteller" maxLength={120} className="feld" />}
+          </FeldGruppe>
+          <FeldGruppe id={f('typ')} feld="typ" label="Typ" optional state={state}>
+            {(p) => <input {...p} name="typ" maxLength={120} className="feld" />}
+          </FeldGruppe>
+          <FeldGruppe id={f('baujahr')} feld="baujahr" label="Baujahr" optional state={state}>
+            {(p) => <input {...p} name="baujahr" type="number" inputMode="numeric" min={1950} max={2100} className="feld w-32 font-mono" />}
+          </FeldGruppe>
         </div>
+      </fieldset>
 
-        <input type="hidden" name="pruefartenJson" value={json} />
+      <fieldset>
+        <legend className={LEGENDE}>Prüfarten</legend>
+        <div className="space-y-4">
+          <FeldGruppe
+            id={f('geraetegruppe')}
+            feld="geraetegruppe"
+            label="Gerätegruppe"
+            state={state}
+            hilfe="Readyloop schlägt danach die Prüfarten aus dem Prüfkatalog vor."
+          >
+            {(p) => (
+              <select {...p} name="geraetegruppe" required value={gruppe} onChange={(e) => gruppeWaehlen(e.target.value)} className="feld">
+                <option value="" disabled>
+                  Bitte wählen
+                </option>
+                {gruppen.map((g) => (
+                  <option key={g.schluessel} value={g.schluessel}>
+                    {g.label}
+                  </option>
+                ))}
+                <option value={SONSTIGES}>Sonstiges (ohne Katalogeintrag)</option>
+              </select>
+            )}
+          </FeldGruppe>
 
-        {gruppe === '' ? (
-          <p className="text-sm text-steel">Nach Wahl der Gerätegruppe werden die Prüfarten aus dem Katalog vorgeschlagen.</p>
-        ) : (
-          <ul className="space-y-3">
-            {zeilen.map((z, i) => {
-              const p = (name: string) => `${uid}-${z.key}-${name}`;
-              const mitDatum = z.letztePruefung.trim() !== '';
-              return (
-                <li key={z.key} className={`rounded border p-3 ${z.aktiv ? 'border-steel/30 bg-white' : 'border-dashed border-steel/30 bg-paper opacity-75'}`}>
-                  <div className="flex flex-wrap items-start gap-3">
-                    {z.katalog ? (
-                      <label className="flex min-w-0 flex-1 items-start gap-2">
-                        <input
-                          type="checkbox"
-                          checked={z.aktiv}
-                          onChange={(e) => aendern(z.key, { aktiv: e.target.checked })}
-                          className="mt-1 size-4 accent-steel"
-                        />
-                        <span className="min-w-0">
-                          <span className="font-medium">{z.bezeichnung}</span>
-                          <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-steel">
-                            <StufeBadge stufe={z.katalog.stufe} />
-                            {z.katalog.intervallMonate !== null ? monate(z.katalog.intervallMonate) : 'ohne Intervall'}
-                            {z.katalog.freigabestatus !== 'freigegeben' && (
-                              <span className="rounded border border-dashed border-steel px-1.5 font-medium text-ink">
-                                Entwurf – nicht fachlich freigegeben
+          <input type="hidden" name="pruefartenJson" value={json} />
+
+          {gruppe !== '' && (
+            <ul className="space-y-3" aria-label="Prüfarten des Geräts">
+              {zeilen.map((z, i) => {
+                const mitDatum = z.letztePruefung.trim() !== '';
+                return (
+                  <li
+                    key={z.key}
+                    className={`rounded-flaeche border p-3 sm:p-4 ${z.aktiv ? 'border-steel-200 bg-white' : 'border-dashed border-steel-400 bg-paper'}`}
+                  >
+                    <div className="flex flex-wrap items-start gap-3">
+                      {z.katalog ? (
+                        <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={z.aktiv}
+                            onChange={(e) => aendern(z.key, { aktiv: e.target.checked })}
+                            className="mt-0.5 size-5 shrink-0 accent-steel"
+                          />
+                          <span className="min-w-0">
+                            <span className="font-medium text-ink">{z.bezeichnung}</span>
+                            {!z.aktiv && <span className="text-sm text-steel"> (nicht übernehmen)</span>}
+                            <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-steel">
+                              <StufeBadge stufe={z.katalog.stufe} />
+                              <span>
+                                {z.katalog.intervallMonate !== null
+                                  ? `Prüfkatalog: ${monate(z.katalog.intervallMonate)}`
+                                  : 'Prüfkatalog: ohne Intervall, Frist über GBU festlegen'}
                               </span>
-                            )}
+                              {z.katalog.freigabestatus !== 'freigegeben' && (
+                                <span className="rounded-feld border border-dashed border-steel-400 px-1.5 font-medium text-ink">
+                                  Entwurf, nicht fachlich freigegeben
+                                </span>
+                              )}
+                            </span>
                           </span>
-                        </span>
-                      </label>
-                    ) : (
-                      <div className="min-w-0 flex-1">
-                        <label htmlFor={p('bezeichnung')} className="label">
-                          Freie Prüfart {i + 1} – Bezeichnung *
                         </label>
-                        <input
-                          id={p('bezeichnung')}
-                          value={z.bezeichnung}
-                          onChange={(e) => aendern(z.key, { bezeichnung: e.target.value })}
-                          required
-                          minLength={2}
-                          maxLength={120}
-                          placeholder="z. B. Wiederholungsprüfung Schweißgerät"
-                          className="feld"
-                        />
-                        <p className="mt-1 text-xs text-steel">Ohne Katalogeintrag: Frist später über GBU festlegen.</p>
-                      </div>
-                    )}
-                    {!z.katalog && (
-                      <button type="button" onClick={() => entfernen(z.key)} className="btn btn-sekundaer">
-                        Entfernen<span className="sr-only"> (Prüfart {i + 1})</span>
-                      </button>
-                    )}
-                  </div>
+                      ) : (
+                        <FeldGruppe
+                          id={zf(z, 'bezeichnung')}
+                          label={`Bezeichnung der Prüfart ${i + 1}`}
+                          state={state}
+                          hilfe="Ohne Katalogeintrag: Die Frist legen Sie später über die GBU fest."
+                          className="min-w-0 flex-1"
+                        >
+                          {(p) => (
+                            <input
+                              {...p}
+                              value={z.bezeichnung}
+                              onChange={(e) => aendern(z.key, { bezeichnung: e.target.value })}
+                              required
+                              minLength={2}
+                              maxLength={120}
+                              placeholder="z. B. Wiederholungsprüfung Schweißgerät"
+                              className="feld"
+                            />
+                          )}
+                        </FeldGruppe>
+                      )}
+                      {!z.katalog && (
+                        <button type="button" onClick={() => entfernen(z.key)} className="btn btn-still sm:mt-6">
+                          Prüfart entfernen<span className="sr-only"> ({i + 1})</span>
+                        </button>
+                      )}
+                    </div>
 
-                  {z.aktiv && (
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <div>
-                        <label htmlFor={p('hf')} className="label">
-                          Herstellerfrist (Monate)
-                        </label>
-                        <input
-                          id={p('hf')}
-                          type="number"
-                          inputMode="numeric"
-                          min={1}
-                          max={120}
-                          value={z.herstellerfristMonate}
-                          onChange={(e) => aendern(z.key, { herstellerfristMonate: e.target.value })}
-                          className="feld font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor={p('hfq')} className="label">
-                          Quelle Herstellerfrist
-                        </label>
-                        <input
-                          id={p('hfq')}
-                          maxLength={200}
-                          value={z.herstellerfristQuelle}
-                          onChange={(e) => aendern(z.key, { herstellerfristQuelle: e.target.value })}
-                          required={z.herstellerfristMonate.trim() !== ''}
-                          placeholder="z. B. Betriebsanleitung Kap. 9"
-                          className="feld"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor={p('datum')} className="label">
-                          Letzte Prüfung
-                        </label>
-                        <input
-                          id={p('datum')}
-                          type="date"
-                          max={heute}
-                          value={z.letztePruefung}
-                          onChange={(e) => aendern(z.key, { letztePruefung: e.target.value })}
-                          className="feld font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor={p('herkunft')} className="label">
-                          Herkunft des Datums{mitDatum && ' *'}
-                        </label>
+                    {z.aktiv && (
+                      <div className="mt-4 grid gap-4 border-t border-steel-100 pt-4 sm:grid-cols-2">
+                        <FeldGruppe id={zf(z, 'hf')} label="Herstellerfrist" optional einheit="Monate" state={state}>
+                          {(p) => (
+                            <input
+                              {...p}
+                              type="number"
+                              inputMode="numeric"
+                              min={1}
+                              max={120}
+                              value={z.herstellerfristMonate}
+                              onChange={(e) => aendern(z.key, { herstellerfristMonate: e.target.value })}
+                              className="feld pr-20 font-mono"
+                            />
+                          )}
+                        </FeldGruppe>
+                        <FeldGruppe
+                          id={zf(z, 'hfq')}
+                          label="Quelle der Herstellerfrist"
+                          optional={z.herstellerfristMonate.trim() === ''}
+                          state={state}
+                        >
+                          {(p) => (
+                            <input
+                              {...p}
+                              maxLength={200}
+                              value={z.herstellerfristQuelle}
+                              onChange={(e) => aendern(z.key, { herstellerfristQuelle: e.target.value })}
+                              required={z.herstellerfristMonate.trim() !== ''}
+                              placeholder="z. B. Betriebsanleitung Kap. 9"
+                              className="feld"
+                            />
+                          )}
+                        </FeldGruppe>
+                        <FeldGruppe id={zf(z, 'datum')} label="Letzte Prüfung" optional state={state}>
+                          {(p) => (
+                            <input
+                              {...p}
+                              type="date"
+                              max={heute}
+                              value={z.letztePruefung}
+                              onChange={(e) => aendern(z.key, { letztePruefung: e.target.value })}
+                              className="feld font-mono"
+                            />
+                          )}
+                        </FeldGruppe>
                         {mitDatum ? (
-                          <select
-                            id={p('herkunft')}
-                            value={z.herkunft}
-                            required
-                            onChange={(e) => aendern(z.key, { herkunft: e.target.value as Herkunft })}
-                            className="feld"
-                          >
-                            <option value="" disabled>
-                              bitte wählen
-                            </option>
-                            <option value="pruefbericht">{DATUMSHERKUNFT_LABEL.pruefbericht}</option>
-                            <option value="plakette">{DATUMSHERKUNFT_LABEL.plakette}</option>
-                          </select>
+                          <FeldGruppe id={zf(z, 'herkunft')} label="Herkunft des Datums" state={state}>
+                            {(p) => (
+                              <select
+                                {...p}
+                                value={z.herkunft}
+                                required
+                                onChange={(e) => aendern(z.key, { herkunft: e.target.value as Herkunft })}
+                                className="feld"
+                              >
+                                <option value="" disabled>
+                                  Bitte wählen
+                                </option>
+                                <option value="pruefbericht">{DATUMSHERKUNFT_LABEL.pruefbericht}</option>
+                                <option value="plakette">{DATUMSHERKUNFT_LABEL.plakette}</option>
+                              </select>
+                            )}
+                          </FeldGruppe>
                         ) : (
-                          <p id={p('herkunft')} className="py-1.5 text-sm text-steel">
-                            unbekannt (kein Datum)
-                          </p>
+                          <div>
+                            <p className="label">Herkunft des Datums</p>
+                            <p className="flex min-h-10 items-center text-sm text-steel">Unbekannt, solange kein Datum eingetragen ist.</p>
+                          </div>
                         )}
                       </div>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
 
-        {gruppe !== '' && (
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setZeilen((alt) => [...alt, leereZeile()])}
-              disabled={zeilen.length >= MAX_PRUEFARTEN}
-              className="btn btn-sekundaer"
-            >
-              Freie Prüfart hinzufügen
-            </button>
-            <p className="text-sm text-steel" aria-live="polite">
-              {aktive === 1 ? '1 Prüfart ausgewählt' : `${aktive} Prüfarten ausgewählt`}
-            </p>
-          </div>
-        )}
-        <PruefartenFehler state={state} />
+          {gruppe !== '' && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <button
+                type="button"
+                onClick={() => setZeilen((alt) => [...alt, leereZeile()])}
+                disabled={zeilen.length >= MAX_PRUEFARTEN}
+                className="btn btn-sekundaer"
+              >
+                Freie Prüfart hinzufügen
+              </button>
+              <p className="text-sm text-steel" aria-live="polite">
+                {aktive === 1 ? '1 Prüfart ausgewählt' : `${aktive} Prüfarten ausgewählt`}
+              </p>
+            </div>
+          )}
+          <PruefartenFehler state={state} />
+        </div>
       </fieldset>
 
-      <p className="text-xs text-steel">
-        Fristen werden nicht beim Anlegen festgelegt: Vorschläge gibt Sifa oder Verantwortlicher in der Geräteakte frei.
-      </p>
+      <Meldung art="hinweis">Fristen werden nach dem Anlegen aus dem Prüfkatalog vorgeschlagen und müssen freigegeben werden.</Meldung>
+
       <ActionMeldung state={state} />
-      <button type="submit" disabled={pending || aktive === 0} className="btn btn-primaer">
-        {pending ? 'Wird gespeichert …' : 'Gerät anlegen'}
-      </button>
+      <Aktionsleiste fest>
+        <AbsendenButton pending={pending}>
+          Gerät anlegen
+        </AbsendenButton>
+        <Link href="/geraete" className="btn btn-still">
+          Abbrechen
+        </Link>
+      </Aktionsleiste>
     </form>
   );
 }

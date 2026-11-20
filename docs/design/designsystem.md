@@ -1,6 +1,6 @@
 # Readyloop – Designsystem (Stand 20.11.2026)
 
-Erweitert `corporate-design.md` und ersetzt es nicht. Grundwerte (Farben, Schriften, Plakette) bleiben, hier kommen Abstufungen, Skalen und Regeln dazu. Änderungen an Grundwerten stehen nur in §9 „Vorschlag an Max“.
+Erweitert `corporate-design.md` und ersetzt es nicht. Grundwerte (Farben, Schriften, Plakette) bleiben, hier kommen Abstufungen, Skalen und Regeln dazu. Änderungen an Grundwerten stehen nur in §9 „Vorschlag an Max“. Entscheidungen zu Rückfragen aus der Umsetzung stehen in §10.
 Recherche dazu: `recherche-business-apps.md`. Umsetzung: `umsetzung.md`.
 
 ---
@@ -103,6 +103,7 @@ Umsetzung in Tailwind 4: `--text-xs` auf 0,8125 rem / 1,125 rem anheben (13 px),
 - Zeilenlänge Fließtext ≤ 72 Zeichen (`max-w-prose`).
 - **Keine Versalien-Labels** (heute: `uppercase tracking-wide` in PruefartKarte → entfernen). Satzschreibung überall.
 - Keine einzelnen hervorgehobenen Wörter in Überschriften.
+- Ausnahme Untergrenze: Glyphen im Symbolkreis (✓ ! ✕ ? §, 11 px, `aria-hidden`) sind Symbole, kein Text. Der Status steht daneben in ≥ 13 px.
 
 ---
 
@@ -146,6 +147,7 @@ Ring mit 12 Monatssegmenten (1 oben, im Uhrzeigersinn), Fälligkeitsmonat gefül
 - Ring und Segmentrahmen in Ochre-Status: **ochre-600**, Füllung des aktiven Segments: ochre. Das sichert den Grafikkontrast von 3:1.
 - Inaktive Segmente: Statusfarbe 14 % auf Weiß (wie heute).
 - GBU: gestrichelter Ring, Mitte „GBU“. Unbekannt: Mitte „?“. Vor Nutzung prüfen: Mitte „!“ in brick (wie heute).
+- **Frist nicht freigegeben** (Status `gbu`, aber freigebbarer Katalog- oder Herstellervorschlag vorhanden, §10 E-1): gestrichelter Ring wie GBU, Mitte „§“, Label „Keine freigegebene Frist: Vorschlag liegt zur Freigabe vor“.
 
 ### 5.3 Varianten und Größen
 | Variante | Größe | Wo | Inhalt |
@@ -156,13 +158,13 @@ Ring mit 12 Monatssegmenten (1 oben, im Uhrzeigersinn), Fälligkeitsmonat gefül
 | **Akte** | 96 | Kopf der Geräteakte | wie Zeile, darunter Fälligkeitsdatum als Text |
 | **Leer** | 64 / 96 | Leerzustände | Ring `steel-400` gestrichelt, keine Füllung, Mitte „–“ |
 | **Live** | 160 | Login | Steel-Ring, Segmente bis zum aktuellen Monat in moss gefüllt, Mitte aktuelles Jahr; einmalige Füllanimation |
-| **Jahresring** (Vorschlag §9.3) | 112 | Kopf `/geraete` | 12 Segmente = Kalendermonate der nächsten 12 Monate, Füllstärke in Steel-Stufen nach Anzahl Fälligkeiten (0 / 1–2 / 3–5 / ≥6), Mitte = Summe, Text daneben „fällig in den nächsten 12 Monaten“; gleichwertige Liste für Screenreader |
+| **Jahresring** (§9.3, §10 E-3) | 112 | Kopf `/geraete` | 12 Segmente = die 12 Kalendermonate ab dem aktuellen Monat (heute bis Ende des 11. Folgemonats), jedes Segment genau ein Monat. Füllstärke in Steel-Stufen nach Anzahl Fälligkeiten (0 / 1–2 / 3–5 / ≥6), aktueller Monat mit Rahmen ink 1,5 markiert (Fensteranfang), Mitte = Summe, Text daneben mit Zeitraum („fällig Nov. 2026 – Okt. 2027“); gleichwertige Liste mit denselben 12 Monaten für Screenreader |
 | **Bestätigung** | 24 | Erfolgsmeldung nach „Nachweis speichern“ | Plakette mit neuem Monat/Jahr in moss |
 
 ### 5.4 Do / Don't
 - **Do:** Immer `role="img"` und eine sprechende `aria-label` (wie heute). Daneben steht der Status als Text.
 - **Do:** Die Plakette steht immer links vom Objekt, das sie beschreibt.
-- **Don't:** Segmente nie als Prozent- oder Fortschrittsanzeige zweckentfremden. Ein Segment ist immer ein Monat.
+- **Don't:** Segmente nie als Prozent- oder Fortschrittsanzeige zweckentfremden. Ein Segment ist immer **ein** Monat, auch im Jahresring (keine zwei Monate in einem Segment).
 - **Don't:** Keine Plakette als reines Schmuckbild ohne Datenbezug. Ausnahmen: Glyph in der Wortmarke und Live-Plakette auf dem Login.
 - **Don't:** Plaketten nicht in Statusfarbe hinterlegen oder mit Schatten versehen.
 
@@ -200,15 +202,16 @@ Beschriftung als Verb plus Objekt. Keine Pfeile im Text, keine Versalien.
 - GBU: gestrichelter Rahmen. Vor Nutzung prüfen: Rahmen 2 px, Text halbfett.
 - **Nicht klickbar**, kein Hover. Adjektiv bzw. Zustand, kein Verb.
 - In Listenzeilen stehen Plakette und Statusmarke nebeneinander: Die Plakette trägt das Datum, die Marke den Text.
+- In der Prüfartkarte bei „Frist nicht freigegeben“ (§10 E-1): Form wie GBU, Text „Frist nicht freigegeben“ statt „Frist über GBU festlegen“.
 - **Don't:** In der Prüfartkarte keine Marke „In Ordnung“. Dort genügen Plakette und „Fällig am“ (weniger Indikatoren, siehe Recherche §3).
 
 ### 6.5 Stufe-Marke (`StufeBadge`)
 Quadrat 20 px, Radius 4, steel-50, Rahmen steel-400, Buchstabe in Space Grotesk 600 (statt Mono).
 In der Akte immer mit Text („Stufe B · Richtwert DGUV“), in Tabellen allein mit `title`/`abbr`.
-**Pflicht:** Neben jeder Frist stehen Stufe und Quelle.
+**Pflicht:** Neben jeder Frist stehen Stufe und Quelle. Das gilt auch für einen noch nicht freigegebenen Vorschlag.
 
 ### 6.6 Weitere Marken
-- Betriebsstatus: neutrale Marke (steel-50, Rahmen steel-200). Nur „außer Betrieb“ und „gesperrt“ bekommen brick-50 mit Symbol ✕.
+- Betriebsstatus: neutrale Marke (steel-50, Rahmen steel-200). Nur „außer Betrieb“ bekommt brick-50, Rahmen brick und Symbol ✕. „Ausgemustert“ bleibt neutral (§10 E-2). Einen Status „gesperrt“ gibt es im Datenmodell nicht.
 - Mangelstatus: offen = brick-50 mit ⚠, in Bearbeitung = ochre-50 mit !, behoben = moss-50 mit ✓. Alle teilen die Form der Statusmarke.
 - Rolle (Verwaltung): Text in `klein`, keine Marke.
 
@@ -323,7 +326,7 @@ Liste der Betriebe als große klickbare Zeilen (56 px): Betriebsname (h3), Rolle
 [Kopfleiste]
 Geräte (h1)                                   [Gerät anlegen]
 ┌Zählerleiste──────────────────────────────────────┬──────┐  ◔ Jahresring (opt.)
-│ 3 ✕Überfällig │ 1 !Vor Nutzung │ 7 !Bald │ … │ 148 Alle │  23 fällig in 12 Mon.
+│ 3 ✕Überfällig │ 1 !Vor Nutzung │ 7 !Bald │ … │ 148 Alle │  23 fällig Nov. 2026 – Okt. 2027
 └──────────────────────────────────────────────────┴──────┘
 [Suche ____________][Suchen]  Bereich [Alle ▾]
 Chips: Bereich: Werkstatt ✕
@@ -356,9 +359,12 @@ Abschnittsleiste (sticky, Anker): Prüfarten 2 · Mängel 1 · Nachweise 4 · Ve
 Regeln für die Prüfartkarte:
 1. Kopf: Plakette 40, Name (h3), Katalogschlüssel (`fein`), Statusmarke nur, wenn nicht „in Ordnung“.
 2. Warnstreifen (Anlass, Weiterbetrieb unzulässig, Mängel nicht erfasst, Fristhinweis) direkt unter dem Kopf, nach Schwere sortiert.
-3. **Fristzeile** immer sichtbar als vierspaltige Leiste: Fällig am (mit Resttagen), Frist, Stufe (mit Text), Quelle mit Fundstelle. Ohne freigegebene Frist steht dort „Frist über GBU festlegen“ in voller Breite.
+3. **Fristzeile** immer sichtbar. Drei Fälle:
+   - Frist freigegeben: vierspaltige Leiste Fällig am (mit Resttagen), Frist, Stufe (mit Text), Quelle mit Fundstelle.
+   - Keine Frist, Vorschlag der Regel-Engine ist GBU (kein freigegebener Eintrag, nur Entwurf, kein Intervall): „Frist über GBU festlegen“ mit Grund, volle Breite.
+   - Keine Frist, aber freigegebener Katalog- oder Herstellervorschlag: „Frist nicht freigegeben – ohne Freigabe gibt es keinen Fälligkeitstermin.“ darunter „Vorschlag: X Monate laut …“ mit Stufe (mit Text) und Quelle. Kein Fälligkeitsdatum, keine Resttage (§10 E-1).
 4. Weitere Angaben (letzte Prüfung mit Herkunft, Herstellerfrist, Prüfer und Qualifikation, GBU-Verweis, Freigabe durch und am) in einer zweispaltigen `dl` darunter.
-5. Regel-Engine-Vorschlag und Formulare in Disclosures. Geschlossen zeigt die Disclosure eine Zeile Zusammenfassung („Vorschlag: 12 Monate laut Prüfkatalog, Stufe B“).
+5. Regel-Engine-Vorschlag und Formulare in Disclosures. Geschlossen zeigt die Disclosure eine Zeile Zusammenfassung („Vorschlag: 12 Monate laut Prüfkatalog, Stufe B“). Ohne freigegebene Frist ist „Frist festlegen“ für Berechtigte offen.
 6. Fuß: Aktionen.
 
 ### 8.6 `/geraete/neu`
@@ -407,3 +413,29 @@ Leerzustand „Seite nicht gefunden.“ mit Link „Zur Geräteliste“ bzw. „
 4. **Ochre-Abstufung ochre-600 (#b07d22)** für Linien und Rahmen. Der Grundwert ochre erreicht auf Weiß nur 2,8:1 und reicht damit nicht für Linien (WCAG 1.4.11). ochre bleibt als Fläche. Das erweitert den Grundwert, ersetzt ihn nicht, nur zur Kenntnis.
 5. **Icon-Paket `lucide-react`** für UI-Icons (Suche, Menü, Datei). Bisher gibt es nur Unicode-Zeichen. Statussymbole bleiben eigene Glyphen.
 6. **Grundschrift 16 px, Untergrenze 13 px** (heute 14 und 12 px). Kostet etwas Dichte, passt aber zur Zielgruppe.
+
+Alle sechs Punkte am 20.11.2026 von Max freigegeben (siehe `umsetzung.md`).
+
+---
+
+## 10. Entscheidungen
+
+Rückfragen aus der Umsetzung, entschieden vom Design-Lead. Code-Folgen stehen als Paket P4c in `umsetzung.md`.
+
+### E-1 Fristzeile ohne Frist bei freigegebenem Katalog- oder Herstellervorschlag (20.11.2026)
+**Frage (frontend-dev):** „Frist nicht freigegeben“ mit Vorschlag, Stufe und Quelle statt „Frist über GBU festlegen“?
+**Entscheidung: Ja, so bleibt es.** Die Regel „Ohne Eintrag: Frist über GBU festlegen“ gilt, wenn es keinen freigegebenen Eintrag gibt. Hier gibt es einen, es fehlt nur die Freigabe im Betrieb. „GBU festlegen“ würde den Nutzer auf einen falschen und aufwendigeren Weg schicken. Der Vorschlag zeigt Stufe und Quelle (§6.5 Pflicht) und **kein** Fälligkeitsdatum, denn ohne Freigabe gibt es keine Frist.
+**Befund bei der Prüfung:** Der Status bleibt dabei `gbu`. Plakette („GBU“) und Statusmarke („Frist über GBU festlegen“) im Kopf derselben Karte widersprechen der Fristzeile. Außerdem ist die Disclosure „Frist festlegen“ in diesem Fall zu, obwohl die Freigabe die einzige nötige Handlung ist.
+**Folge:**
+- In der Prüfartkarte zeigen Plakette und Statusmarke in diesem Fall „Frist nicht freigegeben“ (Plakette gestrichelt, Mitte „§“, §5.2; Marke in GBU-Form, Text „Frist nicht freigegeben“, §6.4). P4c.
+- Die Disclosure „Frist festlegen“ ist für Berechtigte offen, solange keine Frist freigegeben ist (§8.5 Regel 5). P4c.
+- **Offen für requirements-engineer:** Auf Listenebene (Zählerleiste „Frist über GBU“, Geräteliste, Prüferaufgaben) zählen solche Prüfarten weiter als „Frist über GBU festlegen“. Ob die Domäne den Fall unterscheiden soll (z. B. eigener Status oder angepasstes Label „Frist fehlt“), ist eine fachliche Frage und keine des Designs. Bis dahin bleibt die Liste unverändert.
+
+### E-2 Betriebsstatus „ausgemustert“ (20.11.2026)
+**Frage:** „Ausgemustert“ neutral, brick nur für „außer Betrieb“?
+**Entscheidung: Ja.** Brick bedeutet „nicht benutzen, Handlung nötig“. Ein außer Betrieb genommenes Gerät steht noch im Betrieb und darf nicht benutzt werden, deshalb gilt brick-50 mit ✕ und Text. Ein ausgemustertes Gerät ist endgültig aus dem Bestand und verlangt keine Handlung, deshalb wird es neutral (steel-50, Rahmen steel-200) mit Text „Ausgemustert“ angezeigt. §6.6 nannte zusätzlich „gesperrt“. Diesen Status gibt es im Datenmodell nicht, der Hinweis ist gestrichen. Die Umsetzung in `BetriebsstatusBadge.tsx` ist korrekt, es ist keine Änderung nötig.
+
+### E-3 Aktueller Monat zweimal im Jahresring (20.11.2026)
+**Frage:** Aktueller Monat im Ring zusammengezählt, im Screenreader-Überblick getrennt?
+**Entscheidung: Nein.** Ursache ist meine Vorgabe in P3b („heute bis heute + 12 Monate“), die 13 Kalendermonate anschneidet. Ein Segment, das zwei Monate in verschiedenen Jahren zusammenfasst, bricht die Regel „ein Segment ist immer ein Monat“ (§5.4). Außerdem zeigen Ring und Screenreader-Liste dann verschiedene Daten.
+**Neu:** Das Fenster umfasst genau 12 Kalendermonate, vom heutigen Tag bis zum Ende des 11. Folgemonats (am 20.11.2026: 20.11.2026 bis 31.10.2027). Ring und Liste zeigen dieselben 12 Einträge. Weil der Ring über den Jahreswechsel umläuft, wird der aktuelle Monat als Fensteranfang mit Rahmen ink 1,5 markiert. Der sichtbare Text nennt den Zeitraum („fällig Nov. 2026 – Okt. 2027“). Überfällige Termine bleiben außerhalb, sie stehen in der Zählerleiste. P4c.

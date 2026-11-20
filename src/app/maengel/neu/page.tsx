@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AppHeader } from '@/components/AppHeader';
+import { Meldung } from '@/components/Meldung';
+import { PlaketteBestaetigung } from '@/components/PlaketteGlyph';
 import { MangelForm } from '@/components/MangelForm';
+import { Seitenkopf } from '@/components/Seitenkopf';
 import { erfordereSitzung, holeMangelFormular } from '@/server/data';
 
 export const metadata: Metadata = { title: 'Mangel erfassen' };
@@ -37,40 +39,31 @@ export default async function MangelNeuSeite({ searchParams }: { searchParams: S
   return (
     <>
       <AppHeader sitzung={sitzung} aktiv={istPruefer ? 'pruefer' : 'maengel'} />
-      <main className="mx-auto max-w-2xl space-y-5 px-4 py-6">
-        <p className="text-sm">
-          <Link href={abbrechen} className="link">
-            ← Zurück
-          </Link>
-        </p>
-        <div>
-          <h1 className="text-2xl font-bold">Mangel erfassen</h1>
-          <dl className="mt-2 grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1 text-sm">
-            <dt className="text-steel">Gerät</dt>
-            <dd>
-              {kontext.geraet.bezeichnung}
-              <span className="font-mono text-xs text-steel"> · {kontext.geraet.inventarnummer ?? 'ohne Inventarnummer'}</span>
-            </dd>
-            <dt className="text-steel">Bereich</dt>
-            <dd>{kontext.bereichName}</dd>
-          </dl>
-          {kontext.nachweis && (
-            <p className="mt-2 text-sm text-steel">
-              Der Nachweis ist gespeichert. Erfassen Sie jetzt die festgestellten Mängel – je Befund einen Mangel.
-            </p>
-          )}
-        </div>
-        <div className="karte p-4">
-          <MangelForm kontext={kontext} zurueck={zurueck} />
-        </div>
+      <main className="mx-auto max-w-[40rem] space-y-6 px-4 py-6 md:px-6">
+        <Seitenkopf
+          pfad={
+            istPruefer
+              ? [{ label: 'Prüfaufgaben', href: '/pruefer' }, { label: 'Mangel erfassen' }]
+              : [
+                  { label: 'Geräte', href: '/geraete' },
+                  { label: kontext.geraet.bezeichnung, href: `/geraete/${kontext.geraet.id}` },
+                  { label: 'Mangel erfassen' },
+                ]
+          }
+          titel="Mangel erfassen"
+          kontext={
+            <>
+              {kontext.geraet.bezeichnung} · <span className="font-mono">{kontext.geraet.inventarnummer ?? 'ohne Inventarnummer'}</span> ·{' '}
+              {kontext.bereichName}
+            </>
+          }
+        />
         {kontext.nachweis && (
-          <p className="text-sm">
-            <Link href={abbrechen} className="link">
-              Später erfassen
-            </Link>
-            <span className="text-steel"> – die Prüfart zeigt bis dahin einen Hinweis.</span>
-          </p>
+          <Meldung art="erfolg" symbol={<PlaketteBestaetigung />} text="Erfassen Sie jetzt die festgestellten Mängel, je Befund einen. „Später erfassen“ ist möglich, die Prüfart zeigt bis dahin einen Hinweis.">
+            Nachweis gespeichert.
+          </Meldung>
         )}
+        <MangelForm kontext={kontext} zurueck={zurueck} abbrechenHref={abbrechen} />
       </main>
     </>
   );

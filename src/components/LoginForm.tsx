@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { DEMO_ROLLEN, ROLLE_LABEL, type DemoRolle } from '@/domain/types';
 import { anmelden, setzeDemoRolle } from '@/server/actions';
-import { ActionMeldung, FeldFehler, feldProps, useFormularAction } from './formular';
+import { AbsendenButton, ActionMeldung, Aktionsleiste, FeldFehler, FeldGruppe, useFormularAction } from './formular';
 
 const BESCHREIBUNG: Record<DemoRolle, string> = {
   admin: 'Bereiche und Mitglieder verwalten, Prüfer zuweisen, Geräte verschieben. Keine Fristfreigabe.',
@@ -19,7 +19,7 @@ export function DemoRollenWahl() {
   return (
     <form action={formAction} onSubmit={onSubmit} className="space-y-3">
       <fieldset>
-        <legend className="mb-2 text-sm font-medium">Rolle für die Demo wählen</legend>
+        <legend className="mb-2 text-sm text-steel">Demo ohne Konto: Rolle wählen.</legend>
         <ul className="grid gap-2">
           {DEMO_ROLLEN.map((rolle) => (
             <li key={rolle}>
@@ -28,10 +28,11 @@ export function DemoRollenWahl() {
                 name="rolle"
                 value={rolle}
                 disabled={pending}
-                className="karte w-full px-4 py-3 text-left hover:border-steel hover:bg-steel-hell/40 disabled:opacity-60"
+                aria-busy={pending || undefined}
+                className="btn btn-sekundaer w-full flex-col items-start gap-0 px-4 py-2.5 text-left"
               >
-                <span className="block font-display font-semibold">{ROLLE_LABEL[rolle]}</span>
-                <span className="block text-sm text-steel">{BESCHREIBUNG[rolle]}</span>
+                <span className="block text-base font-semibold text-ink">Als {ROLLE_LABEL[rolle]} anmelden</span>
+                <span className="block text-sm font-normal text-steel">{BESCHREIBUNG[rolle]}</span>
               </button>
             </li>
           ))}
@@ -39,7 +40,9 @@ export function DemoRollenWahl() {
       </fieldset>
       <FeldFehler state={state} feld="rolle" />
       <ActionMeldung state={state} />
-      {pending && <p className="text-sm text-steel">Anmeldung läuft …</p>}
+      <p aria-live="polite" className="text-sm text-steel">
+        {pending ? 'Anmeldung läuft …' : ''}
+      </p>
     </form>
   );
 }
@@ -50,46 +53,19 @@ export function LoginForm() {
 
   return (
     <form action={formAction} onSubmit={onSubmit} className="space-y-4" noValidate>
-      <div>
-        <label htmlFor="login-email" className="label">
-          E-Mail
-        </label>
-        <input
-          id="login-email"
-          name="email"
-          type="email"
-          autoComplete="username"
-          inputMode="email"
-          required
-          className="feld"
-          {...feldProps(state, 'email')}
-        />
-        <FeldFehler state={state} feld="email" />
-      </div>
-      <div>
-        <label htmlFor="login-passwort" className="label">
-          Passwort
-        </label>
-        <input
-          id="login-passwort"
-          name="passwort"
-          type="password"
-          autoComplete="current-password"
-          required
-          className="feld"
-          {...feldProps(state, 'passwort')}
-        />
-        <FeldFehler state={state} feld="passwort" />
-      </div>
+      <FeldGruppe id="login-email" feld="email" label="E-Mail" state={state}>
+        {(p) => <input {...p} name="email" type="email" autoComplete="username" inputMode="email" required className="feld" />}
+      </FeldGruppe>
+      <FeldGruppe id="login-passwort" feld="passwort" label="Passwort" state={state}>
+        {(p) => <input {...p} name="passwort" type="password" autoComplete="current-password" required className="feld" />}
+      </FeldGruppe>
       <ActionMeldung state={state} />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <button type="submit" className="btn btn-primaer" disabled={pending}>
-          {pending ? 'Anmeldung läuft …' : 'Anmelden'}
-        </button>
-        <Link href="/passwort-vergessen" className="link text-sm">
-          Passwort vergessen?
+      <Aktionsleiste>
+        <AbsendenButton pending={pending}>Anmelden</AbsendenButton>
+        <Link href="/passwort-vergessen" className="btn btn-still">
+          Passwort vergessen
         </Link>
-      </div>
+      </Aktionsleiste>
     </form>
   );
 }

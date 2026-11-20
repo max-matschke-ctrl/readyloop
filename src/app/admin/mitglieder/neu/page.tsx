@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
 import { MitgliedForm } from '@/components/MitgliedForm';
+import { Seitenkopf } from '@/components/Seitenkopf';
 import { erfordereSitzung, listeBereiche } from '@/server/data';
 
 export const metadata: Metadata = { title: 'Person einladen' };
@@ -13,16 +13,17 @@ export default async function MitgliedNeuSeite() {
   return (
     <>
       <AppHeader sitzung={sitzung} aktiv="verwaltung" />
-      <main className="mx-auto max-w-3xl space-y-5 px-4 py-6">
-        <p className="text-sm">
-          <Link href="/admin/mitglieder" className="link">
-            ← Mitglieder
-          </Link>
-        </p>
-        <h1 className="text-2xl font-bold">Person einladen</h1>
-        <div className="karte p-4">
-          <MitgliedForm bereiche={bereiche} />
-        </div>
+      <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 md:px-6 xl:px-8">
+        <Seitenkopf
+          pfad={[
+            { label: 'Verwaltung', href: '/admin/mitglieder' },
+            { label: 'Mitglieder', href: '/admin/mitglieder' },
+            { label: 'Person einladen' },
+          ]}
+          titel="Person einladen"
+          kontext={`Zugang zu ${sitzung.organisation.name}.`}
+        />
+        <MitgliedForm bereiche={bereiche} />
       </main>
     </>
   );

@@ -2,7 +2,17 @@
 
 import { ANLASS_ART_LABEL, ANLASS_ARTEN, type IsoDate } from '@/domain/types';
 import { anlassAufheben, anlassErfassen } from '@/server/actions';
-import { ActionMeldung, FeldFehler, feldProps, fehlerId, useFormularAction } from './formular';
+import { Meldung } from './Meldung';
+import {
+  AbsendenButton,
+  ActionMeldung,
+  Aktionsleiste,
+  FeldFehler,
+  FeldGruppe,
+  Fehleruebersicht,
+  fehlerId,
+  useFormularAction,
+} from './formular';
 
 interface Props {
   geraetId: string;
@@ -16,14 +26,20 @@ export function AnlassForm({ geraetId, pruefarten, heute }: Props) {
   const id = (n: string) => `anlass-${n}-${geraetId}`;
 
   return (
-    <form action={formAction} onSubmit={onSubmit} className="space-y-3" noValidate>
+    <form action={formAction} onSubmit={onSubmit} className="space-y-4" noValidate>
       <input type="hidden" name="geraetId" value={geraetId} />
-      <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
-        <div>
-          <label htmlFor={id('art')} className="label">
-            Anlass
-          </label>
-          <select id={id('art')} name="art" required defaultValue="" className="feld" {...feldProps(state, 'art')}>
+      <Fehleruebersicht
+        state={state}
+        felder={{
+          art: { id: id('art'), label: 'Anlass' },
+          datum: { id: id('datum'), label: 'Datum' },
+          beschreibung: { id: id('beschreibung'), label: 'Beschreibung' },
+          geraetPruefartIds: { id: id(`pa-${pruefarten[0]?.id ?? ''}`), label: 'Betroffene Prüfarten' },
+        }}
+      />
+      <FeldGruppe id={id('art')} feld="art" label="Anlass" state={state}>
+        {(p) => (
+          <select {...p} name="art" required defaultValue="" className="feld">
             <option value="" disabled>
               Bitte wählen
             </option>
@@ -33,49 +49,28 @@ export function AnlassForm({ geraetId, pruefarten, heute }: Props) {
               </option>
             ))}
           </select>
-          <FeldFehler state={state} feld="art" />
-        </div>
-        <div>
-          <label htmlFor={id('datum')} className="label">
-            Datum
-          </label>
-          <input
-            id={id('datum')}
-            name="datum"
-            type="date"
-            required
-            defaultValue={heute}
-            max={heute}
-            className="feld font-mono"
-            {...feldProps(state, 'datum')}
-          />
-          <FeldFehler state={state} feld="datum" />
-        </div>
-      </div>
-      <div>
-        <label htmlFor={id('beschreibung')} className="label">
-          Beschreibung
-        </label>
-        <textarea
-          id={id('beschreibung')}
-          name="beschreibung"
-          rows={2}
-          required
-          minLength={5}
-          maxLength={1000}
-          placeholder="Was ist passiert?"
-          className="feld"
-          {...feldProps(state, 'beschreibung')}
-        />
-        <FeldFehler state={state} feld="beschreibung" />
-      </div>
+        )}
+      </FeldGruppe>
+      <FeldGruppe id={id('datum')} feld="datum" label="Datum" state={state}>
+        {(p) => <input {...p} name="datum" type="date" required defaultValue={heute} max={heute} className="feld max-w-48 font-mono" />}
+      </FeldGruppe>
+      <FeldGruppe id={id('beschreibung')} feld="beschreibung" label="Beschreibung" hilfe="Was ist passiert?" state={state}>
+        {(p) => <textarea {...p} name="beschreibung" rows={2} required minLength={5} maxLength={1000} className="feld" />}
+      </FeldGruppe>
       <fieldset aria-describedby={state.feldfehler?.geraetPruefartIds?.length ? fehlerId('geraetPruefartIds') : undefined}>
         <legend className="label">Betroffene Prüfarten</legend>
-        <ul className="grid gap-1 sm:grid-cols-2">
+        <ul className="space-y-1">
           {pruefarten.map((p) => (
             <li key={p.id}>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="geraetPruefartIds" value={p.id} defaultChecked={pruefarten.length === 1} className="size-4" />
+              <label className="flex min-h-10 cursor-pointer items-center gap-3 text-sm">
+                <input
+                  id={id(`pa-${p.id}`)}
+                  type="checkbox"
+                  name="geraetPruefartIds"
+                  value={p.id}
+                  defaultChecked={pruefarten.length === 1}
+                  className="size-5 shrink-0 accent-steel"
+                />
                 {p.bezeichnung}
               </label>
             </li>
@@ -83,14 +78,13 @@ export function AnlassForm({ geraetId, pruefarten, heute }: Props) {
         </ul>
         <FeldFehler state={state} feld="geraetPruefartIds" />
       </fieldset>
-      <p className="text-xs text-steel">
-        Die gewählten Prüfarten stehen danach auf „Vor Nutzung prüfen – nicht verwenden“, bis ein bestandener Nachweis
-        vorliegt.
-      </p>
+      <Meldung art="warnung">
+        Die gewählten Prüfarten stehen danach auf „Vor Nutzung prüfen – nicht verwenden“, bis ein bestandener Nachweis vorliegt.
+      </Meldung>
       <ActionMeldung state={state} />
-      <button type="submit" className="btn btn-primaer" disabled={pending}>
-        {pending ? 'Wird gespeichert …' : 'Anlass erfassen'}
-      </button>
+      <Aktionsleiste>
+        <AbsendenButton pending={pending}>Anlass erfassen</AbsendenButton>
+      </Aktionsleiste>
     </form>
   );
 }
@@ -100,19 +94,21 @@ export function AnlassAufhebenForm({ anlassId }: { anlassId: string }) {
   const { state, formAction, pending, onSubmit } = useFormularAction(anlassAufheben);
   const feld = `aufheben-grund-${anlassId}`;
   return (
-    <details>
-      <summary className="link w-fit cursor-pointer text-xs">Aufheben</summary>
-      <form action={formAction} onSubmit={onSubmit} className="mt-2 space-y-2" noValidate>
+    <details className="group/a">
+      <summary className="link inline-flex min-h-8 w-fit cursor-pointer list-none items-center text-sm [&::-webkit-details-marker]:hidden">
+        Anlass aufheben
+      </summary>
+      <form action={formAction} onSubmit={onSubmit} className="mt-2 space-y-3" noValidate>
         <input type="hidden" name="anlassId" value={anlassId} />
-        <label htmlFor={feld} className="label">
-          Begründung (mindestens 10 Zeichen)
-        </label>
-        <input id={feld} name="grund" type="text" required minLength={10} maxLength={500} className="feld" {...feldProps(state, 'grund')} />
-        <FeldFehler state={state} feld="grund" />
+        <FeldGruppe id={feld} feld="grund" label="Begründung" hilfe="Mindestens 10 Zeichen. Bleibt im Verlauf sichtbar." state={state}>
+          {(p) => <input {...p} name="grund" type="text" required minLength={10} maxLength={500} className="feld" />}
+        </FeldGruppe>
         <ActionMeldung state={state} />
-        <button type="submit" className="btn btn-sekundaer" disabled={pending}>
-          {pending ? 'Wird gespeichert …' : 'Anlass aufheben'}
-        </button>
+        <Aktionsleiste>
+          <AbsendenButton pending={pending} art="gefaehrlich">
+            Anlass aufheben
+          </AbsendenButton>
+        </Aktionsleiste>
       </form>
     </details>
   );
