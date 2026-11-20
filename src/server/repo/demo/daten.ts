@@ -13,6 +13,7 @@ import type {
   Geraet,
   GeraeteKategorie,
   GeraetPruefart,
+  GeraetToken,
   Id,
   IsoDate,
   IsoDateTime,
@@ -23,6 +24,7 @@ import type {
   Organisation,
   PruefErgebnis,
   Standort,
+  Uebernahme,
 } from '@/domain/types';
 import { PRUEFKATALOG_ENTWURF } from '@/server/katalog/pruefkatalog.entwurf';
 import { platzhalterPdf, sha256Hex } from '@/server/pdf';
@@ -41,6 +43,8 @@ export interface DemoStand {
   ereignisse: Ereignis[];
   anlaesse: Anlass[];
   maengel: Mangel[];
+  uebernahmen: Uebernahme[]; // I3M (F-23, F-27)
+  tokens: GeraetToken[]; // I3M (F-24)
 }
 
 const uuid = (praefix: string, n: number): Id => `${praefix}-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -238,6 +242,12 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
   // Org 2: Admin Petra Wolf (kein Demo-Login), Verantwortlicher Werkstatt Uwe Schmidt (gibt dort Fristen frei).
   benutzer.push({ id: uuid('40000000', 7), name: 'Petra Wolf', email: 'p.wolf@muster-metallbau.example' });
   mitgliedschaften.push(m(8, DEMO_ORG2_ID, uuid('40000000', 7), 'admin'));
+  // I3M: Mitarbeiter (fiktiv). Jonas Richter = Demo-Rolle „Mitarbeiter“; Aylin Demir ohne Demo-Login.
+  benutzer.push(
+    { id: b.jonas, name: 'Jonas Richter', email: 'j.richter@elbtal-foerdertechnik.example' },
+    { id: b.aylin, name: 'Aylin Demir', email: 'a.demir@elbtal-foerdertechnik.example' },
+  );
+  mitgliedschaften.push(m(9, DEMO_ORG_ID, b.jonas, 'mitarbeiter'), m(10, DEMO_ORG_ID, b.aylin, 'mitarbeiter'));
   const name = (id: Id) => benutzer.find((x) => x.id === id)?.name ?? 'System';
 
   const katalog = PRUEFKATALOG_ENTWURF.map((k) => ({ ...k, prueferTypen: [...k.prueferTypen] }));
@@ -526,6 +536,56 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
   mangel('L-003', { beschreibung: 'Anfahrschutz Stütze A3 lose', schwere: 'gering', termin: addTage(heute, -5),
     verantwortlichId: b.marco, nachweisId: null, erfasstTage: 40, erfasstVon: b.marco });
 
+  // ---- I3M: Zuordnung, Übernahmen, Tokens (F-22, F-23, F-24) ----
+  const p008 = geraetVon.get('P-008')!;
+  p008.zugeordnetAn = b.jonas;
+  ereignis(DEMO_ORG_ID, {
+    geraetId: p008.id, typ: 'zuordnung_geaendert', akteurId: b.sabine, akteurName: name(b.sabine),
+    zeitpunkt: zeit(addTage(heute, -60), '08:00'), daten: { zugeordnet: true },
+  });
+
+  const uebernahmen: Uebernahme[] = [];
+  const uebernahme = (inv: string, wer: Id | null, vonTage: number, ende?: { tage: number; art: Uebernahme['endeArt'] }) => {
+    const g = geraetVon.get(inv)!;
+    uebernahmen.push({
+      id: uuid('c0000000', uebernahmen.length + 1),
+      organisationId: g.organisationId,
+      geraetId: g.id,
+      benutzerId: wer,
+      benutzerName: wer ? name(wer) : null,
+      von: zeit(addTage(heute, -vonTage), '06:30'),
+      bis: ende ? zeit(addTage(heute, -ende.tage), '15:45') : null,
+      endeArt: ende?.art ?? null,
+      beendetVon: ende && wer ? wer : null,
+    });
+  };
+  uebernahme('L-002', b.jonas, 3);
+  uebernahme('L-008', b.jonas, 40);
+  uebernahme('P-003', b.aylin, 1);
+  uebernahme('L-006', b.aylin, 20, { tage: 18, art: 'rueckgabe' });
+  uebernahme('P-004', null, 130, { tage: 120, art: 'rueckgabe' }); // nach 90 Tagen pseudonymisiert (F-27)
+
+  // Nur Demo: lesbare Tokens 'demo' + Inventarnummer ohne Bindestrich, mit 'x' auf 22 Zeichen. Echte: neuerToken().
+  const demoToken = (inv: string, zusatz = '') => `demo${inv.replace('-', '')}${zusatz}`.padEnd(22, 'x');
+  const tokens: GeraetToken[] = [];
+  for (const g of geraete) {
+    const inv = g.inventarnummer!;
+    if (inv === 'L-001') {
+      tokens.push({
+        id: uuid('d0000000', tokens.length + 1), organisationId: g.organisationId, geraetId: g.id, token: demoToken(inv, 'alt'),
+        aktiv: false, erstelltAm: g.angelegtAm, deaktiviertAm: zeit(addTage(heute, -30), '10:00'),
+      });
+      ereignis(g.organisationId, {
+        geraetId: g.id, typ: 'etikett_erneuert', akteurId: b.marco, akteurName: name(b.marco),
+        zeitpunkt: zeit(addTage(heute, -30), '10:00'), daten: {},
+      });
+    }
+    tokens.push({
+      id: uuid('d0000000', tokens.length + 1), organisationId: g.organisationId, geraetId: g.id, token: demoToken(inv),
+      aktiv: true, erstelltAm: inv === 'L-001' ? zeit(addTage(heute, -30), '10:00') : g.angelegtAm, deaktiviertAm: null,
+    });
+  }
+
   return {
     organisationen,
     standorte,
@@ -540,5 +600,7 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
     ereignisse,
     anlaesse,
     maengel,
+    uebernahmen,
+    tokens,
   };
 }
