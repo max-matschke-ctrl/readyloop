@@ -55,7 +55,8 @@ function meldungFuer(el: Pruefbar): string {
     if (el instanceof HTMLInputElement && el.type === 'file') return label ? `Bitte ${label} wählen.` : 'Bitte eine Datei wählen.';
     if (el instanceof HTMLInputElement && el.type === 'checkbox') return label ? `Bitte bestätigen: ${label}` : 'Bitte bestätigen.';
     if (el instanceof HTMLInputElement && el.type === 'radio') return 'Bitte eine Auswahl treffen.';
-    return `Bitte ${label} angeben.`;
+    // Label als Frage („Was ist kaputt?“) passt nicht in den Satz.
+    return label.endsWith('?') ? 'Bitte ausfüllen.' : `Bitte ${label} angeben.`;
   }
   if (v.tooShort && 'minLength' in el) return `Mindestens ${el.minLength} Zeichen eingeben.`;
   if (v.tooLong && 'maxLength' in el) return `Höchstens ${el.maxLength} Zeichen eingeben.`;
