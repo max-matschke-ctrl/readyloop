@@ -5,13 +5,14 @@ import { AppHeader } from '@/components/AppHeader';
 import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { GeraeteFilter } from '@/components/GeraeteFilter';
 import { GeraeteTabelle } from '@/components/GeraeteTabelle';
+import { Jahresring } from '@/components/Jahresring';
 import { Leerzustand } from '@/components/Leerzustand';
 import { Seitenkopf } from '@/components/Seitenkopf';
 import { StatusZaehler } from '@/components/StatusZaehler';
 import { STATUS_KURZ } from '@/components/status';
 import { can } from '@/domain/rechte';
 import { FRIST_STATUS, type FristStatus, type GeraeteFilter as Filter } from '@/domain/types';
-import { erfordereSitzung, listeBereiche, listeGeraete } from '@/server/data';
+import { erfordereSitzung, heute, listeBereiche, listeGeraete } from '@/server/data';
 
 export const metadata: Metadata = { title: 'Geräte' };
 
@@ -87,7 +88,16 @@ export default async function GeraeteSeite({ searchParams }: { searchParams: Suc
           }
         />
 
-        <StatusZaehler zaehler={zaehler} gesamt={ohneStatus.length} aktiv={status} params={{ bereich, q }} />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+          <div className="min-w-0 flex-1">
+            <StatusZaehler zaehler={zaehler} gesamt={ohneStatus.length} aktiv={status} params={{ bereich, q }} />
+          </div>
+          {gesamt > 0 && (
+            <section aria-label="Fälligkeiten im Jahresverlauf" className="shrink-0">
+              <Jahresring faelligkeiten={alle.map((g) => g.naechsteFaelligkeit)} heute={heute()} />
+            </section>
+          )}
+        </div>
 
         <div className="space-y-3">
           <GeraeteFilter key={`${bereich}|${status}|${q}`} bereiche={bereiche} bereich={bereich} status={status} q={q} />
