@@ -37,6 +37,8 @@ interface LeerProps {
   groesse?: 64 | 96;
   /** Mittenzeichen, Standard „–“ (z. B. „!“ für Fehler/kein Zugriff). */
   zeichen?: string;
+  /** erledigt: Ring in moss mit ✓ (Leerzustand „alles erledigt“, §6.12). */
+  variante?: 'leer' | 'erledigt';
   className?: string;
 }
 
@@ -44,7 +46,10 @@ interface LeerProps {
  * Leere Plakette (§5.3, §6.12): gestrichelter Ring in steel-400, keine Füllung.
  * Bild eines Leerzustands; die Bedeutung trägt der Titel daneben, deshalb aria-hidden.
  */
-export function PlaketteLeer({ groesse = 64, zeichen = '–', className = '' }: LeerProps) {
+export function PlaketteLeer({ groesse = 64, zeichen, variante = 'leer', className = '' }: LeerProps) {
+  const erledigt = variante === 'erledigt';
+  const ring = erledigt ? 'var(--color-moss)' : 'var(--color-steel-400)';
+  const mitte = zeichen ?? (erledigt ? '✓' : '–');
   return (
     <svg
       aria-hidden="true"
@@ -58,10 +63,10 @@ export function PlaketteLeer({ groesse = 64, zeichen = '–', className = '' }: 
         <path
           key={m}
           d={segment(m)}
-          fill="none"
-          stroke="var(--color-steel-400)"
-          strokeWidth={1}
-          strokeDasharray="2 1.5"
+          fill={erledigt ? 'color-mix(in srgb, var(--color-moss) 14%, white)' : 'none'}
+          stroke={ring}
+          strokeWidth={erledigt ? 0.6 : 1}
+          strokeDasharray={erledigt ? undefined : '2 1.5'}
         />
       ))}
       <circle cx={C} cy={C} r={R_INNEN - 1} fill="white" />
@@ -73,9 +78,9 @@ export function PlaketteLeer({ groesse = 64, zeichen = '–', className = '' }: 
         fontFamily="var(--font-display)"
         fontWeight={600}
         fontSize={19}
-        fill="var(--color-steel)"
+        fill={erledigt ? 'var(--color-moss)' : 'var(--color-steel)'}
       >
-        {zeichen}
+        {mitte}
       </text>
     </svg>
   );

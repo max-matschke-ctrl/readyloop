@@ -1,8 +1,8 @@
 'use client';
 
 import Form from 'next/form';
-import { FRIST_STATUS, type Bereich, type FristStatus } from '@/domain/types';
-import { STATUS_KURZ } from './status';
+import { Search } from 'lucide-react';
+import type { Bereich, FristStatus } from '@/domain/types';
 
 interface Props {
   bereiche: Bereich[];
@@ -11,17 +11,51 @@ interface Props {
   q?: string;
 }
 
-/** Filter als GET-Formular: Werte landen in der URL (bereich, status, q). */
+/**
+ * Filterleiste (§6.9) als GET-Formular: Suche und Bereich. Der Status kommt aus der Zählerleiste
+ * und bleibt als verstecktes Feld erhalten, damit eine Suche ihn nicht verwirft.
+ */
 export function GeraeteFilter({ bereiche, bereich, status, q }: Props) {
   const absenden = (e: React.ChangeEvent<HTMLSelectElement>) => e.currentTarget.form?.requestSubmit();
 
   return (
-    <Form action="/geraete" className="flex flex-wrap items-end gap-3" role="search" aria-label="Geräte filtern">
-      <div className="w-full sm:w-auto">
+    <Form
+      action="/geraete"
+      className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
+      role="search"
+      aria-label="Geräte filtern"
+    >
+      {status && <input type="hidden" name="status" value={status} />}
+      <div className="min-w-0 sm:flex-1 sm:basis-72">
+        <label htmlFor="filter-q" className="label">
+          Suche
+        </label>
+        <div className="flex gap-2">
+          <input
+            id="filter-q"
+            name="q"
+            type="search"
+            defaultValue={q ?? ''}
+            placeholder="Bezeichnung, Inventar-, Seriennummer, Hersteller"
+            className="feld min-h-10 min-w-0 flex-1"
+          />
+          <button type="submit" className="btn btn-sekundaer shrink-0">
+            <Search aria-hidden="true" size={16} strokeWidth={1.75} />
+            Suchen
+          </button>
+        </div>
+      </div>
+      <div className="sm:w-56">
         <label htmlFor="filter-bereich" className="label">
           Bereich
         </label>
-        <select id="filter-bereich" name="bereich" defaultValue={bereich ?? ''} onChange={absenden} className="feld sm:w-48">
+        <select
+          id="filter-bereich"
+          name="bereich"
+          defaultValue={bereich ?? ''}
+          onChange={absenden}
+          className="feld min-h-10"
+        >
           <option value="">Alle Bereiche</option>
           {bereiche.map((b) => (
             <option key={b.id} value={b.id}>
@@ -30,35 +64,6 @@ export function GeraeteFilter({ bereiche, bereich, status, q }: Props) {
           ))}
         </select>
       </div>
-      <div className="w-full sm:w-auto">
-        <label htmlFor="filter-status" className="label">
-          Status
-        </label>
-        <select id="filter-status" name="status" defaultValue={status ?? ''} onChange={absenden} className="feld sm:w-48">
-          <option value="">Alle Status</option>
-          {FRIST_STATUS.map((s) => (
-            <option key={s} value={s}>
-              {STATUS_KURZ[s]}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="min-w-0 flex-1 sm:min-w-56">
-        <label htmlFor="filter-q" className="label">
-          Suche
-        </label>
-        <input
-          id="filter-q"
-          name="q"
-          type="search"
-          defaultValue={q ?? ''}
-          placeholder="Bezeichnung, Inventar-, Seriennummer, Hersteller"
-          className="feld"
-        />
-      </div>
-      <button type="submit" className="btn btn-sekundaer">
-        Filtern
-      </button>
     </Form>
   );
 }
