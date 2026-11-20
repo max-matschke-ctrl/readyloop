@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import {
   EINLADBARE_ROLLEN,
   PRUEFER_TYP_LABEL,
@@ -12,7 +12,19 @@ import {
   type Rolle,
 } from '@/domain/types';
 import { mitgliedAendern, mitgliedEinladen } from '@/server/actions';
-import { ActionMeldung, FeldFehler, feldProps, fehlerId, useFormularAction } from './formular';
+import { BestaetigungsDialog } from './BestaetigungsDialog';
+import { Meldung } from './Meldung';
+import {
+  AbsendenButton,
+  ActionMeldung,
+  Aktionsleiste,
+  FeldFehler,
+  FeldGruppe,
+  Fehleruebersicht,
+  feldProps,
+  fehlerId,
+  useFormularAction,
+} from './formular';
 
 const ROLLE_HILFE: Partial<Record<Rolle, string>> = {
   admin: 'Verwaltung, Prüfer zuweisen, Geräte verschieben. Keine Fristfreigabe.',
@@ -38,128 +50,127 @@ function MitgliedFormInnen({ bereiche, mitglied, weitere }: Props & { weitere: (
   const { state, formAction, pending, onSubmit } = useFormularAction(neu ? mitgliedEinladen : mitgliedAendern);
   const [rolle, setRolle] = useState<Rolle | ''>(mitglied?.rolle ?? '');
   const gesperrt = mitglied?.istEigeneMitgliedschaft ?? false;
+  const formRef = useRef<HTMLFormElement>(null);
+  const bestaetigt = useRef(false);
+  const [dialogOffen, setDialogOffen] = useState(false);
+
+  // §6.16: Deaktivieren (Haken „Zugang aktiv“ entfernt) erst nach Bestätigung. Ohne JS sendet das Formular direkt.
+  const absenden = (e: FormEvent<HTMLFormElement>) => {
+    const aktivFeld = e.currentTarget.elements.namedItem('aktiv');
+    const deaktiviert = mitglied?.aktiv && aktivFeld instanceof HTMLInputElement && aktivFeld.type === 'checkbox' && !aktivFeld.checked;
+    if (deaktiviert && !bestaetigt.current) {
+      e.preventDefault();
+      setDialogOffen(true);
+      return;
+    }
+    bestaetigt.current = false;
+    onSubmit(e);
+  };
   const rollen: Rolle[] =
     mitglied && !EINLADBARE_ROLLEN.some((r) => r === mitglied.rolle) ? [...EINLADBARE_ROLLEN, mitglied.rolle] : [...EINLADBARE_ROLLEN];
 
   if (neu && state.status === 'ok') {
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
         <ActionMeldung state={state} />
-        <p className="flex flex-wrap gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" onClick={weitere} className="btn btn-primaer">
+            Weitere Person einladen
+          </button>
           {state.id && (
-            <Link href={`/admin/mitglieder/${state.id}`} className="link">
+            <Link href={`/admin/mitglieder/${state.id}`} className="btn btn-sekundaer">
               Mitglied ansehen
             </Link>
           )}
-          <Link href="/admin/mitglieder" className="link">
+          <Link href="/admin/mitglieder" className="btn btn-still">
             Zur Mitgliederliste
           </Link>
-          <button type="button" onClick={weitere} className="link">
-            Weitere Person einladen
-          </button>
-        </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <form action={formAction} onSubmit={onSubmit} className="space-y-4" noValidate>
+    <form ref={formRef} action={formAction} onSubmit={absenden} className="max-w-[40rem] space-y-5" noValidate>
       {mitglied && <input type="hidden" name="mitgliedschaftId" value={mitglied.mitgliedschaftId} />}
+      <Fehleruebersicht
+        state={state}
+        felder={{
+          email: { id: 'mitglied-email', label: 'E-Mail' },
+          name: { id: 'mitglied-name', label: 'Name' },
+          rolle: { id: 'mitglied-rolle', label: 'Rolle' },
+          bereichIds: { id: `mitglied-bereich-${bereiche[0]?.id ?? ''}`, label: 'Bereiche' },
+          prueferTypen: { label: 'Qualifikation' },
+          aktiv: { id: 'mitglied-aktiv', label: 'Zugang' },
+        }}
+      />
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      {neu ? (
+        <FeldGruppe id="mitglied-email" feld="email" label="E-Mail" state={state}>
+          {(p) => <input {...p} name="email" type="email" inputMode="email" autoComplete="off" required className="feld font-mono" />}
+        </FeldGruppe>
+      ) : (
         <div>
-          {neu ? (
-            <>
-              <label htmlFor="mitglied-email" className="label">
-                E-Mail
-              </label>
-              <input
-                id="mitglied-email"
-                name="email"
-                type="email"
-                inputMode="email"
-                autoComplete="off"
-                required
-                className="feld"
-                {...feldProps(state, 'email')}
-              />
-              <FeldFehler state={state} feld="email" />
-            </>
-          ) : (
-            <>
-              <p className="label">E-Mail</p>
-              <p className="py-1.5 font-mono text-sm">{mitglied.benutzer.email}</p>
-            </>
-          )}
+          <p className="label">E-Mail</p>
+          <p className="font-mono text-sm">{mitglied.benutzer.email}</p>
         </div>
-        <div>
-          <label htmlFor="mitglied-name" className="label">
-            Name
-          </label>
-          <input
-            id="mitglied-name"
-            name="name"
-            type="text"
-            autoComplete="off"
+      )}
+
+      <FeldGruppe id="mitglied-name" feld="name" label="Name" state={state}>
+        {(p) => <input {...p} name="name" type="text" autoComplete="off" required minLength={2} maxLength={120} defaultValue={mitglied?.benutzer.name} className="feld" />}
+      </FeldGruppe>
+
+      <FeldGruppe
+        id="mitglied-rolle"
+        feld="rolle"
+        label="Rolle"
+        hilfe={gesperrt ? 'Die eigene Rolle kann nicht geändert werden.' : rolle ? ROLLE_HILFE[rolle] : undefined}
+        state={state}
+      >
+        {(p) => (
+          <select
+            {...p}
+            name="rolle"
             required
-            minLength={2}
-            maxLength={120}
-            defaultValue={mitglied?.benutzer.name}
-            className="feld"
-            {...feldProps(state, 'name')}
-          />
-          <FeldFehler state={state} feld="name" />
-        </div>
-      </div>
-
-      <div>
-        <label htmlFor="mitglied-rolle" className="label">
-          Rolle
-        </label>
-        <select
-          id="mitglied-rolle"
-          name="rolle"
-          required
-          value={rolle}
-          disabled={gesperrt}
-          onChange={(e) => setRolle(e.currentTarget.value as Rolle)}
-          className="feld sm:w-72"
-          {...feldProps(state, 'rolle')}
-        >
-          {neu && (
-            <option value="" disabled>
-              Bitte wählen
-            </option>
-          )}
-          {rollen.map((r) => (
-            <option key={r} value={r}>
-              {ROLLE_LABEL[r]}
-            </option>
-          ))}
-        </select>
-        {/* Gesperrte Felder werden nicht gesendet; Wert für die Validierung mitgeben. Der Server prüft die Sperre selbst. */}
-        {gesperrt && <input type="hidden" name="rolle" value={rolle} />}
-        {rolle && ROLLE_HILFE[rolle] && <p className="mt-1 text-xs text-steel">{ROLLE_HILFE[rolle]}</p>}
-        {gesperrt && <p className="mt-1 text-xs text-steel">Die eigene Rolle kann nicht geändert werden.</p>}
-        <FeldFehler state={state} feld="rolle" />
-      </div>
+            value={rolle}
+            disabled={gesperrt}
+            onChange={(e) => setRolle(e.currentTarget.value as Rolle)}
+            className="feld sm:max-w-72"
+          >
+            {neu && (
+              <option value="" disabled>
+                Bitte wählen
+              </option>
+            )}
+            {rollen.map((r) => (
+              <option key={r} value={r}>
+                {ROLLE_LABEL[r]}
+              </option>
+            ))}
+          </select>
+        )}
+      </FeldGruppe>
+      {/* Gesperrte Felder werden nicht gesendet; Wert für die Validierung mitgeben. Der Server prüft die Sperre selbst. */}
+      {gesperrt && <input type="hidden" name="rolle" value={rolle} />}
 
       {rolle === 'verantwortlicher' && (
         <fieldset aria-describedby={state.feldfehler?.bereichIds?.length ? fehlerId('bereichIds') : undefined}>
-          <legend className="label">Bereiche (mindestens einer)</legend>
+          <legend className="label">Bereiche</legend>
+          <p className="-mt-0.5 mb-1.5 text-xs text-steel">Mindestens einen Bereich wählen.</p>
           {bereiche.length === 0 ? (
             <p className="text-sm text-steel">Noch keine Bereiche angelegt.</p>
           ) : (
-            <ul className="grid gap-1 sm:grid-cols-2">
+            <ul className="space-y-1">
               {bereiche.map((b) => (
                 <li key={b.id}>
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex min-h-10 cursor-pointer items-center gap-3 text-sm">
                     <input
+                      id={`mitglied-bereich-${b.id}`}
                       type="checkbox"
                       name="bereichIds"
                       value={b.id}
                       defaultChecked={mitglied?.bereichIds.includes(b.id)}
-                      className="size-4"
+                      className="size-5 shrink-0 accent-steel"
                     />
                     {b.name}
                   </label>
@@ -173,21 +184,15 @@ function MitgliedFormInnen({ bereiche, mitglied, weitere }: Props & { weitere: (
 
       {rolle === 'pruefer' && (
         <fieldset>
-          <legend className="label">Qualifikation (optional)</legend>
-          <p className="mb-2 text-xs text-steel">
-            Dient nur der Warnung bei der Zuweisung. Die Befähigung selbst verantwortet der Betrieb.
-          </p>
-          <ul className="grid gap-1 sm:grid-cols-2">
+          <legend className="label">
+            Qualifikation <span className="font-normal text-steel">(optional)</span>
+          </legend>
+          <p className="-mt-0.5 mb-1.5 text-xs text-steel">Dient nur der Warnung bei der Zuweisung. Die Befähigung selbst verantwortet der Betrieb.</p>
+          <ul className="space-y-1">
             {PRUEFER_TYPEN.map((t) => (
               <li key={t}>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    name="prueferTypen"
-                    value={t}
-                    defaultChecked={mitglied?.prueferTypen.includes(t)}
-                    className="size-4"
-                  />
+                <label className="flex min-h-10 cursor-pointer items-center gap-3 text-sm">
+                  <input type="checkbox" name="prueferTypen" value={t} defaultChecked={mitglied?.prueferTypen.includes(t)} className="size-5 shrink-0 accent-steel" />
                   {PRUEFER_TYP_LABEL[t]}
                 </label>
               </li>
@@ -199,19 +204,20 @@ function MitgliedFormInnen({ bereiche, mitglied, weitere }: Props & { weitere: (
 
       {mitglied && (
         <div>
-          <label className="flex items-center gap-2 text-sm font-medium">
+          <label className="flex min-h-10 cursor-pointer items-center gap-3 text-sm font-medium">
             <input
+              id="mitglied-aktiv"
               type="checkbox"
               name="aktiv"
               defaultChecked={mitglied.aktiv}
               disabled={gesperrt}
-              className="size-4"
-              {...feldProps(state, 'aktiv')}
+              className="size-5 shrink-0 accent-steel"
+              {...feldProps(state, 'aktiv', 'mitglied-aktiv-hilfe')}
             />
             Zugang aktiv
           </label>
           {gesperrt && <input type="hidden" name="aktiv" value="on" />}
-          <p className="mt-1 text-xs text-steel">
+          <p id="mitglied-aktiv-hilfe" className="mt-0.5 text-xs text-steel">
             {gesperrt
               ? 'Die eigene Mitgliedschaft kann nicht deaktiviert werden.'
               : 'Deaktivierte Mitglieder haben keinen Zugriff mehr; ihr Name bleibt in Verlauf und Nachweisen erhalten.'}
@@ -221,16 +227,34 @@ function MitgliedFormInnen({ bereiche, mitglied, weitere }: Props & { weitere: (
       )}
 
       {neu && (
-        <p className="text-xs text-steel">
-          Neue E-Mail-Adressen erhalten eine Einladung zum Setzen des Passworts. Hat die Person bereits ein Konto (z. B. ein
-          Prüfer anderer Betriebe), wird nur der Zugang angelegt.
-        </p>
+        <Meldung art="hinweis" text="Hat die Person bereits ein Konto, z. B. als Prüfer anderer Betriebe, wird nur der Zugang angelegt.">
+          Neue E-Mail-Adressen erhalten eine Einladung zum Setzen des Passworts.
+        </Meldung>
       )}
 
       <ActionMeldung state={state} />
-      <button type="submit" className="btn btn-primaer" disabled={pending}>
-        {pending ? 'Wird gespeichert …' : neu ? 'Einladen' : 'Speichern'}
-      </button>
+      <Aktionsleiste>
+        <AbsendenButton pending={pending}>{neu ? 'Person einladen' : 'Änderungen speichern'}</AbsendenButton>
+        <Link href="/admin/mitglieder" className="btn btn-still">
+          Abbrechen
+        </Link>
+      </Aktionsleiste>
+
+      {mitglied && (
+        <BestaetigungsDialog
+          offen={dialogOffen}
+          titel="Mitglied deaktivieren?"
+          bestaetigen="Deaktivieren"
+          onAbbrechen={() => setDialogOffen(false)}
+          onBestaetigen={() => {
+            bestaetigt.current = true;
+            setDialogOffen(false);
+            formRef.current?.requestSubmit();
+          }}
+        >
+          {mitglied.benutzer.name} hat danach keinen Zugriff mehr auf diesen Betrieb. Der Name bleibt in Verlauf und Nachweisen erhalten.
+        </BestaetigungsDialog>
+      )}
     </form>
   );
 }
