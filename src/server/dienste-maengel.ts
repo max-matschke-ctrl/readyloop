@@ -88,7 +88,8 @@ export async function holeMangelFormular(
   geraetId: Id,
   vorbelegung: { geraetPruefartId?: Id; nachweisId?: Id } = {},
 ): Promise<MangelFormularKontext | null> {
-  if (!can(sitzung.rolle, 'mangel.erfassen')) return null;
+  // MA melden Mängel nur über mangelMelden (F-26).
+  if (!can(sitzung.rolle, 'mangel.erfassen') || sitzung.rolle === 'mitarbeiter') return null;
   const ctx = await ladeKontext(sitzung, repo);
   const geraet = ctx.geraete.get(geraetId);
   if (!geraet || !geraetSichtbar(sitzung, geraet, ctx.pruefarten)) return null;
@@ -115,14 +116,16 @@ export async function holeMangelFormular(
   };
 }
 
-/** F-14: mangel.erfassen. Prüfer nur an zugewiesener Prüfart, ohne Verantwortlichen; SIF/VER mit Verantwortlichem. */
+/** F-14: mangel.erfassen. Prüfer nur an zugewiesener Prüfart, ohne Verantwortlichen; SIF/VER mit Verantwortlichem.
+ *  MA → Fehler (nur mangelMelden, dienste-mitarbeiter.ts). */
 export async function mangelErfassen(
   sitzung: Sitzung,
   repo: Repository,
   eingabe: MangelErfassenEingabe,
   zeit: Zeit,
 ): Promise<DienstErgebnis<{ id: Id; geraetId: Id }>> {
-  if (!can(sitzung.rolle, 'mangel.erfassen')) return fehler('Keine Berechtigung, Mängel zu erfassen.');
+  // MA melden Mängel nur über mangelMelden (F-26).
+  if (!can(sitzung.rolle, 'mangel.erfassen') || sitzung.rolle === 'mitarbeiter') return fehler('Keine Berechtigung, Mängel zu erfassen.');
   const ctx = await ladeKontext(sitzung, repo);
   const geraet = ctx.geraete.get(eingabe.geraetId);
   if (!geraet || !geraetSichtbar(sitzung, geraet, ctx.pruefarten)) return fehler('Gerät nicht gefunden.');
@@ -282,3 +285,5 @@ export async function mangelBeheben(
   });
   return { ok: true, id: mangel.id, geraetId: geraet.id };
 }
+
+export { mangelMelden, MANGEL_GEMELDET } from './dienste-mitarbeiter';
