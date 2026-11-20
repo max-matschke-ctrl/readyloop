@@ -1,0 +1,86 @@
+/*
+ * Etikettendruck (Designsystem §8.17, §6.21): A4, Bogen 3 × 8 Etiketten à 70 × 37 mm.
+ * Je 24 Etiketten ein .bogen mit Seitenumbruch danach. Nur schwarz auf weiß; kein Hex (§2.4).
+ */
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+.bogen {
+  width: 210mm;
+  height: 297mm;
+  padding-top: 0.5mm; /* (297 − 8 × 37) / 2 */
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(3, 70mm);
+  grid-template-rows: repeat(8, 37mm);
+  background: white;
+  color: black;
+  overflow: hidden;
+}
+
+.etikett {
+  width: 70mm;
+  height: 37mm;
+  padding: 4mm 5mm;
+  box-sizing: border-box;
+  overflow: hidden;
+  break-inside: avoid;
+  color: black;
+  background: white;
+}
+
+/* Ersatzweg §9.7: Plakette in Statusfarbe auch im Druck. */
+.etikett-plakette {
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+@media screen {
+  .boegen {
+    display: flex;
+    flex-direction: column;
+    gap: 8mm;
+    width: max-content;
+  }
+  .bogen {
+    border: 1px solid var(--color-steel-200);
+  }
+  /* Schnittrand gestrichelt (§6.21), nur am Bildschirm. */
+  .etikett {
+    outline: 1px dashed var(--color-steel-200);
+    outline-offset: -1px;
+  }
+}
+
+@media print {
+  html,
+  body {
+    margin: 0;
+    background: white;
+  }
+  /* Nur die Bögen drucken: Kopfleiste, Demo-Banner und Bedienteil ausblenden. */
+  body:has(.boegen) > :not(main),
+  .nicht-drucken {
+    display: none !important;
+  }
+  main:has(.boegen) {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .vorschau {
+    overflow: visible !important;
+    border: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+  }
+  .bogen {
+    height: 296mm; /* 1 mm Reserve gegen leere Folgeseiten */
+    break-after: page;
+  }
+  .bogen:last-child {
+    break-after: auto;
+  }
+}
