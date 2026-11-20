@@ -7,13 +7,18 @@ interface Props {
   faelligAm: IsoDate | null;
   /** Varianten nach Designsystem §5.3: Zeile 40, Karte mobil 56, Leer 64, Akte 96. */
   groesse?: 40 | 56 | 64 | 96;
+  /**
+   * §10 E-1: Vorschlag liegt vor, Frist aber nicht freigegeben. Nur bei status 'gbu' wirksam:
+   * Mitte „§“, Ring gestrichelt wie GBU.
+   */
+  ohneFreigabe?: boolean;
 }
 
 /**
  * Prüfplakette (§5): Ring mit 12 Monatssegmenten, Fälligkeitsmonat gefüllt, Jahr in der Mitte.
  * Ring und Rahmen über STATUS_RAND (ochre → ochre-600 für 3:1), Füllung über STATUS_FARBE.
  */
-export function Pruefplakette({ status, faelligAm, groesse = 40 }: Props) {
+export function Pruefplakette({ status, faelligAm, groesse = 40, ohneFreigabe = false }: Props) {
   const farbe = STATUS_FARBE[status];
   const rand = STATUS_RAND[status];
   const teile = faelligAm?.split('-');
@@ -22,15 +27,21 @@ export function Pruefplakette({ status, faelligAm, groesse = 40 }: Props) {
   const mitDatum = status !== 'unbekannt' && status !== 'gbu' && jahr !== null && monat !== null;
 
   const vorNutzung = status === 'vor_nutzung_pruefen';
-  const mitte =
-    status === 'gbu' ? 'GBU' : vorNutzung && !mitDatum ? '!' : status === 'unbekannt' || !mitDatum ? '?' : jahr;
-  const label = mitDatum
-    ? `Nächste Prüfung ${String(monat).padStart(2, '0')}/${teile![0]}, ${STATUS_KURZ[status].toLowerCase()}`
+  const nichtFreigegeben = ohneFreigabe && status === 'gbu';
+  const mitte = nichtFreigegeben
+    ? '§'
     : status === 'gbu'
-      ? 'Keine Frist: Frist über GBU festlegen'
-      : vorNutzung
-        ? 'Vor Nutzung prüfen – nicht verwenden'
-        : 'Nächste Prüfung unbekannt: Prüfdatum unbekannt';
+      ? 'GBU'
+      : vorNutzung && !mitDatum ? '!' : status === 'unbekannt' || !mitDatum ? '?' : jahr;
+  const label = nichtFreigegeben
+    ? 'Keine freigegebene Frist: Vorschlag liegt zur Freigabe vor'
+    : mitDatum
+      ? `Nächste Prüfung ${String(monat).padStart(2, '0')}/${teile![0]}, ${STATUS_KURZ[status].toLowerCase()}`
+      : status === 'gbu'
+        ? 'Keine Frist: Frist über GBU festlegen'
+        : vorNutzung
+          ? 'Vor Nutzung prüfen – nicht verwenden'
+          : 'Nächste Prüfung unbekannt: Prüfdatum unbekannt';
 
   return (
     <svg role="img" aria-label={label} width={groesse} height={groesse} viewBox={VIEWBOX} className="shrink-0">

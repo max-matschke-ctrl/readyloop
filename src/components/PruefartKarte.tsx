@@ -205,6 +205,8 @@ export function PruefartKarte({ ansicht, darfFreigeben, darfNachweisErfassen, da
     vorschlag.art !== 'gbu' && !(frist && frist.quelle === vorschlag.art && frist.monate === vorschlag.monate);
   // Gleiche Bedingung wie bisher: Formular offen, wenn eine GBU-Frist fehlt oder eine Prüfer-Empfehlung vorliegt.
   const gbuOffen = (vorschlag.art === 'gbu' && !frist) || nachErgebnis !== null;
+  // §10 E-1: Vorschlag vorhanden, aber keine Frist freigegeben (Status bleibt 'gbu').
+  const nichtFreigegeben = !frist && vorschlag.art !== 'gbu';
 
   const obergrenzen: string[] = [];
   if (pruefart.herstellerfristMonate !== null) obergrenzen.push(`Herstellerfrist ${monate(pruefart.herstellerfristMonate)}`);
@@ -229,7 +231,7 @@ export function PruefartKarte({ ansicht, darfFreigeben, darfNachweisErfassen, da
     <article aria-labelledby={titelId} className="karte overflow-hidden">
       {/* 1. Kopf */}
       <header className="flex flex-wrap items-center gap-3 border-b border-steel-200 px-4 py-3">
-        <Pruefplakette status={status.status} faelligAm={status.faelligAm} groesse={40} />
+        <Pruefplakette status={status.status} faelligAm={status.faelligAm} groesse={40} ohneFreigabe={nichtFreigegeben} />
         <div className="min-w-[12rem] flex-1">
           <h3 id={titelId} className="font-sans text-[1.0625rem] font-semibold leading-6 tracking-normal">
             {pruefart.bezeichnung}
@@ -238,7 +240,13 @@ export function PruefartKarte({ ansicht, darfFreigeben, darfNachweisErfassen, da
             {pruefart.katalogSchluessel ? `Katalog: ${pruefart.katalogSchluessel}` : 'Freie Prüfart ohne Katalogeintrag'}
           </p>
         </div>
-        {status.status !== 'ok' && <StatusAmpel status={status.status} grund={status.grund} />}
+        {status.status !== 'ok' && (
+          <StatusAmpel
+            status={status.status}
+            grund={status.grund}
+            text={nichtFreigegeben && status.status === 'gbu' ? 'Frist nicht freigegeben' : undefined}
+          />
+        )}
         {ansicht.offeneMaengel > 0 && (
           <span className="inline-flex items-center gap-1 rounded-feld border border-brick bg-brick-50 px-1.5 py-0.5 text-xs text-ink">
             <span aria-hidden="true">⚠</span>
@@ -425,7 +433,7 @@ export function PruefartKarte({ ansicht, darfFreigeben, darfNachweisErfassen, da
       <Aufklapper
         titel={darfFreigeben ? 'Frist festlegen' : 'Vorschlag der Regel-Engine'}
         zusammenfassung={vorschlagKurz}
-        offen={darfFreigeben && gbuOffen}
+        offen={darfFreigeben && (gbuOffen || !frist)}
       >
         <section aria-label="Vorschlag der Regel-Engine" className="rounded-flaeche bg-steel-50 px-3 py-3">
           <h4 className="mb-1 text-sm font-semibold">

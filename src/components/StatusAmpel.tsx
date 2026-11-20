@@ -7,6 +7,8 @@ interface Props {
   kurz?: boolean;
   /** Nur bei vor_nutzung_pruefen: Grund als Zusatztext. */
   grund?: VorNutzungGrund | null;
+  /** §10 E-1: ersetzt Anzeigetext und title (z. B. „Frist nicht freigegeben“); Symbol und Form bleiben. */
+  text?: string;
   className?: string;
 }
 
@@ -30,9 +32,9 @@ export function StatusSymbol({ status }: { status: FristStatus }) {
 }
 
 /** Statusmarke (§6.4): runde Pille, Fläche Status-50, Rahmen Statusfarbe (ochre → ochre-600), Text ink. Nicht klickbar. */
-export function StatusAmpel({ status, kurz = false, grund, className = '' }: Props) {
+export function StatusAmpel({ status, kurz = false, grund, text: eigenerText, className = '' }: Props) {
   const grundText = status === 'vor_nutzung_pruefen' && grund ? VOR_NUTZUNG_GRUND_LABEL[grund] : null;
-  const text = kurz ? STATUS_KURZ[status] : STATUS_LABEL[status];
+  const text = eigenerText ?? (kurz ? STATUS_KURZ[status] : STATUS_LABEL[status]);
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium text-ink ${
@@ -44,7 +46,7 @@ export function StatusAmpel({ status, kurz = false, grund, className = '' }: Pro
         borderWidth: status === 'vor_nutzung_pruefen' ? 2 : undefined,
         background: STATUS_FLAECHE[status],
       }}
-      title={grundText ? `${STATUS_LABEL[status]} (${grundText})` : STATUS_LABEL[status]}
+      title={eigenerText ?? (grundText ? `${STATUS_LABEL[status]} (${grundText})` : STATUS_LABEL[status])}
     >
       <StatusSymbol status={status} />
       <span>

@@ -1,20 +1,6 @@
 import type { IsoDate } from '@/domain/types';
-import { C, MONATE, R_INNEN, VIEWBOX, segment } from './plakette-geometrie';
-
-const MONATSNAME = [
-  'Januar',
-  'Februar',
-  'März',
-  'April',
-  'Mai',
-  'Juni',
-  'Juli',
-  'August',
-  'September',
-  'Oktober',
-  'November',
-  'Dezember',
-] as const;
+import { MONATSKURZ, MONATSNAME, jahresringFenster } from './jahresring-fenster';
+import { C, R_INNEN, VIEWBOX, segment } from './plakette-geometrie';
 
 /** Vier Steel-Stufen nach Anzahl (§5.3): 0 / 1–2 / 3–5 / ab 6. Keine Statusfarben. */
 const STUFEN = [
@@ -35,43 +21,20 @@ interface Props {
   heute: IsoDate;
 }
 
-interface MonatEintrag {
-  jahr: number;
-  monat: number; // 1–12
-  anzahl: number;
-}
-
 /**
  * Jahresring (§5.3, §9.3): Plakettenvariante, 12 Segmente = Kalendermonate (Januar oben),
- * Füllung nach Anzahl der Fälligkeiten von heute bis heute + 12 Monate, Mitte = Summe.
+ * Füllung nach Anzahl der Fälligkeiten von heute bis Ende des 11. Folgemonats (§10 E-3), Mitte = Summe.
  * Daneben ein Monatsüberblick für Screenreader.
  */
 export function Jahresring({ faelligkeiten, heute }: Props) {
-  const [jHeute, mHeute, tHeute] = heute.split('-');
-  const jahr0 = Number(jHeute);
-  const monat0 = Number(mHeute);
-  const ende = `${String(jahr0 + 1).padStart(4, '0')}-${mHeute}-${tHeute}`;
+  const { monate, summe } = jahresringFenster(faelligkeiten, heute);
+  const erster = monate[0]!;
+  const letzter = monate[11]!;
+  const zeitraumLang = `von ${MONATSNAME[erster.monat - 1]} ${erster.jahr} bis ${MONATSNAME[letzter.monat - 1]} ${letzter.jahr}`;
 
-  // Chronologische Monate im Fenster: aktueller Monat bis gleicher Monat im Folgejahr (13 Einträge).
-  const monate: MonatEintrag[] = Array.from({ length: 13 }, (_, i) => {
-    const index = monat0 - 1 + i;
-    return { jahr: jahr0 + Math.floor(index / 12), monat: (index % 12) + 1, anzahl: 0 };
-  });
-  for (const f of faelligkeiten) {
-    if (!f || f < heute || f > ende) continue;
-    const [j, m] = f.split('-');
-    const eintrag = monate.find((e) => e.jahr === Number(j) && e.monat === Number(m));
-    if (eintrag) eintrag.anzahl += 1;
-  }
-  const summe = monate.reduce((s, e) => s + e.anzahl, 0);
-
-  // Ring: je Kalendermonat; der aktuelle Monat kommt im Fenster zweimal vor und wird zusammengezählt.
-  const jeSegment = new Map<number, number>();
-  for (const e of monate) jeSegment.set(e.monat, (jeSegment.get(e.monat) ?? 0) + e.anzahl);
-
-  const maxEintrag = monate.reduce<MonatEintrag | null>((m, e) => (e.anzahl > (m?.anzahl ?? 0) ? e : m), null);
+  const maxEintrag = monate.reduce<(typeof monate)[number] | null>((m, e) => (e.anzahl > (m?.anzahl ?? 0) ? e : m), null);
   const label =
-    `${summe === 1 ? '1 Fälligkeit' : `${summe} Fälligkeiten`} in den nächsten 12 Monaten` +
+    `${summe === 1 ? '1 Fälligkeit' : `${summe} Fälligkeiten`} ${zeitraumLang}` +
     (maxEintrag ? `, die meisten im ${MONATSNAME[maxEintrag.monat - 1]} ${maxEintrag.jahr} (${maxEintrag.anzahl})` : '');
 
   const ueberblickId = 'jahresring-ueberblick';
@@ -88,13 +51,14 @@ export function Jahresring({ faelligkeiten, heute }: Props) {
       >
         <title>{label}</title>
         <circle cx={C} cy={C} r={R_INNEN - 1} fill="white" />
-        {MONATE.map((m) => (
+        {/* Ein Eintrag je Segment; der aktuelle Monat (Fensteranfang) zuletzt, mit Rahmen ink 1,5. */}
+        {[...monate.slice(1), erster].map((e, i) => (
           <path
-            key={m}
-            d={segment(m)}
-            fill={stufe(jeSegment.get(m) ?? 0).fuellung}
-            stroke="var(--color-steel-400)"
-            strokeWidth={0.6}
+            key={`${e.jahr}-${e.monat}`}
+            d={segment(e.monat)}
+            fill={stufe(e.anzahl).fuellung}
+            stroke={i === 11 ? 'var(--color-ink)' : 'var(--color-steel-400)'}
+            strokeWidth={i === 11 ? 1.5 : 0.6}
           />
         ))}
         <text
@@ -114,7 +78,8 @@ export function Jahresring({ faelligkeiten, heute }: Props) {
 
       <div className="w-36 min-w-0 space-y-2 text-sm">
         <p className="text-ink" aria-hidden="true">
-          fällig in den nächsten 12 Monaten
+          fällig <span className="whitespace-nowrap">{`${MONATSKURZ[erster.monat - 1]} ${erster.jahr}`}</span> –{' '}
+          <span className="whitespace-nowrap">{`${MONATSKURZ[letzter.monat - 1]} ${letzter.jahr}`}</span>
         </p>
         <ul aria-label="Legende: Fälligkeiten je Monat" className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-steel">
           {STUFEN.map((s) => (
@@ -127,6 +92,10 @@ export function Jahresring({ faelligkeiten, heute }: Props) {
               {s.text}
             </li>
           ))}
+          <li className="inline-flex items-center gap-1">
+            <span aria-hidden="true" className="inline-block size-3 border-[1.5px] border-ink bg-white" />
+            Rahmen dunkel: aktueller Monat
+          </li>
         </ul>
         <dl id={ueberblickId} aria-label="Fälligkeiten je Monat" className="sr-only">
           {monate.map((e) => (
