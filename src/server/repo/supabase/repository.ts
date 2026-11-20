@@ -345,5 +345,16 @@ export function supabaseRepository(
         throw new RepositoryFehler('Statusübergang nicht erlaubt.', '23514');
       }
     },
+
+    // ------------------------------------------------------------ I3M (Stubs bis BE-20)
+    async listeTokens() { throw new Error('nicht implementiert (BE-20)'); },
+    async listeUebernahmen() { throw new Error('nicht implementiert (BE-20)'); },
+    async listeKurzRohdaten() { throw new Error('nicht implementiert (BE-20)'); },
+    async holeTokenRohdaten() { throw new Error('nicht implementiert (BE-20)'); },
+    async starteUebernahme() { throw new Error('nicht implementiert (BE-20)'); },
+    async beendeUebernahme() { throw new Error('nicht implementiert (BE-20)'); },
+    async setzeZuordnung() { throw new Error('nicht implementiert (BE-20)'); },
+    async erneuereToken() { throw new Error('nicht implementiert (BE-20)'); },
+    async loeseNutzungen() { throw new Error('nicht implementiert (BE-20)'); },
   };
 }

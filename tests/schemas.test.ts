@@ -67,7 +67,7 @@ describe('Schemas I2 (§5.2)', () => {
     expect(r.error?.issues[0].path).toEqual(['bereichIds']);
     const ok = mitgliedEinladenSchema.safeParse({ email: ' X@Example.org ', name: 'Max Muster', rolle: 'pruefer', bereichIds: [], prueferTypen: ['efk'] });
     expect(ok.data?.email).toBe('x@example.org');
-    expect(mitgliedEinladenSchema.safeParse({ email: 'x@example.org', name: 'Max Muster', rolle: 'mitarbeiter', bereichIds: [], prueferTypen: [] }).success).toBe(false);
+    expect(mitgliedEinladenSchema.safeParse({ email: 'x@example.org', name: 'Max Muster', rolle: 'mitarbeiter', bereichIds: [], prueferTypen: [] }).success).toBe(true); // I3M: einladbar (F-20)
   });
   it('Passwort: min. 10 Zeichen, Wiederholung gleich', () => {
     expect(passwortSetzenSchema.safeParse({ passwort: 'kurz', passwortWiederholung: 'kurz' }).success).toBe(false);

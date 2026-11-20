@@ -67,7 +67,7 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe('Demo-Sitzung', () => {
   it('setzeDemoRolle validiert die Rolle', async () => {
-    const r = await setzeDemoRolle(INITIAL_ACTION_STATE, form({ rolle: 'mitarbeiter' }));
+    const r = await setzeDemoRolle(INITIAL_ACTION_STATE, form({ rolle: 'chef' }));
     expect(r.status).toBe('fehler');
     expect(r.feldfehler?.rolle?.length).toBeGreaterThan(0);
   });

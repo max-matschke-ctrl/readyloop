@@ -234,7 +234,7 @@ describe('Migration Inkrement 2', () => {
     ['art', ANLASS_ARTEN],
     ['schwere', MANGEL_SCHWEREN],
     ['status', MANGEL_STATUS],
-    ['typ', EREIGNIS_TYPEN],
+    ['typ', EREIGNIS_TYPEN.filter((t) => !['zuordnung_geaendert', 'etikett_erneuert'].includes(t))], // I3M-Typen: eigene Migration
   ] as const)('Check %s enthält genau die Werte aus types.ts', (spalte, werte) => {
     expect([...alleWerte(sql2OhneKommentare, spalte)].sort()).toEqual([...werte].sort());
   });

@@ -1,4 +1,4 @@
-// Vertrag Inkrement 1 + 2 – siehe docs/backlog.md §3.2 und §5.2
+// Vertrag Inkrement 1 + 2 + I3M – siehe docs/backlog.md §3.2, §5.2 und §7.2
 import { z } from 'zod';
 import {
   ANLASS_ARTEN,
@@ -6,6 +6,7 @@ import {
   EINLADBARE_ROLLEN,
   EINSATZORTE,
   ERSTERFASSUNG_HERKUNFT,
+  ETIKETTEN_MAX,
   GERAETE_KATEGORIEN,
   MANGEL_SCHWEREN,
   PRUEF_ERGEBNISSE,
@@ -27,9 +28,11 @@ const email = z.preprocess(
 );
 export const PASSWORT_MIN = 10;
 
-export const demoRolleSchema = z.object({
-  rolle: z.enum(DEMO_ROLLEN),
-});
+/** Relativer Rücksprung; Prüfung auf Sicherheit zusätzlich mit sichererRuecksprung (I3M). */
+const ruecksprung = z.preprocess((v) => (v === undefined ? null : v), optText(300)); // fehlendes Feld = null
+
+// I3M: + next (F-20)
+export const demoRolleSchema = z.object({ rolle: z.enum(DEMO_ROLLEN), next: ruecksprung });
 
 export const pruefartEingabeSchema = z
   .object({
@@ -103,7 +106,8 @@ export type NachweisErfassenEingabe = z.infer<typeof nachweisErfassenSchema>;
 // ---------- Inkrement 2 (§5.2) ----------
 
 // Auth
-export const anmeldenSchema = z.object({ email, passwort: z.string().min(1, 'Passwort fehlt') });
+// I3M: + next (F-20)
+export const anmeldenSchema = z.object({ email, passwort: z.string().min(1, 'Passwort fehlt'), next: ruecksprung });
 export const passwortVergessenSchema = z.object({ email });
 export const passwortSetzenSchema = z
   .object({
@@ -220,3 +224,34 @@ export const mangelBehebenSchema = z.object({
   behebung: z.string().trim().min(5).max(1000),
 });
 export type MangelBehebenEingabe = z.infer<typeof mangelBehebenSchema>;
+
+// ---------- Inkrement I3M (§7.2) ----------
+
+// Mitarbeiter
+export const geraetAktionSchema = z.object({ geraetId: pflichtId }); // uebernehmen, zurueckgeben, uebernahmeBeenden
+export type GeraetAktionEingabe = z.infer<typeof geraetAktionSchema>;
+export const mangelMeldenSchema = z.object({
+  geraetId: pflichtId,
+  schwere: z.enum(MANGEL_SCHWEREN),
+  beschreibung: z.string().trim().min(5, 'Mindestens 5 Zeichen').max(1000),
+});
+export type MangelMeldenEingabe = z.infer<typeof mangelMeldenSchema>;
+export const geraeteSucheSchema = z.object({ q: z.string().trim().min(2, 'Mindestens 2 Zeichen').max(80) });
+
+// Verwaltung
+export const geraetZuordnenSchema = z.object({ geraetId: pflichtId, benutzerId: optId }); // null = Zuordnung lösen
+export type GeraetZuordnenEingabe = z.infer<typeof geraetZuordnenSchema>;
+export const etikettErneuernSchema = z.object({
+  geraetId: pflichtId,
+  bestaetigung: z.literal('on', { error: 'Bitte bestätigen, dass der alte Aufkleber ungültig wird.' }),
+});
+export type EtikettErneuernEingabe = z.infer<typeof etikettErneuernSchema>;
+export const mitarbeiterEinladenSchema = z.object({ email, name: z.string().trim().min(2).max(120) });
+export type MitarbeiterEinladenEingabe = z.infer<typeof mitarbeiterEinladenSchema>;
+
+// Etiketten (searchParams, nicht FormData)
+export const etikettenFilterSchema = z.object({
+  geraetIds: z.array(pflichtId).max(ETIKETTEN_MAX).default([]),
+  bereichId: optId,
+  kategorie: z.preprocess(leerZuNull, z.enum(GERAETE_KATEGORIEN).nullable()),
+});

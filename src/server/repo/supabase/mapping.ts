@@ -64,6 +64,7 @@ export interface GeraetZeile {
   einsatzort: Geraet['einsatzort'];
   betriebsstatus: Geraet['betriebsstatus'];
   angelegt_am: string;
+  zugeordnet_an: string | null;
 }
 export interface FristSpalten {
   frist_monate: number | null;
@@ -169,7 +170,7 @@ export const SPALTEN = {
   katalog:
     'id, schluessel, version, geraetegruppe, geraetegruppe_label, pruefart, einsatzort, intervall_monate, stufe, fundstelle, quelle_url, pruefer_typen, hinweis, freigabestatus, freigegeben_von, freigegeben_am',
   geraet:
-    'id, organisation_id, bereich_id, bezeichnung, inventarnummer, geraetegruppe, kategorie, hersteller, typ, seriennummer, baujahr, einsatzort, betriebsstatus, angelegt_am',
+    'id, organisation_id, bereich_id, bezeichnung, inventarnummer, geraetegruppe, kategorie, hersteller, typ, seriennummer, baujahr, einsatzort, betriebsstatus, angelegt_am, zugeordnet_an',
   pruefart:
     'id, organisation_id, geraet_id, katalog_schluessel, bezeichnung, herstellerfrist_monate, herstellerfrist_quelle, frist_monate, frist_quelle, frist_stufe, frist_fundstelle, frist_quelle_url, frist_katalog_eintrag_id, frist_katalog_version, frist_begruendung, frist_freigegeben_von, frist_freigegeben_von_name, frist_freigegeben_am, letzte_pruefung, letzte_pruefung_herkunft, zugewiesener_pruefer_id, gbu_dokument_titel, gbu_dokument_url',
   nachweis:
@@ -287,6 +288,7 @@ export const zuGeraet = (z: GeraetZeile): Geraet => ({
   einsatzort: z.einsatzort,
   betriebsstatus: z.betriebsstatus,
   angelegtAm: isoZeit(z.angelegt_am),
+  zugeordnetAn: z.zugeordnet_an ?? null,
 });
 export const vonGeraet = (g: Geraet): GeraetZeile => ({
   id: g.id,
@@ -303,6 +305,7 @@ export const vonGeraet = (g: Geraet): GeraetZeile => ({
   einsatzort: g.einsatzort,
   betriebsstatus: g.betriebsstatus,
   angelegt_am: g.angelegtAm,
+  zugeordnet_an: g.zugeordnetAn,
 });
 
 /** Frist-Snapshot aus den Spalten; null, solange nicht freigegeben. */

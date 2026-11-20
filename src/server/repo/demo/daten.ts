@@ -63,6 +63,8 @@ export const DEMO_BENUTZER_IDS = {
   tobias: uuid('40000000', 4),
   sabine: uuid('40000000', 5),
   uwe: uuid('40000000', 6),
+  jonas: uuid('40000000', 8), // Mitarbeiter, Demo-Rolle „Mitarbeiter“ (I3M)
+  aylin: uuid('40000000', 9), // Mitarbeiterin, kein Demo-Login (I3M)
 } as const;
 
 /** Benutzer je Demo-Rolle. */
@@ -71,6 +73,7 @@ export const DEMO_ROLLE_BENUTZER: Record<DemoRolle, Id> = {
   sifa: DEMO_BENUTZER_IDS.jens,
   verantwortlicher: DEMO_BENUTZER_IDS.marco,
   pruefer: DEMO_BENUTZER_IDS.tobias,
+  mitarbeiter: DEMO_BENUTZER_IDS.jonas,
 };
 
 type BereichKey = keyof typeof DEMO_BEREICH_IDS;
@@ -281,6 +284,7 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
       einsatzort: null,
       betriebsstatus: 'in_betrieb',
       angelegtAm: zeit(angelegtDatum, `${String(8 + (gi % 8)).padStart(2, '0')}:${String((gi * 2) % 60).padStart(2, '0')}`),
+      zugeordnetAn: null,
     };
     geraete.push(geraet);
     geraetVon.set(g.inv, geraet);

@@ -60,6 +60,7 @@ import {
   type Zeit,
 } from './dienste-basis';
 import { sha256Hex } from './pdf';
+import { neuerToken } from './token';
 import { DEMO_ROLLE_BENUTZER } from './repo/demo/daten';
 import type { Repository } from './repo/types';
 
@@ -247,6 +248,7 @@ export async function holeGeraetDetail(
     maengel,
     anlaesse,
     verlauf,
+    nutzung: null, // BE-17
   };
 }
 
@@ -414,6 +416,7 @@ export async function geraetAnlegen(
     einsatzort: eingabe.einsatzort,
     betriebsstatus: 'in_betrieb',
     angelegtAm: jetzt,
+    zugeordnetAn: null,
   };
   const pruefarten: GeraetPruefart[] = eingabe.pruefartenJson.map((p) => ({
     id: randomUUID(),
@@ -432,6 +435,8 @@ export async function geraetAnlegen(
   await repo.legeGeraetAn({
     geraet,
     pruefarten,
+    // F-24: genau ein aktiver Token je Gerät, entsteht beim Anlegen (Supabase: Trigger)
+    token: { id: randomUUID(), organisationId: org, geraetId: geraet.id, token: neuerToken(), aktiv: true, erstelltAm: jetzt, deaktiviertAm: null },
     ereignis: {
       id: randomUUID(),
       organisationId: org,

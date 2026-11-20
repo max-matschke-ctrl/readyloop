@@ -11,15 +11,46 @@ import type {
   GbuDokument,
   Geraet,
   GeraetPruefart,
+  GeraetToken,
   Id,
   IsoDate,
+  IsoDateTime,
   KatalogEintrag,
   Mangel,
+  MangelSchwere,
   Mitgliedschaft,
   Nachweis,
+  OeffentlicheFrist,
   Organisation,
+  Uebernahme,
   WaehlbarerBetriebsstatus,
 } from '@/domain/types';
+
+// ---------- I3M (§7.7) ----------
+
+export type KurzAuswahl =
+  | { art: 'meine' }
+  | { art: 'suche'; suche: string } // ≥ 2 Zeichen, höchstens 50 Treffer
+  | { art: 'ids'; geraetIds: Id[] };
+
+/** Höchstzahl Treffer der Suche (F-26/US-28). */
+export const SUCHE_MAX = 50;
+
+/** Rohdaten für Kurzansicht und öffentliche Ansicht. Enthält keine Personennamen außer Prüfernamen. */
+export interface KurzRohdaten {
+  geraet: Pick<Geraet, 'id' | 'organisationId' | 'bezeichnung' | 'inventarnummer' | 'hersteller' | 'typ' | 'kategorie' | 'betriebsstatus'>;
+  bereichName: string;
+  pruefarten: (Pick<GeraetPruefart, 'id' | 'bezeichnung' | 'letztePruefung' | 'letztePruefungHerkunft'> & { frist: OeffentlicheFrist | null })[];
+  nachweise: (Pick<Nachweis, 'id' | 'geraetPruefartId' | 'pruefdatum' | 'ergebnis' | 'erfasstAm'> & { prueferName: string | null })[]; // Name nur beim neuesten je Prüfart
+  anlaesse: Pick<Anlass, 'id' | 'geraetPruefartId' | 'datum' | 'erfasstAm' | 'aufgehobenAm'>[];
+  offeneMaengel: { schwere: MangelSchwere }[];
+  zugeordnetMir: boolean;
+  offeneUebernahme: { vonMir: boolean; seit: IsoDateTime | null } | null; // seit nur bei vonMir
+}
+
+export interface TokenRohdaten extends Omit<KurzRohdaten, 'bereichName' | 'zugeordnetMir' | 'offeneUebernahme'> {
+  organisationName: string;
+}
 
 export interface Repository {
   // Lesen
@@ -40,7 +71,8 @@ export interface Repository {
   listeEreignisse(organisationId: Id, geraetId?: Id): Promise<Ereignis[]>;
 
   // Schreiben (je Aufruf atomar)
-  legeGeraetAn(daten: { geraet: Geraet; pruefarten: GeraetPruefart[]; ereignis: Ereignis }): Promise<void>;
+  /** I3M: + token. Supabase: Token per Trigger, Parameter ignoriert. */
+  legeGeraetAn(daten: { geraet: Geraet; pruefarten: GeraetPruefart[]; ereignis: Ereignis; token: GeraetToken }): Promise<void>;
   setzeFrist(daten: { pruefartId: Id; frist: FestgelegteFrist; nachweisId: Id | null; ereignis: Ereignis }): Promise<void>;
   erfasseNachweis(daten: {
     nachweis: Nachweis;
@@ -80,4 +112,26 @@ export interface Repository {
   erfasseMangel(daten: { mangel: Mangel; ereignis: Ereignis }): Promise<void>;
   /** nur Übergänge nach F-14 */
   aktualisiereMangel(daten: { mangel: Mangel; ereignis: Ereignis }): Promise<void>;
+
+  // Lesen I3M
+  /** RLS: ADM, VER (Bereich). */
+  listeTokens(organisationId: Id): Promise<GeraetToken[]>;
+  /** RLS: eigene; ADM alle; SIF/VER (Bereich) nur offene; PRF keine. Demo liefert alle – Dienste filtern nach F-27. */
+  listeUebernahmen(organisationId: Id, geraetId?: Id): Promise<Uebernahme[]>;
+  /** Nur für Rolle mitarbeiter. Supabase: RPC ma_kurzansichten. */
+  listeKurzRohdaten(organisationId: Id, auswahl: KurzAuswahl, fuerBenutzerId: Id): Promise<KurzRohdaten[]>;
+  /** Ohne Sitzung aufrufbar. Nur aktive Tokens. Supabase: RPC geraet_oeffentlich.
+   *  geraet.id/organisationId dienen nur dem Server (TokenSeite.kurz, akteUrl) und gehen nie unverändert an den Client. */
+  holeTokenRohdaten(token: string): Promise<TokenRohdaten | null>;
+
+  // Schreiben I3M (je Aufruf atomar)
+  /** vorherige: fremde offene Übernahme mit gesetztem bis/endeArt 'uebergabe'. Supabase: RPC uebernahme_starten. */
+  starteUebernahme(daten: { uebernahme: Uebernahme; vorherige: Uebernahme | null }): Promise<void>;
+  /** uebernahme mit gesetztem bis/endeArt/beendetVon. Supabase: RPC uebernahme_beenden. */
+  beendeUebernahme(daten: { uebernahme: Uebernahme }): Promise<void>;
+  setzeZuordnung(daten: { geraetId: Id; benutzerId: Id | null; ereignis: Ereignis }): Promise<void>;
+  /** Supabase: RPC etikett_erneuern (erzeugt den Token selbst; neu.token wird durch den Rückgabewert ersetzt). */
+  erneuereToken(daten: { geraetId: Id; neu: GeraetToken; ereignis: Ereignis }): Promise<string>;
+  /** F-20 Austritt. Demo: Zuordnungen lösen, offene Übernahmen 'austritt'. Supabase: No-op (Trigger). */
+  loeseNutzungen(daten: { organisationId: Id; benutzerId: Id; jetzt: IsoDateTime }): Promise<void>;
 }

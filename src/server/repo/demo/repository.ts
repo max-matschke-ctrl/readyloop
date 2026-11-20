@@ -221,6 +221,17 @@ export class DemoRepository implements Repository {
     });
     this.stand.ereignisse.push(kopie(ereignis));
   }
+
+  // ---- Inkrement I3M (Stubs) ----
+  async listeTokens(): Promise<never> { throw new Error('nicht implementiert (BE-16)'); }
+  async listeUebernahmen(): Promise<never> { throw new Error('nicht implementiert (BE-16)'); }
+  async listeKurzRohdaten(): Promise<never> { throw new Error('nicht implementiert (BE-16)'); }
+  async holeTokenRohdaten(): Promise<never> { throw new Error('nicht implementiert (BE-16)'); }
+  async starteUebernahme(): Promise<never> { throw new Error('nicht implementiert (BE-16)'); }
+  async beendeUebernahme(): Promise<never> { throw new Error('nicht implementiert (BE-16)'); }
+  async setzeZuordnung(): Promise<never> { throw new Error('nicht implementiert (BE-16)'); }
+  async erneuereToken(): Promise<never> { throw new Error('nicht implementiert (BE-16)'); }
+  async loeseNutzungen(): Promise<never> { throw new Error('nicht implementiert (BE-16)'); }
 }
 
 export function erzeugeDemoRepository(heute: string): DemoRepository {

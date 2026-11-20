@@ -99,7 +99,8 @@ describe('Schreiben I1', () => {
     const g = stand.geraete[0];
     const p = stand.pruefarten.filter((x) => x.geraetId === g.id);
     const { client, aufrufe } = fakeSupabase(() => ({ data: g.id }));
-    await supabaseRepository(client, ORG).legeGeraetAn({ geraet: g, pruefarten: p, ereignis });
+    const token = { id: 't1', organisationId: ORG, geraetId: g.id, token: 'a'.repeat(22), aktiv: true, erstelltAm: g.angelegtAm, deaktiviertAm: null };
+    await supabaseRepository(client, ORG).legeGeraetAn({ geraet: g, pruefarten: p, ereignis, token });
     expect(aufrufe).toHaveLength(1);
     const { name, args } = aufrufe[0] as Aufruf & { args: { p_geraet: Record<string, unknown>; p_pruefarten: Record<string, unknown>[] } };
     expect(name).toBe('geraet_anlegen');

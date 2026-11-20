@@ -444,3 +444,58 @@ export async function mitgliedAendern(prev: ActionState, formData: FormData): Pr
   revalidatePath(`/admin/mitglieder/${r.ergebnis.id}`);
   return { status: 'ok', meldung: 'Gespeichert', id: r.ergebnis.id };
 }
+
+// ---------------------------------------------------------------------------
+// Inkrement I3M (§7.6) – Stubs bis BE-18
+// ---------------------------------------------------------------------------
+
+const STUB: ActionState = { status: 'fehler', meldung: 'nicht implementiert (BE-18)' };
+
+/** geraet.uebernehmen; F-23. */
+export async function geraetUebernehmen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error(STUB.meldung);
+}
+
+/** geraet.uebernehmen; nur eigene offene Übernahme. */
+export async function geraetZurueckgeben(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error(STUB.meldung);
+}
+
+/** mangel.erfassen + Rolle mitarbeiter; F-26. */
+export async function mangelMelden(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error(STUB.meldung);
+}
+
+/** geraet.zuordnen + Geltungsbereich; F-22. */
+export async function geraetZuordnen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error(STUB.meldung);
+}
+
+/** geraet.zuordnen + Geltungsbereich; F-23 (c). */
+export async function uebernahmeBeenden(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error(STUB.meldung);
+}
+
+/** etikett.verwalten + Geltungsbereich; F-24. */
+export async function etikettErneuern(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error(STUB.meldung);
+}
+
+/** mitarbeiter.einladen; F-20 (Rolle fest 'mitarbeiter', keine Bereiche). */
+export async function mitarbeiterEinladen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error(STUB.meldung);
+}

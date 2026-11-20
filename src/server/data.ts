@@ -8,6 +8,9 @@ import type {
   Bereich,
   BereichAnsicht,
   Betriebsmodus,
+  Etikett,
+  EtikettenFilter,
+  GeraetKurzansicht,
   GeraetDetail,
   GeraeteFilter,
   GeraetegruppeOption,
@@ -17,12 +20,14 @@ import type {
   MangelAnsicht,
   MangelFilter,
   MangelFormularKontext,
+  MeinGeraet,
   MitgliedAnsicht,
   OrganisationOption,
   PersonOption,
   PrueferAufgabe,
   PrueferOption,
   Sitzung,
+  TokenSeite,
 } from '@/domain/types';
 import * as dienste from './dienste';
 import * as maengel from './dienste-maengel';
@@ -99,7 +104,8 @@ export async function listeGeraete(filter?: GeraeteFilter): Promise<GeraetListen
   return dienste.listeGeraete(sitzung, repo, heute(), filter);
 }
 
-/** null, wenn nicht vorhanden oder außerhalb des Geltungsbereichs. Prüfer sehen nur zugewiesene Prüfarten. */
+/** null, wenn nicht vorhanden oder außerhalb des Geltungsbereichs. Prüfer sehen nur zugewiesene Prüfarten.
+ *  I3M: liefert nutzung (F-22, F-27; null für Prüfer). */
 export async function holeGeraetDetail(geraetId: Id): Promise<GeraetDetail | null> {
   const { sitzung, repo } = await mitRepo();
   return dienste.holeGeraetDetail(sitzung, repo, heute(), geraetId);
@@ -185,4 +191,50 @@ export async function listeMitglieder(): Promise<MitgliedAnsicht[]> {
 export async function holeMitglied(mitgliedschaftId: Id): Promise<MitgliedAnsicht | null> {
   const sitzung = await erfordereSitzung('mitglied.verwalten');
   return verwaltung.holeMitglied(sitzung, await holeRepository(sitzung), mitgliedschaftId);
+}
+
+// --- Inkrement I3M (§7.5) ---
+
+const NICHT_IMPLEMENTIERT = 'nicht implementiert (BE-18)';
+
+/** F-24. Ohne Sitzung aufrufbar, nie Redirect. null bei falschem Format (ohne Datenzugriff), unbekanntem oder
+ *  deaktiviertem Token. kurz nur für Rolle mitarbeiter derselben Organisation; akteUrl bei geraet.lesen + Geltungsbereich. */
+export async function holeTokenSeite(token: string): Promise<TokenSeite | null> {
+  void token;
+  throw new Error(NICHT_IMPLEMENTIERT);
+}
+
+/** meine_geraete.lesen (sonst notFound()). Sortierung: nutzung (nicht_verwenden, unklar, verwendbar),
+ *  dann naechsteFaelligkeit aufsteigend (null zuerst), dann Bezeichnung. */
+export async function listeMeineGeraete(): Promise<MeinGeraet[]> {
+  throw new Error(NICHT_IMPLEMENTIERT);
+}
+
+/** geraet.suchen (sonst notFound()). suche < 2 Zeichen → []. Höchstens 50 Treffer, nach Bezeichnung. */
+export async function sucheGeraete(suche: string): Promise<GeraetKurzansicht[]> {
+  void suche;
+  throw new Error(NICHT_IMPLEMENTIERT);
+}
+
+/** Kontext für /mangel-melden/[geraetId]: nur Rolle mitarbeiter, Gerät der eigenen Organisation; sonst null. */
+export async function holeMangelMeldung(geraetId: Id): Promise<GeraetKurzansicht | null> {
+  void geraetId;
+  throw new Error(NICHT_IMPLEMENTIERT);
+}
+
+/** geraet.zuordnen: aktive Mitglieder mit Rolle mitarbeiter, alphabetisch. Sonst []. */
+export async function listeMitarbeiterOptionen(): Promise<PersonOption[]> {
+  throw new Error(NICHT_IMPLEMENTIERT);
+}
+
+/** mitarbeiter.einladen (sonst notFound()): Mitglieder mit Rolle mitarbeiter, aktive zuerst, dann alphabetisch. */
+export async function listeMitarbeiter(): Promise<MitgliedAnsicht[]> {
+  throw new Error(NICHT_IMPLEMENTIERT);
+}
+
+/** etikett.verwalten (sonst notFound()). F-25: nur Geräte im Geltungsbereich, höchstens ETIKETTEN_MAX;
+ *  ohne geraetIds und ohne kategorie gilt kategorie 'wechselnd'. Sortierung Bereich, Inventarnummer, Bezeichnung. */
+export async function holeEtiketten(filter: EtikettenFilter): Promise<Etikett[]> {
+  void filter;
+  throw new Error(NICHT_IMPLEMENTIERT);
 }
