@@ -1,6 +1,6 @@
 # Backlog Readyloop
 
-Stand 19.11.2026 · Anforderungen: `docs/requirements.md` (IDs R-xx, P-xx, F-x, US-xx, Q-x)
+Stand 20.11.2026 (Planung I3M – Mitarbeiter) · Anforderungen: `docs/requirements.md` (IDs R-xx, P-xx, F-x, US-xx, Q-x)
 
 ## 1. Inkremente
 
@@ -8,9 +8,10 @@ Stand 19.11.2026 · Anforderungen: `docs/requirements.md` (IDs R-xx, P-xx, F-x, 
 |---|---|---|---|
 | **I1** | Datenmodell + RLS, Domäne (Regel-Engine, Status, Rechte), Katalog-Entwurf, Büro-Web-App, Prüfer-Ansicht minimal, Demo-Modus | R-01, R-02 (Teil), R-04, R-05, R-08 (Teil), R-09 (Teil), R-16 (Teil), R-18 (Teil), R-19, R-22 (Teil), R-23, R-24 (Teil), R-28 (Teil), R-31 (Teil), R-40 (Entwurf), P-01–P-06 | lauffähige Demo ohne Datenbank, `npm run build` grün · **erledigt (auf main)** |
 | **I2** | Supabase-Betrieb: Supabase-Repository, Login E-Mail/Passwort, Verwaltung Bereiche/Mitglieder, Prüfer einladen/zuweisen, Mängel, Frist nach Ergebnis, Anlassprüfung, außer Betrieb, Gerät verschieben, Prüferqualifikation (Warnung), GBU-Verweis je Prüfart, Demo-Schutz (Q-9), pgTAP-Tests für RLS | R-06, R-07, R-08, R-10, R-11, R-12, R-22, R-24, R-28 | Pilotfähiges Büro mit echter DB · Pakete §4, Vertrag §5 |
-| I3 | E-Mail-Erinnerungen (Resend) 90/60/30, Eskalation VER → SIF → GF, Versandprotokoll | R-16, R-17 | |
-| I4 | Export (Excel, PDF, ZIP zum Stichtag), Excel/CSV-Import mit Vorschau, Aufbewahrungs-Nachfrist | R-25, R-27, R-02 | |
-| I5 | Mitarbeiter-PWA, QR/NFC-Token, öffentliche Statusseite, Etiketten/Prüfplakette drucken, Offline-Lesen | R-03, R-09, R-20, R-21, R-38, R-45 | Gate G-4 vorher |
+| **I3M** | **Mitarbeiter (nächstes Inkrement, vor I3):** Rolle MA in Demo und Login, Einladung durch ADM/VER, „Meine Geräte“, Übernahme/Rückgabe per QR-Link und Suche, Zuordnung personenbezogener Geräte, Mangel melden, öffentliche QR-Seite `/g/[token]`, QR-Etiketten mit Prüfplakette, Datensparsamkeit (90 Tage), responsive am Handy und am Büro-PC | R-03 (QR), R-09, R-12 (Meldung), R-20 (QR), R-38 (responsive), R-45, P-09; F-20–F-29; US-17, US-18, US-27–US-33 | Pakete §6, Vertrag §7. Pilotnutzung erst nach Gate G-4 |
+| I3 | E-Mail-Erinnerungen (Resend) 90/60/30, Eskalation VER → SIF → GF, Versandprotokoll; nutzt den `pg_cron`-Weg aus I3M | R-16, R-17 | nach I3M |
+| I4 | Export (Excel, PDF, ZIP zum Stichtag), Excel/CSV-Import mit Vorschau, Aufbewahrungs-Nachfrist, Ausmustern (löst Zuordnung/Übernahme, Q-46), Kategorie ändern (Q-45) | R-25, R-27, R-02 | |
+| I5 | NFC (gleicher Token wie QR), PWA-Manifest, Offline-Lesen, Foto zum Mangel | R-03 (NFC), R-20 (NFC), R-21, R-38 (PWA) | |
 | I6 | KI-Import (Excel/PDF/Typenschild) hinter Adapter, Sammelupload Prüfdienstleister, Import Prüfgeräte-Dateien | R-28, R-29, R-43 | |
 | I7 | Should/Could-Rest: überwachungsbedürftige Anlagen, ISO-Berichte, Kontrollen, Elektro-Messwerte, API, Mehrsprachigkeit | R-13, R-14, R-15, R-26, R-33, R-41 | |
 
@@ -1888,13 +1889,843 @@ export function fristRichtung(altMonate: number | null, neuMonate: number): 'ers
 | `GET /api/auth/confirm` | BE | öffentlich (Token im Link) |
 | `src/middleware.ts` | BE | alle Seiten, nur Session-Refresh |
 
-## 6. Spätere Inkremente (Pakete grob)
+## 6. Inkrement I3M – Mitarbeiter – Pakete
 
-**I3 Erinnerungen** – BE: Fälligkeitsjob (Supabase Cron oder Vercel Cron), Staffel 90/60/30 je Bereich, Eskalationsregeln, Resend-Adapter, Versandprotokoll, idempotent je (Prüfart, Stufe, Fälligkeit). FE: Einstellungen je Bereich, Protokollansicht.
+Fachregeln F-20 bis F-29, Rechte-Matrix (MA), Datenkatalog §6a, User Stories US-17, US-18, US-27 bis US-33, offene Fragen Q-28 bis Q-46: `docs/requirements.md`. Vertrag: §7 unten.
 
-**I4 Export und Excel-Import** – BE: Stichtagsexport Excel/PDF/ZIP mit Frist, Quelle, Stufe, Fundstelle, Herkunft; Import-Parser mit Spaltenzuordnung, Dublettenprüfung, Validierung; Aufbewahrungs-Nachfrist. FE: Export-Dialog, Import-Assistent mit Vorschau und Bestätigung.
+Nicht in I3M: NFC, Offline, Service Worker, PWA-Manifest, Push, Mehrsprachigkeit, Foto zum Mangel, serverseitiges PDF, E-Mail-Benachrichtigungen (I3).
 
-**I5 Mitarbeiter-PWA, QR/NFC** – BE: Geräte-Token, öffentliche Statusseite ohne Login (nur Gerät, Status, letzte Prüfung, Prüfername), Übernahme, Mängelmeldung, Etikett-PDF. FE: PWA-Manifest, Service Worker (Offline-Lesen), Scan, „nicht verwenden“-Ansicht, Etikettendruck. Vorher Gate G-4.
+### Dateibesitz
+
+| Besitzer | Dateien |
+|---|---|
+| backend-dev | `src/domain/**`, `src/server/**`, `src/app/api/**`, `src/middleware.ts`, `supabase/**`, `tests/**`, `.env.example`; **ausnahmsweise** `package.json` und Lockfile nur in BE-15 (neue Abhängigkeiten `qrcode`, `@types/qrcode` – von Max freigegeben) |
+| frontend-dev | `src/app/**` außer `src/app/api/**`, `src/components/**` |
+| designer | `docs/design/**` |
+| niemand ohne Absprache | `tsconfig.json`, `next.config.*`, `eslint.config.*`, `src/app/globals.css` (Druckstile über eigene Datei `src/app/etiketten/druck.css`) |
+
+Die FE-Pakete haben untereinander **keine gemeinsamen Dateien** (Tabelle unten); geteilte Komponenten werden nur vom erstellenden Paket geschrieben und von späteren nur importiert. Innerhalb von backend-dev laufen die Pakete nacheinander (gemeinsame Dateien `dienste*.ts`, `repo/**`). `src/app/geraete/[id]/page.tsx` (FE-14) und `src/components/AppHeader.tsx`, `src/app/login/page.tsx` (FE-11) gehören auch zu Designsystem-Paketen in `docs/design/umsetzung.md`: FE-11 und FE-14 erst starten, wenn die dort laufenden Pakete für diese Dateien abgeschlossen sind.
+
+### Designer zuerst
+
+| FE-Paket | Designer vorher? | Was der designer liefert (`docs/design/designsystem.md` §8.12 ff., Paket in `umsetzung.md`) |
+|---|---|---|
+| FE-11 Login, Startseite, Navigation | nein | bestehende Muster §6.1, §8.1 genügen |
+| **FE-12 Öffentliche QR-Seite** | **ja** | Seitenmuster `/g/[token]` Handy zuerst; Darstellung „Nicht verwenden“ (Banner, Größe, Position vor allem anderen); Kurzliste Prüfarten mit Frist/Quelle/Stufe; Aktionsleiste (angemeldet/abgemeldet); Leerzustand „Aufkleber nicht gültig“ |
+| **FE-13 Meine Geräte, Suche, Mangel melden** | **ja** | Kartenmuster „Mein Gerät“ (Handy) und Tabellen-/Listenmuster ab `lg` (Büro-PC); Abschnitte „Mir zugeordnet“/„Von mir übernommen“; Suchseite; Formular „Mangel melden“ (Schwere als Radio-Kacheln wie §8.8) |
+| **FE-14 Geräteakte: Nutzung, Zuordnung, Aufkleber** | **ja (klein)** | Platz und Aufbau des Abschnitts „Nutzung“ in §8.5 (rechte Spalte), Disclosures „Zuordnung“, „Übernahme beenden“, „Aufkleber erneuern“ (Dialog §6.16), ADM-Liste „Übernahmen der letzten 90 Tage“ |
+| **FE-15 Etiketten drucken** | **ja** | Etikett 70 × 37 mm: Lage von QR (min. 20 mm Kantenlänge), Prüfplakette, Texten; Druckregeln (`@page`, Ränder, Schwarzweiß-Tauglichkeit der Plakette); Bildschirmansicht der Druckseite mit Filter |
+| FE-16 Mitarbeiter einladen (VER) | nein | Muster §8.10 (Tabelle, Formular) genügen |
+
+### Reihenfolge
+
+```
+BE-15 ──┬── BE-16 ── BE-17 ── BE-18 ──┬── BE-20 ──┐
+        └── BE-19 ────────────────────┘           │
+BE-15 ── FE-11 ── FE-16                           ├── QA-3
+designer D-I3M ──┬── FE-12 ── FE-13               │
+                 └── FE-14, FE-15 (nach FE-12) ───┘
+```
+
+- Nach BE-15 kompiliert alles gegen Stubs (`npm run typecheck` grün, auch FE: nur additive Typänderungen; `DEMO_ROLLEN` wächst um `mitarbeiter`, `ROLLE_LABEL` enthält es schon).
+- FE-12 bis FE-16 laufen mit Demo-Daten ab BE-18, mit Supabase ab BE-20.
+- FE-13 importiert `NutzungsHinweis` und `PruefartKurzliste` aus FE-12, deshalb FE-12 zuerst. FE-14 und FE-15 haben keine Dateiabhängigkeit zu FE-12/FE-13 und laufen danach nur, weil frontend-dev nacheinander arbeitet.
+- BE-19 (Migration) kann parallel zu BE-16 bis BE-18 laufen (eigene Dateien unter `supabase/**` und `tests/migration.test.ts`).
+
+| Paket | Besitzer | Inhalt | Hängt ab von |
+|---|---|---|---|
+| BE-15 | backend-dev | Vertrag I3M: `types.ts`, `schemas.ts`, `rechte.ts`, `nutzung.ts` (fertig, klein), Typ-Erweiterung `status.ts`, Repository-Interface, Stubs Demo/Supabase-Repository, Stubs `data.ts`/`actions.ts`, `Geraet.zugeordnetAn` in Demo-Daten und Mapping, `qrcode` installieren; Tests Rechte + Nutzung | – |
+| BE-16 | backend-dev | Demo-Daten I3M (MA, Zuordnung, Übernahmen, Tokens), Demo-Repository I3M, `token.ts`, `qr.ts` + Tests | BE-15 |
+| BE-17 | backend-dev | Dienste I3M (`dienste-mitarbeiter.ts`, `dienste-etiketten.ts`, Ergänzungen `dienste.ts`, `dienste-verwaltung.ts`, `dienste-maengel.ts`) + Tests | BE-16 |
+| BE-18 | backend-dev | `data.ts`, `actions.ts`, `auth.ts` (Login mit `next`), Demo-Sitzung MA, Kopfzeilen `/g/*` in `src/middleware.ts` | BE-17 |
+| BE-19 | backend-dev | Migration I3M: Tabellen, RLS, Trigger, RPCs, `pg_cron`, pgTAP, statischer Migrationstest | BE-15 |
+| BE-20 | backend-dev | Supabase-Repository I3M (neue Methoden, RPC-Aufrufe, Mapping) + Tests | BE-18, BE-19 |
+| D-I3M | designer | Muster für FE-12 bis FE-15 (Tabelle oben) | – |
+| FE-11 | frontend-dev | Demo-Rollenwahl mit MA, Login mit `next` und Hinweis gemeinsamer PC, Startseite MA, Navigation MA/VER | BE-15 |
+| FE-12 | frontend-dev | Öffentliche QR-Seite `/g/[token]` | BE-15, D-I3M |
+| FE-13 | frontend-dev | `/meine-geraete`, `/meine-geraete/suchen`, `/mangel-melden/[geraetId]` | FE-12 |
+| FE-14 | frontend-dev | Geräteakte: Abschnitt Nutzung (Zuordnung, Halter, Übernahme beenden, ADM-Verlauf, Etikett-Link, Aufkleber erneuern) | FE-12, D-I3M |
+| FE-15 | frontend-dev | `/etiketten` Druckseite mit QR und Prüfplakette | FE-12, D-I3M |
+| FE-16 | frontend-dev | `/mitarbeiter` (VER lädt MA ein), Hinweis E-Mail im ADM-Formular | FE-11 |
+| QA-3 | test-runner | typecheck, lint, test, build (ohne Env, Dummy-Env); Demo-Durchlauf I3M; Prüfung 360 px und 1280 px | alle |
+
+---
+
+### BE-15 Vertrag I3M
+
+Dateien: `package.json` + Lockfile (`qrcode`, `@types/qrcode`), `src/domain/types.ts`, `src/domain/schemas.ts`, `src/domain/rechte.ts` (wörtlich §7.1–7.3), `src/domain/nutzung.ts` (§7.4, vollständig), `src/domain/status.ts` (nur Parametertyp §7.4), `src/server/repo/types.ts` (§7.7), `src/server/repo/demo/repository.ts` (neue Methoden `throw new Error('nicht implementiert (BE-16)')`), `src/server/repo/supabase/repository.ts` (neue Methoden `throw new Error('nicht implementiert (BE-20)')`), `src/server/repo/supabase/mapping.ts` (Spalte `zugeordnet_an`), `src/server/repo/demo/daten.ts` (nur `zugeordnetAn: null` an allen Geräten), `src/server/data.ts`, `src/server/actions.ts` (neue Signaturen §7.5/§7.6, Rümpfe `throw new Error('nicht implementiert (BE-18)')`), `tests/rechte.test.ts`, `tests/nutzung.test.ts`.
+
+Abnahme:
+- `npm run typecheck` grün im ganzen Projekt (inkl. FE); bestehende Tests grün.
+- `tests/rechte.test.ts`: vollständige Matrix aus `requirements.md` §6 (jede Aktion × jede Rolle, inkl. neuer Aktionen); `darfEinladen` (ADM alle `EINLADBARE_ROLLEN`, VER nur `mitarbeiter`, sonst false); `istMeinGeraet` (zugeordnet → true; offene eigene Übernahme → true; fremde → false); `imGeltungsbereich` für MA weiter `false`.
+- `tests/nutzung.test.ts`: `nutzungAus` für alle 6 Status × 3 Betriebsstatus; `uebernahmeHinweis` Reihenfolge `nicht_wechselnd` > `ausser_betrieb` > `nicht_verwenden`, `unklar` → `null`; `istTokenFormat` (22 Zeichen ok, 21/23 Zeichen, `+`, `/`, `=` → false); `imUebernahmeVerlauf` (offen → false; bis vor 89 Tagen → true; vor 91 Tagen → false; `benutzerId` null → false).
+
+### BE-16 Demo-Daten, Demo-Repository, Token, QR
+
+Dateien: `src/server/repo/demo/daten.ts`, `src/server/repo/demo/repository.ts`, `src/server/token.ts`, `src/server/qr.ts`, `tests/demo-i3m.test.ts`, `tests/qr.test.ts`.
+
+Demo-Daten (Ergänzung zu BE-5/BE-10; Statusverteilung und Geräteanzahl bleiben unverändert):
+
+| Was | Inhalt |
+|---|---|
+| Benutzer | Jonas Richter (fiktiv, MA, Demo-Rolle „Mitarbeiter“), Aylin Demir (fiktiv, MA, kein Demo-Login); beide aktive Mitgliedschaft Rolle `mitarbeiter` in „Elbtal Fördertechnik GmbH“, fiktive E-Mail wie die übrigen Demo-Benutzer |
+| Zuordnung | P-008 Auffanggurt-Set 1 → Jonas |
+| Offene Übernahmen | L-002 Elektro-Hubwagen → Jonas seit −3 Tagen; L-008 Stehleiter → Jonas seit −40 Tagen; P-003 Akku-Bohrschrauber → Aylin seit −1 Tag |
+| Abgeschlossene Übernahmen | L-006 Anschlagkette: Aylin von −20 bis −18 Tage, `rueckgabe`; P-004 Winkelschleifer: von −130 bis −120 Tage, `rueckgabe`, Person bereits entfernt (`benutzerId`/`benutzerName`/`beendetVon` null) |
+| Tokens | je Gerät ein aktiver Token, 22 Zeichen: `demo` + Inventarnummer ohne Bindestrich, mit `x` aufgefüllt (z. B. L-001 → `demoL001xxxxxxxxxxxxxx`); Geräte der Organisation „Muster Metallbau GmbH“: `demoM001xxxxxxxxxxxxxx`, `demoM002xxxxxxxxxxxxxx`; zusätzlich für L-001 ein deaktivierter Token `demoL001altxxxxxxxxxxx`. Nur Demo; echte Tokens kommen aus `neuerToken()` |
+
+- Demo-Repository implementiert alle I3M-Methoden aus §7.7. `listeUebernahmen` liefert in der Demo alle Zeilen; die Sichtbarkeit nach F-27 setzen die Dienste durch (Supabase zusätzlich RLS). `listeKurzRohdaten` filtert `suche` case-insensitiv über Bezeichnung, Inventarnummer, Seriennummer, Hersteller, höchstens 50 Treffer, sortiert nach Bezeichnung. `holeTokenRohdaten` nur für aktive Tokens.
+- `token.ts`: `neuerToken()` = `randomBytes(16).toString('base64url')`; `tokenUrl(token)` = `${NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/g/${token}` ohne doppelten Schrägstrich; `kurzUrl(url)` ohne Schema.
+- `qr.ts`: `qrMatrix(text)` über `QRCode.create(text, { errorCorrectionLevel: 'M' })` → `{ groesse, module }`.
+
+Abnahme: `neuerToken()` erfüllt `istTokenFormat` und liefert in 1.000 Aufrufen keine Dublette; `qrMatrix('https://example.org/g/' + 'a'.repeat(22)).groesse` ≥ 25 und `module.length === groesse²`; Demo: Jonas hat 1 Zuordnung und 2 offene Übernahmen; je Gerät genau ein aktiver Token; bestehende Tests (Statusverteilung, 20 Geräte) grün.
+
+### BE-17 Dienste I3M
+
+Dateien: `src/server/dienste-mitarbeiter.ts` (neu), `src/server/dienste-etiketten.ts` (neu), `src/server/dienste.ts` (`holeGeraetDetail` → `nutzung`, `geraetAnlegen` → Token, `sitzungFuerDemoRolle` → MA), `src/server/dienste-verwaltung.ts` (`mitarbeiterEinladen`, Austritt bei Deaktivierung/Rollenwechsel → `loeseNutzungen`), `src/server/dienste-maengel.ts` (`mangelMelden`; `mangelErfassen` und `holeMangelFormular` lehnen Rolle `mitarbeiter` ab), `src/server/dienste-basis.ts` (Kurzansicht aus Rohdaten), `tests/dienste-i3m.test.ts`.
+
+Regeln:
+- Kurzansichten und öffentliche Ansicht berechnen den Gesamtstatus aus **allen** Prüfarten und **allen** offenen Mängeln des Geräts (F-21), mit `berechneStatusImKontext`, `anlassErledigtDurch`, `gesamtStatus`, `nutzungAus`. Prüfarten in der Ansicht nach Status-Schwere (`FRIST_STATUS`), dann Bezeichnung.
+- `OeffentlichePruefart.letzterNachweis` = neuester Nachweis (Prüfdatum, dann Erfassung) mit Prüfername; `frist` nur bei freigegebener Frist.
+- `geraetUebernehmen`: Rolle MA; Gerät der Organisation; F-23 über `uebernahmeHinweis`; offene fremde Übernahme → `vorherige` mit `bis = jetzt`, `endeArt = 'uebergabe'`, `beendetVon = sitzung.benutzer.id`; eigene offene → Fehler „Sie haben dieses Gerät bereits übernommen.“; `benutzerName = sitzung.benutzer.name`.
+- `geraetZurueckgeben`: nur eigene offene Übernahme → `rueckgabe`. `uebernahmeBeenden`: `geraet.zuordnen` + Geltungsbereich → `beendet_verwaltung`.
+- `geraetZuordnen`: F-22; Ereignis `zuordnung_geaendert` mit `{ zugeordnet }`.
+- `etikettErneuern`: alter Token `aktiv = false`, `deaktiviertAm = jetzt`; neuer aus `neuerToken()`; Ereignis `etikett_erneuert`.
+- `holeEtiketten`: `etikett.verwalten`; Filter nach §7.1 `EtikettenFilter`; nur Geräte im Geltungsbereich; höchstens `ETIKETTEN_MAX`; Sortierung Bereich, Inventarnummer, Bezeichnung.
+- `holeGeraetDetail().nutzung`: PRF → `null`; `verlauf` nur bei `uebernahmen.lesen` über `imUebernahmeVerlauf`; `etikett` nur bei `etikett.verwalten` + Geltungsbereich.
+- `mitarbeiterEinladen`: wie `mitgliedEinladen` mit fester Rolle `mitarbeiter`, ohne Bereiche; ADM und VER.
+
+Abnahme (Tests gegen Dienste mit Demo-Repository, je Fall ein Test):
+- `listeMeineGeraete` Jonas → 3 Geräte, L-008 zuerst mit `nutzung = 'nicht_verwenden'`; Aylin → 1 (P-003).
+- `geraetUebernehmen`: L-001 → Fehler (nicht verwenden); L-003 → Fehler (nicht wechselnd); P-003 durch Jonas → ok, Aylins Übernahme `uebergabe`, Aylin hat 0 Geräte; L-002 durch Jonas erneut → Fehler; als VER → Fehler.
+- `geraetZurueckgeben` P-003 durch Aylin nach Übergabe → Fehler; L-002 durch Jonas → ok.
+- `uebernahmeBeenden` VER Lager L-002 → ok `beendet_verwaltung`; VER Lager P-003 → Fehler.
+- `geraetZuordnen` ADM P-008 → Aylin: ok, Ereignisdaten exakt `{ zugeordnet: true }`; L-001 → Fehler; Ziel VER-Benutzer → Fehler; VER Lager P-008 → Fehler.
+- `mangelMelden` Jonas, V-001, gefährlich → Kurzansicht V-001 `vor_nutzung_pruefen`/`nicht_verwenden`; Mangel `termin = heute`, `geraetPruefartId = null`, `verantwortlichId = null`; `mangelErfassen` als MA → Fehler.
+- `holeTokenSeite('demoL001xxxxxxxxxxxxxx')` ohne Sitzung → `nutzung = 'nicht_verwenden'`, `kurz = null`, `akteUrl = null`; `JSON.stringify(ergebnis)` enthält keinen der Namen Katrin Vogel, Dr. Jens Hartmann, Marco Lindner, Sabine Krüger, Jonas Richter, Aylin Demir (Prüfername Tobias Berger erlaubt); deaktivierter Token, unbekannter Token und `'abc'` → `null` (letzterer ohne Repository-Aufruf).
+- `holeTokenSeite` als Jonas für L-002 → `kurz.uebernahme = 'von_mir'`; als VER Lager für L-003 → `akteUrl = '/geraete/{id}'`, für P-001 → `null`.
+- `holeGeraetDetail(L-006)` als ADM → `nutzung.verlauf` 1 Eintrag (−20); als VER und SIF → `[]`; `holeGeraetDetail(L-002)` als VER → `uebernahme.benutzerName = 'Jonas Richter'`; als PRF (zugewiesen) → `nutzung = null`.
+- `holeEtiketten({ bereichId: Lager, kategorie: 'wechselnd' })` als VER Lager → 4 Etiketten (L-001, L-002, L-006, L-008), `url` endet auf den aktiven Token; `{ geraetIds: [P-001] }` → `[]`.
+- `etikettErneuern(L-002)` → alter Token liefert `null` in `holeTokenSeite`, neuer funktioniert; Ereignis `etikett_erneuert`.
+- `mitarbeiterEinladen` als VER → Mitgliedschaft `mitarbeiter`, `bereichIds = []`; `mitgliedAendern` ADM deaktiviert Jonas → P-008 `zugeordnetAn = null`, L-002 und L-008 `austritt`.
+- `sucheGeraete('leiter')` als Jonas → L-008 mit `uebernahme = 'von_mir'`; als Aylin → `von_anderen`; `sucheGeraete('a')` → `[]`.
+
+### BE-18 Datenzugriff, Actions, Login mit Rücksprung
+
+Dateien: `src/server/data.ts`, `src/server/actions.ts`, `src/server/auth.ts`, `src/server/sitzung.ts` (Demo-Rolle `mitarbeiter`), `src/middleware.ts` (Kopfzeilen für `/g/*`), `tests/actions-i3m.test.ts`.
+
+- Alle Funktionen aus §7.5/§7.6 für den Demo-Modus.
+- `holeTokenSeite` ruft **nicht** `erfordereSitzung` (kein Redirect), sondern `leseSitzung()`; bei falschem Format sofort `null`.
+- `anmelden` und `setzeDemoRolle` lesen `next` und leiten über `sichererRuecksprung(next, standard)` weiter; Standard `setzeDemoRolle`: PRF `/pruefer`, MA `/meine-geraete`, sonst `/geraete`.
+- `src/middleware.ts`: für Pfade `/g/*` Kopfzeilen `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex, nofollow`; keine Weiterleitung auf `/login` für `/g/*` (Session-Refresh im Modus supabase bleibt).
+- `revalidatePath` nach Übernahme/Rückgabe/Mangel: `/meine-geraete`, `/meine-geraete/suchen`, `/g/[token]` (Typ `page`), `/geraete/${id}`, `/geraete`.
+
+Abnahme: `npm run build` ohne Env grün; `/g/[token]` ist dynamisch; `sichererRuecksprung` lehnt `//evil.example`, `https://…` und `javascript:` ab (Test); jede neue Action prüft Recht und liefert `feldfehler` mit Formularfeldnamen.
+
+### BE-19 Migration I3M
+
+Dateien: `supabase/migrations/20261127000000_inkrement3m.sql`, `supabase/tests/rls_inkrement3m.test.sql` (pgTAP), `tests/migration.test.ts` (erweitert). Frühere Migrationen unverändert.
+
+Inhalt:
+- `geraet.zugeordnet_an uuid references auth.users`, Check `zugeordnet_an is null or kategorie = 'personenbezogen'`; Spalten-Grant UPDATE `zugeordnet_an`; BEFORE-UPDATE-Trigger: nur admin oder VER (Bereich), Ziel aktives Mitglied Rolle `mitarbeiter` derselben Organisation; AFTER-Trigger Ereignis `zuordnung_geaendert` mit `{ zugeordnet }` ohne Person.
+- `geraet_token`: Spalten nach `requirements.md` §5, `token text not null unique check (token ~ '^[A-Za-z0-9_-]{22}$')`, partieller Unique-Index `(geraet_id) where aktiv`. Token-Erzeugung `app.neuer_token()` = 16 Byte `gen_random_bytes`, base64url ohne `=`. AFTER-INSERT-Trigger auf `geraet` legt Token an (security definer). Bestand: `insert … select` für alle Geräte ohne aktiven Token. RLS: SELECT/INSERT/UPDATE admin, VER (Bereich); UPDATE nur `aktiv true → false` (Trigger setzt `deaktiviert_am`).
+- `uebernahme`: Spalten nach §5, `ende_art` Check mit `UEBERNAHME_ENDE_ARTEN`, Check `(bis is null) = (ende_art is null)`, partieller Unique-Index `(geraet_id) where bis is null`. RLS: SELECT nach `requirements.md` §6 „RLS I3M“; keine INSERT/UPDATE/DELETE-Policies.
+- RPCs `security definer`, `search_path` gesetzt, `revoke execute … from public, anon`, `grant execute … to authenticated` (Ausnahme `geraet_oeffentlich`: zusätzlich `anon`):
+  - `public.geraet_oeffentlich(p_token text) returns jsonb` – `null` bei falschem Format, unbekanntem oder inaktivem Token; liefert nur die Felder von `TokenRohdaten` (§7.7): Organisationsname, Gerät (ohne Bereich), Prüfarten mit Frist (Monate, Quelle, Stufe, Fundstelle), letzte Prüfung + Herkunft, Nachweise (Datum, Ergebnis, Erfassungszeit; Prüfername nur beim neuesten je Prüfart), Anlässe (Datum, Erfassungszeit, Aufhebungszeit), offene Mängel (nur Schwere), `uebernommen` nicht.
+  - `public.ma_kurzansichten(p_org uuid, p_art text, p_suche text, p_ids uuid[]) returns jsonb` – Aufrufer aktives MA-Mitglied von `p_org`, sonst `42501`; `p_art` `meine` | `suche` (≥ 2 Zeichen, max. 50) | `ids`; Felder wie `KurzRohdaten`; `offeneUebernahme.vonMir`, `seit` nur bei eigener.
+  - `public.uebernahme_starten(p_geraet uuid)` – Aufrufer aktives MA-Mitglied der Organisation des Geräts; `kategorie = 'wechselnd'`, `betriebsstatus = 'in_betrieb'`; keine eigene offene; fremde offene → `uebergabe`; Name aus `mitgliedschaft.anzeigename`. Die Prüfung „nicht verwenden“ liegt im Dienst (Status-Logik in TS); die DB prüft Kategorie, Betriebsstatus, Mitgliedschaft.
+  - `public.uebernahme_beenden(p_geraet uuid)` – eigene offene → `rueckgabe`; sonst admin oder VER (Bereich) → `beendet_verwaltung`; sonst `42501`.
+- RPC `public.etikett_erneuern(p_geraet uuid) returns text` `security invoker`: alten Token deaktivieren, neuen anlegen, eine Transaktion; Trigger-Ereignis `etikett_erneuert`.
+- `mangel`: INSERT-Policy zusätzlich für MA (Bedingungen `requirements.md` §6 „RLS I3M“); BEFORE-INSERT-Trigger prüft `termin = current_date + Tage nach Schwere` (Zeitzone Europe/Berlin) für MA.
+- `mitgliedschaft`: INSERT-Policy für VER nur `rolle = 'mitarbeiter'`; `mitglied_speichern` lässt VER nur dieses zu. AFTER-UPDATE-Trigger: `aktiv` wird false oder `rolle` wechselt weg von `mitarbeiter` → `geraet.zugeordnet_an = null` für diese Person und offene Übernahmen `bis = now()`, `ende_art = 'austritt'`.
+- `app.uebernahmen_pseudonymisieren()` (security definer): `benutzer_id`, `benutzer_name`, `beendet_von` → null, `pseudonymisiert_am = now()` für `bis < now() - interval '90 days'`. Zeitplan per `pg_cron` täglich 03:15 Europe/Berlin, nur wenn die Erweiterung verfügbar ist (`do $$ … pg_available_extensions …$$`).
+- `ereignis.typ`-Check um `zuordnung_geaendert`, `etikett_erneuert` erweitern.
+
+Abnahme:
+- `tests/migration.test.ts`: `geraet_token` und `uebernahme` mit `enable row level security`; weiterhin einzige `for delete`-Policy auf `bereich_verantwortung`; keine INSERT/UPDATE-Policy auf `uebernahme`; `grant execute` an `anon` kommt genau einmal vor (für `geraet_oeffentlich`); jede neue Funktion hat `revoke execute … from public, anon` außer `geraet_oeffentlich`; alle Werte aus `UEBERNAHME_ENDE_ARTEN` und den neuen `EREIGNIS_TYPEN` stehen in Checks; Token-Check-Muster entspricht `TOKEN_MUSTER`.
+- pgTAP (Ausführung = Gate G-5): anon liest `geraet` nicht, `geraet_oeffentlich` liefert für aktiven Token JSON ohne Schlüssel `zugeordnet_an`, `benutzer_name`, `erfasst_von_name`; MA sieht keine Zeile in `geraet`, `mangel`, `nachweis`; MA übernimmt ortsgebundenes Gerät → Fehler; zweite offene Übernahme desselben Geräts → Unique-Fehler; VER Lager sieht abgeschlossene Übernahme nicht, ADM schon; VER lädt `verantwortlicher` ein → Fehler; MA-Mangel mit `verantwortlich_id` → Fehler; Deaktivieren eines MA beendet seine Übernahmen.
+
+### BE-20 Supabase-Repository I3M
+
+Dateien: `src/server/repo/supabase/repository.ts`, `src/server/repo/supabase/mapping.ts`, `tests/supabase-mapping.test.ts` (erweitert).
+
+- Neue Methoden aus §7.7 über RPCs bzw. Tabellenzugriffe; `legeGeraetAn` ignoriert `token` (Trigger), `loeseNutzungen` ist ein No-op (Trigger).
+- `holeTokenRohdaten` funktioniert ohne Sitzung (`holeRepository(null)`), Aufruf `rpc('geraet_oeffentlich', { p_token })`.
+- `erfasseMangel` für MA ohne `.select()` nach dem Insert (MA hat keine SELECT-Policy auf `mangel`).
+- Mapping `GeraetToken`, `Uebernahme`, `KurzRohdaten`, `TokenRohdaten` hin und zurück.
+
+Abnahme: Mapping-Tests je neuer Entität; typecheck/test grün; manuelle Prüfung gegen Supabase in QA-3 bzw. G-5.
+
+### FE-11 Login, Startseite, Navigation (MA)
+
+Dateien: `src/app/page.tsx`, `src/app/login/page.tsx`, `src/components/LoginForm.tsx`, `src/components/AppHeader.tsx`.
+
+- Demo-Rollenwahl iteriert `DEMO_ROLLEN` (fünf Rollen). Login (beide Modi) übernimmt `searchParams.next` als verstecktes Feld `next`. Unter dem Formular Hinweis „An gemeinsam genutzten Computern nach der Arbeit abmelden.“
+- `/`: MA → `/meine-geraete` (Rest wie FE-7).
+- Navigation: MA „Meine Geräte“ (`/meine-geraete`), „Gerät suchen“ (`/meine-geraete/suchen`); „Etiketten“ bei `etikett.verwalten`; „Mitarbeiter“ bei `mitarbeiter.einladen` und nicht `mitglied.verwalten`.
+
+Abnahme: Demo: Mitarbeiter wählen → `/meine-geraete`; `/login?next=/g/demoL002xxxxxxxxxxxxxx` → nach Rollenwahl Mitarbeiter auf der QR-Seite; `next=https://evil.example` → `/meine-geraete`; Navigation je Rolle wie oben; 360 px ohne horizontales Scrollen.
+
+### FE-12 Öffentliche QR-Seite (Design zuerst)
+
+Dateien: `src/app/g/[token]/page.tsx`, `src/app/g/[token]/not-found.tsx`, `src/components/{OeffentlicheGeraeteansicht,NutzungsHinweis,PruefartKurzliste,TokenAktionen}.tsx`.
+
+- Daten: `holeTokenSeite(token)`; `null` → `notFound()` mit Text „Dieser Aufkleber ist nicht gültig.“ `generateMetadata`: `robots: { index: false, follow: false }`.
+- Seite funktioniert ohne Sitzung; kein Header-Menü ohne Sitzung (nur Wortmarke), mit Sitzung normaler Header.
+- `NutzungsHinweis` (Props `{ nutzung: Nutzung; gesamtStatus: FristStatus; grund: VorNutzungGrund | null; betriebsstatus: Betriebsstatus }`) steht vor allem anderen; Text aus `NUTZUNG_LABEL` plus Grund.
+- `PruefartKurzliste` (Props `{ pruefarten: OeffentlichePruefart[] }`): je Prüfart Status, fällig am, Frist mit `StufeBadge` (mit Text), Quelle (`FRIST_QUELLE_LABEL`), Fundstelle; ohne Frist „Frist über GBU festlegen“; letzte Prüfung mit `DATUMSHERKUNFT_LABEL`; letzter Nachweis mit Ergebnis und Prüfername.
+- `TokenAktionen` (Props `{ seite: TokenSeite }`): ohne Anmeldung Links „Anmelden und übernehmen“ (nur `kategorie === 'wechselnd'`) und „Anmelden und Mangel melden“ → `/login?next=/g/{token}`; mit `seite.kurz`: „Gerät übernehmen“ (`geraetUebernehmen`, nur wenn `uebernahme ∈ {frei, von_anderen}` und `uebernahmeHinweis === null`; bei `von_anderen` Hinweis „Wird von einer anderen Person genutzt“, bei `nutzung === 'unklar'` Hinweis vorher), „Zurückgeben“ (`geraetZurueckgeben`, bei `von_mir`), Link „Mangel melden“ → `/mangel-melden/{geraetId}?zurueck=/g/{token}`; sonst `UEBERNAHME_HINWEIS_LABEL`. Mit `akteUrl`: Link „Geräteakte öffnen“.
+
+Abnahme: US-18 vollständig (Demo-Tokens aus BE-16); keine Personennamen außer Prüfername im HTML; 320 px und 1280 px ohne horizontales Scrollen; Übernehmen ohne JavaScript funktionsfähig (Formular-Action).
+
+### FE-13 Meine Geräte, Suche, Mangel melden (Design zuerst)
+
+Dateien: `src/app/meine-geraete/page.tsx`, `src/app/meine-geraete/suchen/page.tsx`, `src/app/mangel-melden/[geraetId]/page.tsx`, `src/components/{MeinGeraetKarte,GeraeteSucheForm,MangelMeldenForm}.tsx`. Importiert `NutzungsHinweis`, `PruefartKurzliste` (FE-12, unverändert).
+
+- `/meine-geraete`: `erfordereSitzung('meine_geraete.lesen')`, `listeMeineGeraete()`; Abschnitte „Mir zugeordnet“, „Von mir übernommen“ (mit „seit“); je Gerät Plakette, `NutzungsHinweis`, nächste Fälligkeit, `PruefartKurzliste` (zugeklappt bei `verwendbar`), Aktionen „Zurückgeben“ (übernommen), „Mangel melden“; Leerzustand nach US-17.
+- `/meine-geraete/suchen?q=`: `geraet.suchen`; Formular mit Label und Button „Suchen“; `sucheGeraete(q)`; Ergebnis je Gerät Plakette, Bezeichnung, Inventarnummer, Bereich, Nutzbarkeit, offene Mängel als Zahl, Aktion „Gerät übernehmen“/„Zurückgeben“/Hinweis wie FE-12, „Mangel melden“. Unter 2 Zeichen Hinweis statt Ergebnis.
+- `/mangel-melden/[geraetId]?zurueck=`: `holeMangelMeldung(geraetId)`, `null` → `notFound()`; Formular Schwere (Radio-Kacheln mit `MANGEL_SCHWERE_LABEL`), Beschreibung; Hinweis „Bei Gefahr: Gerät nicht verwenden und den Verantwortlichen sofort ansprechen.“; Erfolg: Meldung aus `meldung` + Link zurück (`zurueck`, nur relativ, sonst `/meine-geraete`).
+
+Abnahme: US-17, US-28 (Suche), US-30, US-33 im Demo-Modus; Touch-Ziele ≥ 48 px; ab `lg` Listen-/Tabellenmuster nach Design.
+
+### FE-14 Geräteakte: Nutzung (Design zuerst, klein)
+
+Dateien: `src/app/geraete/[id]/page.tsx` (nur Abschnitt einbinden), `src/components/{NutzungAbschnitt,ZuordnungForm,UebernahmeBeendenForm,EtikettErneuernForm,UebernahmeVerlauf}.tsx`.
+
+- `NutzungAbschnitt` (Props `{ geraet: Geraet; nutzung: GeraetNutzung }`), nur wenn `detail.nutzung !== null`: personenbezogen → „Zugeordnet an …“ oder „Nicht zugeordnet“, `ZuordnungForm` (Auswahl aus `listeMitarbeiterOptionen()`, leer = lösen) bei `darfZuordnen`; wechselnd → „Übernommen von … seit …“ oder „Nicht übernommen“, `UebernahmeBeendenForm` bei `darfZuordnen` und offener Übernahme; `UebernahmeVerlauf` bei `verlauf.length > 0` mit Überschrift „Übernahmen der letzten 90 Tage“ und Satz „Ältere Einträge werden automatisch ohne Namen gespeichert.“; bei `etikett`: Link „Etikett drucken“ → `/etiketten?geraet={id}`, `EtikettErneuernForm` mit Bestätigungsdialog (§6.16) „Aufkleber erneuern? Der alte Aufkleber wird sofort ungültig.“
+
+Abnahme: US-29, US-31 (Erneuern), US-32 im Demo-Modus je Rolle (ADM, SIF, VER, PRF).
+
+### FE-15 Etiketten drucken (Design zuerst)
+
+Dateien: `src/app/etiketten/page.tsx`, `src/app/etiketten/druck.css`, `src/components/{Etikett,QrCode,EtikettenAuswahl}.tsx`. Prüfplakette über die bestehende Komponente `Pruefplakette` (nur importieren; braucht der designer eine Druckvariante, ist das ein eigenes Design-Paket für `Pruefplakette.tsx`).
+
+- `erfordereSitzung('etikett.verwalten')`; `searchParams`: `geraet` (mehrfach), `bereich`, `kategorie` (Default `wechselnd`, wenn kein `geraet`); `holeEtiketten(filter)`.
+- `EtikettenAuswahl`: Bereich (aus `listeBereiche()`), Kategorie, Button „Etiketten anzeigen“, Button „Drucken“ (`window.print()`), Anzahl.
+- `QrCode` (Props `{ matrix: QrMatrix; groesseMm: number; label: string }`): SVG aus der Matrix, Ruhezone 4 Module, Farbe `currentColor`, `role="img"`, `aria-label`.
+- `Etikett` (Props `{ etikett: Etikett }`): 70 × 37 mm nach Design, QR, Kurz-URL in Mono, Bezeichnung, Inventarnummer, Betrieb, Plakette, „Stand {Datum}“, „Aktueller Status: QR scannen“.
+- `druck.css`: `@page { size: A4; margin: … }`, Raster 3 × 8, Bedienelemente `print:hidden`.
+
+Abnahme: US-31; Druckvorschau Chrome und Firefox zeigt 24 Etiketten je Seite ohne Umbruch innerhalb eines Etiketts; gedruckter QR (Testausdruck) lässt sich mit einer Handy-Kamera-App öffnen.
+
+### FE-16 Mitarbeiter einladen (VER)
+
+Dateien: `src/app/mitarbeiter/page.tsx`, `src/components/{MitarbeiterEinladenForm,MitarbeiterTabelle}.tsx`, `src/components/MitgliedForm.tsx` (nur Hinweis bei Rolle `mitarbeiter`).
+
+- `/mitarbeiter`: `erfordereSitzung('mitarbeiter.einladen')`; `listeMitarbeiter()` als Tabelle (Name, E-Mail, aktiv) ohne Aktionen; Formular E-Mail, Name, Button „Mitarbeiter einladen“ (`mitarbeiterEinladen`); Hinweis „Bitte dienstliche E-Mail-Adresse verwenden. Ohne E-Mail ist keine Anmeldung möglich; der Prüfstatus bleibt über den QR-Code am Gerät sichtbar.“; Satz „Deaktivieren übernimmt der Admin.“ für VER.
+- `MitgliedForm`: bei Rolle `mitarbeiter` derselbe E-Mail-Hinweis.
+
+Abnahme: US-27 im Demo-Modus (VER und ADM).
+
+### QA-3
+
+`npm run typecheck`, `npm run lint`, `npm test`, `npm run build` (a) ohne Env, (b) mit Dummy-Supabase-Env. Demo-Durchlauf: VER lädt Mitarbeiterin ein; VER druckt Etiketten Lager/wechselnd; QR-Seite L-001 ohne Login („Nicht verwenden“, kein Name außer Prüfer); „Anmelden und übernehmen“ für L-002 → Rollenwahl Mitarbeiter → zurück → übernehmen; MA übernimmt P-003 (Übergabe von Aylin); MA meldet gefährlichen Mangel an V-001 → „Nicht verwenden“ überall; MA gibt L-002 zurück; ADM ordnet P-008 Aylin zu; ADM sieht Übernahme-Verlauf L-006, VER nicht; VER erneuert Aufkleber L-002 → alter Link ungültig; ADM deaktiviert Jonas → Zuordnung und Übernahmen beendet. Jede MA-Seite bei 360 px und 1280 px, MA-Ablauf am Desktop nur mit Tastatur. Supabase-Durchlauf und `supabase test db` nur mit lokaler Supabase, sonst als offen melden (G-5).
+
+---
+
+## 7. TypeScript-Vertrag Inkrement I3M
+
+Verbindlich für BE und FE. Ergänzt/ändert §3 und §5. „GEÄNDERT“ ersetzt die bisherige Definition vollständig; nicht aufgeführte Teile gelten unverändert.
+
+### 7.1 `src/domain/types.ts`
+
+```ts
+// Vertrag Inkrement I3M – siehe docs/backlog.md §7.1 (ergänzt §3.1, §5.1)
+
+// ---------- Rollen ----------
+
+// GEÄNDERT: Mitarbeiter in der Demo-Rollenwahl (F-20)
+export const DEMO_ROLLEN = ['admin', 'sifa', 'verantwortlicher', 'pruefer', 'mitarbeiter'] as const;
+export type DemoRolle = (typeof DEMO_ROLLEN)[number];
+
+// GEÄNDERT: 'mitarbeiter' einladbar (F-20). Verantwortliche dürfen nur 'mitarbeiter' einladen (darfEinladen).
+export const EINLADBARE_ROLLEN = ['admin', 'sifa', 'verantwortlicher', 'pruefer', 'mitarbeiter'] as const;
+export type EinladbareRolle = (typeof EINLADBARE_ROLLEN)[number];
+
+// ---------- Ereignisse und Aktionen ----------
+
+// GEÄNDERT: + zuordnung_geaendert, etikett_erneuert (F-28). Übernahmen erzeugen bewusst KEIN Ereignis (F-27).
+export const EREIGNIS_TYPEN = [
+  'geraet_angelegt',
+  'frist_freigegeben',
+  'nachweis_erfasst',
+  'pruefer_zugewiesen',
+  'gbu_dokument_gesetzt',
+  'geraet_verschoben',
+  'betriebsstatus_geaendert',
+  'anlass_erfasst',
+  'anlass_aufgehoben',
+  'mangel_erfasst',
+  'mangel_kenntnis',
+  'mangel_behoben',
+  'bereich_gespeichert',
+  'mitglied_gespeichert',
+  'zuordnung_geaendert',
+  'etikett_erneuert',
+] as const;
+export type EreignisTyp = (typeof EREIGNIS_TYPEN)[number];
+
+// GEÄNDERT
+export const EREIGNIS_LABEL: Record<EreignisTyp, string> = {
+  geraet_angelegt: 'Gerät angelegt',
+  frist_freigegeben: 'Frist freigegeben',
+  nachweis_erfasst: 'Nachweis erfasst',
+  pruefer_zugewiesen: 'Prüfer zugewiesen',
+  gbu_dokument_gesetzt: 'GBU-Verweis gesetzt',
+  geraet_verschoben: 'Gerät verschoben',
+  betriebsstatus_geaendert: 'Betriebsstatus geändert',
+  anlass_erfasst: 'Anlass erfasst',
+  anlass_aufgehoben: 'Anlass aufgehoben',
+  mangel_erfasst: 'Mangel erfasst',
+  mangel_kenntnis: 'Mangel zur Kenntnis genommen',
+  mangel_behoben: 'Mangel behoben',
+  bereich_gespeichert: 'Bereich gespeichert',
+  mitglied_gespeichert: 'Mitglied gespeichert',
+  zuordnung_geaendert: 'Zuordnung geändert',
+  etikett_erneuert: 'Aufkleber erneuert',
+};
+
+// GEÄNDERT
+export const AKTIONEN = [
+  'geraet.lesen',
+  'geraet.anlegen',
+  'geraet.bearbeiten', // verschieben, Betriebsstatus
+  'frist.freigeben', // inkl. GBU-Verweis
+  'nachweis.lesen',
+  'nachweis.erfassen',
+  'pruefaufgaben.lesen',
+  'pruefer.zuweisen',
+  'anlass.erfassen', // inkl. aufheben
+  'mangel.lesen',
+  'mangel.erfassen', // MA: nur über mangelMelden (F-26)
+  'mangel.bearbeiten', // Kenntnisnahme, Behebung
+  'verlauf.lesen',
+  'katalog.lesen',
+  'katalog.freigeben',
+  'bereich.verwalten',
+  'mitglied.verwalten',
+  'meine_geraete.lesen', // I3M
+  'geraet.suchen', // I3M: Kurzansicht für MA
+  'geraet.uebernehmen', // I3M: inkl. zurückgeben
+  'geraet.zuordnen', // I3M: personenbezogen zuordnen/lösen, fremde Übernahme beenden
+  'uebernahmen.lesen', // I3M: abgeschlossene Übernahmen, 90 Tage
+  'etikett.verwalten', // I3M: drucken, erneuern
+  'mitarbeiter.einladen', // I3M
+] as const;
+export type Aktion = (typeof AKTIONEN)[number];
+
+// ---------- Geräte ----------
+
+// GEÄNDERT: zugeordnetAn ergänzt
+export interface Geraet {
+  id: Id;
+  organisationId: Id;
+  bereichId: Id;
+  bezeichnung: string;
+  inventarnummer: string | null;
+  geraetegruppe: string;
+  kategorie: GeraeteKategorie;
+  hersteller: string | null;
+  typ: string | null;
+  seriennummer: string | null;
+  baujahr: number | null;
+  einsatzort: Einsatzort | null;
+  betriebsstatus: Betriebsstatus;
+  angelegtAm: IsoDateTime;
+  zugeordnetAn: Id | null; // Benutzer-ID eines Mitarbeiters; nur kategorie 'personenbezogen' (F-22)
+}
+
+// ---------- Nutzbarkeit (F-21) ----------
+
+export const NUTZUNG = ['nicht_verwenden', 'unklar', 'verwendbar'] as const;
+export type Nutzung = (typeof NUTZUNG)[number];
+
+export const NUTZUNG_LABEL: Record<Nutzung, string> = {
+  nicht_verwenden: 'Nicht verwenden',
+  unklar: 'Prüfstatus unklar – vor Nutzung Verantwortlichen fragen',
+  verwendbar: 'Verwendbar',
+};
+
+// ---------- Übernahme (F-23, F-27) ----------
+
+export const UEBERNAHME_ENDE_ARTEN = ['rueckgabe', 'uebergabe', 'beendet_verwaltung', 'austritt'] as const;
+export type UebernahmeEndeArt = (typeof UEBERNAHME_ENDE_ARTEN)[number];
+
+export const UEBERNAHME_ENDE_LABEL: Record<UebernahmeEndeArt, string> = {
+  rueckgabe: 'Zurückgegeben',
+  uebergabe: 'Von anderer Person übernommen',
+  beendet_verwaltung: 'Durch Verantwortlichen beendet',
+  austritt: 'Zugang beendet',
+};
+
+/** Gründe, warum „Gerät übernehmen“ nicht angeboten wird; Prüfreihenfolge wie im Array. */
+export const UEBERNAHME_HINWEISE = ['nicht_wechselnd', 'ausser_betrieb', 'nicht_verwenden'] as const;
+export type UebernahmeHinweis = (typeof UEBERNAHME_HINWEISE)[number];
+
+export const UEBERNAHME_HINWEIS_LABEL: Record<UebernahmeHinweis, string> = {
+  nicht_wechselnd: 'Nur Geräte mit wechselndem Einsatzort werden übernommen.',
+  ausser_betrieb: 'Gerät ist außer Betrieb – nicht verwenden.',
+  nicht_verwenden: 'Prüfung überfällig oder vor Nutzung zu prüfen – nicht verwenden. Bitte Verantwortlichen informieren.',
+};
+
+export const UEBERNAHME_ZUSTAENDE = ['frei', 'von_mir', 'von_anderen'] as const;
+export type UebernahmeZustand = (typeof UEBERNAHME_ZUSTAENDE)[number];
+
+/** F-27: abgeschlossene Übernahmen mit Person nur so lange (ADM), danach pseudonymisiert. */
+export const UEBERNAHME_AUFBEWAHRUNG_TAGE = 90;
+
+export interface Uebernahme {
+  id: Id;
+  organisationId: Id;
+  geraetId: Id;
+  benutzerId: Id | null; // null nach Pseudonymisierung
+  benutzerName: string | null; // null nach Pseudonymisierung
+  von: IsoDateTime;
+  bis: IsoDateTime | null; // null = offen
+  endeArt: UebernahmeEndeArt | null; // null ⇔ bis === null
+  beendetVon: Id | null; // Benutzer-ID der beendenden Person; null bei offen oder nach Pseudonymisierung
+}
+
+// ---------- Token und Etikett (F-24, F-25) ----------
+
+export interface GeraetToken {
+  id: Id;
+  organisationId: Id;
+  geraetId: Id;
+  token: string; // 22 Zeichen base64url (16 Zufallsbytes)
+  aktiv: boolean;
+  erstelltAm: IsoDateTime;
+  deaktiviertAm: IsoDateTime | null;
+}
+
+/** QR-Code als Modulraster, zeilenweise, groesse × groesse Einträge, true = dunkel; ohne Ruhezone. */
+export interface QrMatrix {
+  groesse: number;
+  module: boolean[];
+}
+
+export const ETIKETTEN_MAX = 120;
+
+export interface EtikettenFilter {
+  geraetIds?: Id[]; // hat Vorrang vor bereichId/kategorie
+  bereichId?: Id;
+  kategorie?: GeraeteKategorie;
+}
+
+export interface Etikett {
+  geraetId: Id;
+  bezeichnung: string;
+  inventarnummer: string | null;
+  organisationName: string;
+  url: string; // absolute Token-URL
+  kurzUrl: string; // ohne Schema, z. B. 'app.readyloop.de/g/AbC…'
+  qr: QrMatrix;
+  status: FristStatus; // Gesamtstatus (F-9) zum Druckzeitpunkt, für die Plakette
+  faelligAm: IsoDate | null; // nächste Fälligkeit zum Druckzeitpunkt
+  stand: IsoDate; // Druckdatum
+}
+
+// ---------- Öffentliche Ansicht und Kurzansicht (F-21, F-24) ----------
+
+export interface OeffentlicheFrist {
+  monate: number;
+  quelle: FristQuelle;
+  stufe: Stufe;
+  fundstelle: string;
+}
+
+export interface OeffentlichePruefart {
+  bezeichnung: string;
+  status: StatusErgebnis; // F-9
+  frist: OeffentlicheFrist | null; // null = keine freigegebene Frist → „Frist über GBU festlegen“
+  letztePruefung: IsoDate | null;
+  letztePruefungHerkunft: Datumsherkunft;
+  letzterNachweis: { pruefdatum: IsoDate; ergebnis: PruefErgebnis; prueferName: string } | null;
+}
+
+/** Gemeinsamer Kern der öffentlichen Ansicht und der Kurzansicht; enthält keine Personennamen außer Prüfernamen. */
+export interface GeraetStatusKern {
+  bezeichnung: string;
+  inventarnummer: string | null;
+  hersteller: string | null;
+  typ: string | null;
+  kategorie: GeraeteKategorie;
+  betriebsstatus: Betriebsstatus;
+  gesamtStatus: FristStatus; // über alle Prüfarten und alle offenen Mängel (F-21)
+  gesamtStatusGrund: VorNutzungGrund | null;
+  naechsteFaelligkeit: IsoDate | null;
+  nutzung: Nutzung;
+  pruefarten: OeffentlichePruefart[]; // nach Status-Schwere (FRIST_STATUS), dann Bezeichnung
+}
+
+export interface OeffentlicheGeraeteansicht extends GeraetStatusKern {
+  organisationName: string;
+  stand: IsoDateTime; // Zeitpunkt der Berechnung
+}
+
+export interface GeraetKurzansicht extends GeraetStatusKern {
+  geraetId: Id;
+  bereichName: string;
+  offeneMaengel: number; // Anzahl offen + in_bearbeitung, ohne Details
+  zugeordnetMir: boolean;
+  uebernahme: UebernahmeZustand | null; // null = nicht kategorie 'wechselnd'
+  /** null = Übernahme möglich. FE zeigt „Gerät übernehmen“ nur bei uebernahme ∈ {frei, von_anderen} und uebernahmeHinweis === null. */
+  uebernahmeHinweis: UebernahmeHinweis | null;
+}
+
+export interface MeinGeraet extends GeraetKurzansicht {
+  bezug: 'zugeordnet' | 'uebernommen';
+  uebernommenSeit: IsoDateTime | null; // nur bei bezug 'uebernommen'
+}
+
+export interface TokenSeite {
+  token: string;
+  ansicht: OeffentlicheGeraeteansicht;
+  angemeldet: boolean;
+  andereOrganisation: boolean; // angemeldet, Gerät gehört nicht zur aktuellen Organisation → nur öffentliche Ansicht
+  kurz: GeraetKurzansicht | null; // nur Rolle mitarbeiter derselben Organisation (Aktionen)
+  akteUrl: string | null; // '/geraete/{id}' bei geraet.lesen + Geltungsbereich
+}
+
+// ---------- Geräteakte (F-22, F-27) ----------
+
+export interface GeraetNutzung {
+  zugeordnet: PersonOption | null; // nur kategorie 'personenbezogen'
+  uebernahme: { benutzerName: string; seit: IsoDateTime } | null; // offene Übernahme
+  verlauf: Uebernahme[]; // nur uebernahmen.lesen: abgeschlossen, Person vorhanden, ≤ 90 Tage nach Ende, neueste zuerst; sonst []
+  darfZuordnen: boolean; // geraet.zuordnen + Geltungsbereich
+  etikett: { token: string; url: string } | null; // nur etikett.verwalten + Geltungsbereich
+}
+
+// GEÄNDERT: nutzung ergänzt
+export interface GeraetDetail {
+  geraet: Geraet;
+  bereich: Bereich;
+  einsatzort: Einsatzort;
+  gesamtStatus: FristStatus;
+  gesamtStatusGrund: VorNutzungGrund | null;
+  naechsteFaelligkeit: IsoDate | null;
+  pruefarten: PruefartAnsicht[];
+  nachweise: NachweisAnsicht[];
+  maengel: MangelAnsicht[];
+  anlaesse: AnlassAnsicht[];
+  verlauf: Ereignis[];
+  nutzung: GeraetNutzung | null; // null für Rolle pruefer (F-27)
+}
+```
+
+### 7.2 `src/domain/schemas.ts` (Ergänzungen, Zod 4)
+
+```ts
+import { DEMO_ROLLEN, ETIKETTEN_MAX, GERAETE_KATEGORIEN, MANGEL_SCHWEREN } from './types';
+// pflichtId, optId, optText, leerZuNull, email wie §3.2/§5.2
+
+/** Relativer Rücksprung; Prüfung auf Sicherheit zusätzlich mit sichererRuecksprung. */
+const ruecksprung = optText(300);
+
+// GEÄNDERT: + next
+export const demoRolleSchema = z.object({ rolle: z.enum(DEMO_ROLLEN), next: ruecksprung });
+// GEÄNDERT: + next
+export const anmeldenSchema = z.object({ email, passwort: z.string().min(1, 'Passwort fehlt'), next: ruecksprung });
+
+// Mitarbeiter
+export const geraetAktionSchema = z.object({ geraetId: pflichtId }); // uebernehmen, zurueckgeben, uebernahmeBeenden
+export const mangelMeldenSchema = z.object({
+  geraetId: pflichtId,
+  schwere: z.enum(MANGEL_SCHWEREN),
+  beschreibung: z.string().trim().min(5, 'Mindestens 5 Zeichen').max(1000),
+});
+export const geraeteSucheSchema = z.object({ q: z.string().trim().min(2, 'Mindestens 2 Zeichen').max(80) });
+
+// Verwaltung
+export const geraetZuordnenSchema = z.object({ geraetId: pflichtId, benutzerId: optId }); // null = Zuordnung lösen
+export const etikettErneuernSchema = z.object({
+  geraetId: pflichtId,
+  bestaetigung: z.literal('on', { error: 'Bitte bestätigen, dass der alte Aufkleber ungültig wird.' }),
+});
+export const mitarbeiterEinladenSchema = z.object({ email, name: z.string().trim().min(2).max(120) });
+
+// Etiketten (searchParams, nicht FormData)
+export const etikettenFilterSchema = z.object({
+  geraetIds: z.array(pflichtId).max(ETIKETTEN_MAX).default([]),
+  bereichId: optId,
+  kategorie: z.preprocess(leerZuNull, z.enum(GERAETE_KATEGORIEN).nullable()),
+});
+```
+
+Formularfelder je neuer/geänderter Action:
+
+| Action | Felder |
+|---|---|
+| `setzeDemoRolle` | `rolle`, `next` |
+| `anmelden` | `email`, `passwort`, `next` |
+| `geraetUebernehmen` | `geraetId` |
+| `geraetZurueckgeben` | `geraetId` |
+| `mangelMelden` | `geraetId`, `schwere`, `beschreibung` |
+| `geraetZuordnen` | `geraetId`, `benutzerId` (leer = lösen) |
+| `uebernahmeBeenden` | `geraetId` |
+| `etikettErneuern` | `geraetId`, `bestaetigung` (Checkbox, Wert `on`) |
+| `mitarbeiterEinladen` | `email`, `name` |
+
+### 7.3 `src/domain/rechte.ts`
+
+```ts
+// GEÄNDERT
+export const RECHTE: Record<Aktion, readonly Rolle[]> = {
+  'geraet.lesen': ['admin', 'sifa', 'verantwortlicher', 'pruefer'],
+  'geraet.anlegen': ['admin', 'verantwortlicher'],
+  'geraet.bearbeiten': ['admin', 'verantwortlicher'],
+  'frist.freigeben': ['sifa', 'verantwortlicher'],
+  'nachweis.lesen': ['admin', 'sifa', 'verantwortlicher', 'pruefer'],
+  'nachweis.erfassen': ['verantwortlicher', 'pruefer'],
+  'pruefaufgaben.lesen': ['pruefer'],
+  'pruefer.zuweisen': ['admin', 'verantwortlicher'],
+  'anlass.erfassen': ['sifa', 'verantwortlicher'],
+  'mangel.lesen': ['admin', 'sifa', 'verantwortlicher', 'pruefer'],
+  'mangel.erfassen': ['sifa', 'verantwortlicher', 'pruefer', 'mitarbeiter'],
+  'mangel.bearbeiten': ['admin', 'sifa', 'verantwortlicher'],
+  'verlauf.lesen': ['admin', 'sifa', 'verantwortlicher'],
+  'katalog.lesen': ['admin', 'sifa', 'verantwortlicher', 'pruefer', 'mitarbeiter'],
+  'katalog.freigeben': [],
+  'bereich.verwalten': ['admin'],
+  'mitglied.verwalten': ['admin'],
+  'meine_geraete.lesen': ['mitarbeiter'],
+  'geraet.suchen': ['mitarbeiter'],
+  'geraet.uebernehmen': ['mitarbeiter'],
+  'geraet.zuordnen': ['admin', 'verantwortlicher'],
+  'uebernahmen.lesen': ['admin'],
+  'etikett.verwalten': ['admin', 'verantwortlicher'],
+  'mitarbeiter.einladen': ['admin', 'verantwortlicher'],
+};
+
+export function can(rolle: Rolle, aktion: Aktion): boolean; // unverändert
+/** Unverändert; für mitarbeiter weiter false (keine Geräteakte). */
+export function imGeltungsbereich(/* unverändert */): boolean;
+export function darfVerschieben(/* unverändert */): boolean;
+
+/** F-20: admin darf jede EINLADBARE_ROLLE einladen; verantwortlicher nur 'mitarbeiter'; sonst false. */
+export function darfEinladen(rolle: Rolle, zielRolle: Rolle): boolean;
+
+/** F-22/F-23: Gerät gehört zu „Meine Geräte“ (zugeordnet oder offene eigene Übernahme). */
+export function istMeinGeraet(
+  benutzerId: Id,
+  geraet: Pick<Geraet, 'zugeordnetAn'>,
+  offeneUebernahme: Pick<Uebernahme, 'benutzerId'> | null,
+): boolean;
+```
+
+### 7.4 Domänenfunktionen I3M
+
+```ts
+// src/domain/nutzung.ts (neu)
+/** F-21. Reihenfolge: Betriebsstatus ≠ in_betrieb → nicht_verwenden; ueberfaellig/vor_nutzung_pruefen → nicht_verwenden;
+ *  unbekannt/gbu → unklar; bald_faellig/ok → verwendbar. */
+export function nutzungAus(gesamtStatus: FristStatus, betriebsstatus: Betriebsstatus): Nutzung;
+
+/** F-23. null = Übernahme möglich. Reihenfolge wie UEBERNAHME_HINWEISE. 'unklar' blockiert nicht. */
+export function uebernahmeHinweis(
+  geraet: Pick<Geraet, 'kategorie' | 'betriebsstatus'>,
+  nutzung: Nutzung,
+): UebernahmeHinweis | null;
+
+export const TOKEN_MUSTER = /^[A-Za-z0-9_-]{22}$/;
+export function istTokenFormat(wert: string): boolean;
+
+/** F-27: abgeschlossen, Person vorhanden und bis ≥ jetzt − tage. */
+export function imUebernahmeVerlauf(
+  u: Pick<Uebernahme, 'bis' | 'benutzerId'>,
+  jetzt: Date,
+  tage?: number, // Default UEBERNAHME_AUFBEWAHRUNG_TAGE
+): boolean;
+
+// src/domain/status.ts – GEÄNDERT nur der Parametertyp (strukturell kompatibel zu Pick<GeraetPruefart, 'frist' | 'letztePruefung'>)
+export function berechneStatus(
+  pruefart: { frist: Pick<FestgelegteFrist, 'monate'> | null; letztePruefung: IsoDate | null },
+  heute: IsoDate,
+  vorlaufTage?: number,
+): StatusErgebnis;
+export function berechneStatusImKontext(
+  pruefart: { frist: Pick<FestgelegteFrist, 'monate'> | null; letztePruefung: IsoDate | null },
+  heute: IsoDate,
+  kontext: StatusKontext,
+  vorlaufTage?: number,
+): StatusErgebnis;
+```
+
+### 7.5 `src/server/data.ts` (Ergänzungen und Änderungen)
+
+```ts
+import type {
+  Etikett, EtikettenFilter, GeraetKurzansicht, Id, MeinGeraet, MitgliedAnsicht, PersonOption, TokenSeite,
+} from '@/domain/types';
+
+/** F-24. Ohne Sitzung aufrufbar, nie Redirect. null bei falschem Format (ohne Datenzugriff), unbekanntem oder
+ *  deaktiviertem Token. kurz nur für Rolle mitarbeiter derselben Organisation; akteUrl bei geraet.lesen + Geltungsbereich. */
+export async function holeTokenSeite(token: string): Promise<TokenSeite | null>;
+
+/** meine_geraete.lesen (sonst notFound()). Sortierung: nutzung (nicht_verwenden, unklar, verwendbar),
+ *  dann naechsteFaelligkeit aufsteigend (null zuerst), dann Bezeichnung. */
+export async function listeMeineGeraete(): Promise<MeinGeraet[]>;
+
+/** geraet.suchen (sonst notFound()). suche < 2 Zeichen → []. Höchstens 50 Treffer, nach Bezeichnung. */
+export async function sucheGeraete(suche: string): Promise<GeraetKurzansicht[]>;
+
+/** Kontext für /mangel-melden/[geraetId]: nur Rolle mitarbeiter, Gerät der eigenen Organisation; sonst null. */
+export async function holeMangelMeldung(geraetId: Id): Promise<GeraetKurzansicht | null>;
+
+/** geraet.zuordnen: aktive Mitglieder mit Rolle mitarbeiter, alphabetisch. Sonst []. */
+export async function listeMitarbeiterOptionen(): Promise<PersonOption[]>;
+
+/** mitarbeiter.einladen (sonst notFound()): Mitglieder mit Rolle mitarbeiter, aktive zuerst, dann alphabetisch. */
+export async function listeMitarbeiter(): Promise<MitgliedAnsicht[]>;
+
+/** etikett.verwalten (sonst notFound()). F-25: nur Geräte im Geltungsbereich, höchstens ETIKETTEN_MAX;
+ *  ohne geraetIds und ohne kategorie gilt kategorie 'wechselnd'. Sortierung Bereich, Inventarnummer, Bezeichnung. */
+export async function holeEtiketten(filter: EtikettenFilter): Promise<Etikett[]>;
+
+// GEÄNDERT (Signatur gleich): holeGeraetDetail liefert nutzung (F-22, F-27).
+```
+
+### 7.6 `src/server/actions.ts` (Ergänzungen und Änderungen)
+
+Alle Actions: `(prev: ActionState, formData: FormData) => Promise<ActionState>`, Sitzung + Recht + Geltungsbereich serverseitig, Validierung mit §7.2, `feldfehler` mit Formularfeldnamen.
+
+```ts
+'use server';
+import type { ActionState } from '@/domain/types';
+
+// --- Anmeldung (GEÄNDERT) ---
+
+/** Zusätzlich next (F-20). Erfolg: redirect(sichererRuecksprung(next, standard)) mit standard
+ *  pruefer → '/pruefer', mitarbeiter → '/meine-geraete', sonst '/geraete'. */
+export async function setzeDemoRolle(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** Zusätzlich next (F-20). Erfolg: redirect(sichererRuecksprung(next, '/')). Fehlertext unverändert. */
+export async function anmelden(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+// --- Mitarbeiter ---
+
+/** geraet.uebernehmen; F-23. Erfolg: { status: 'ok', id: geraetId, meldung: 'Gerät übernommen.' |
+ *  'Gerät übernommen. Die vorherige Übernahme wurde beendet.' }. */
+export async function geraetUebernehmen(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** geraet.uebernehmen; nur eigene offene Übernahme. Erfolg: { status: 'ok', id: geraetId, meldung: 'Gerät zurückgegeben.' }. */
+export async function geraetZurueckgeben(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** mangel.erfassen + Rolle mitarbeiter; F-26. Erfolg: { status: 'ok', id: mangelId,
+ *  meldung: 'Mangel gemeldet. Er steht beim Verantwortlichen in der Mängelliste.' }. */
+export async function mangelMelden(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+// --- Verwaltung ---
+
+/** geraet.zuordnen + Geltungsbereich; F-22. Erfolg: { status: 'ok', id: geraetId, meldung: 'Zuordnung gespeichert' | 'Zuordnung gelöst' }. */
+export async function geraetZuordnen(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** geraet.zuordnen + Geltungsbereich; F-23 (c). Erfolg: { status: 'ok', id: geraetId, meldung: 'Übernahme beendet' }. */
+export async function uebernahmeBeenden(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** etikett.verwalten + Geltungsbereich; F-24. Erfolg: { status: 'ok', id: geraetId,
+ *  meldung: 'Aufkleber erneuert. Der alte Aufkleber ist ungültig; bitte neues Etikett drucken.' }. */
+export async function etikettErneuern(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+/** mitarbeiter.einladen; F-20 (Rolle fest 'mitarbeiter', keine Bereiche). Erfolg: revalidatePath('/mitarbeiter', '/admin/mitglieder'),
+ *  { status: 'ok', id: mitgliedschaftId, meldung: 'Einladung an … versendet.' | '… hat bereits ein Konto; Zugang angelegt.' }.
+ *  Doppelte Mitgliedschaft → feldfehler.email. */
+export async function mitarbeiterEinladen(prev: ActionState, formData: FormData): Promise<ActionState>;
+
+// GEÄNDERT (Signatur gleich): mangelErfassen lehnt Rolle mitarbeiter ab (KEIN_RECHT).
+// GEÄNDERT (Signatur gleich): mitgliedAendern löst bei Deaktivierung/Rollenwechsel eines MA Zuordnungen und Übernahmen (F-20).
+```
+
+### 7.7 `src/server/repo/types.ts` und Server-Hilfen (intern, BE)
+
+```ts
+import type {
+  Anlass, Ereignis, Geraet, GeraetPruefart, GeraetToken, Id, IsoDateTime, MangelSchwere, Nachweis, OeffentlicheFrist,
+  QrMatrix, Uebernahme,
+} from '@/domain/types';
+
+export type KurzAuswahl =
+  | { art: 'meine' }
+  | { art: 'suche'; suche: string } // ≥ 2 Zeichen, höchstens 50 Treffer
+  | { art: 'ids'; geraetIds: Id[] };
+
+/** Rohdaten für Kurzansicht und öffentliche Ansicht. Enthält keine Personennamen außer Prüfernamen. */
+export interface KurzRohdaten {
+  geraet: Pick<Geraet, 'id' | 'organisationId' | 'bezeichnung' | 'inventarnummer' | 'hersteller' | 'typ' | 'kategorie' | 'betriebsstatus'>;
+  bereichName: string;
+  pruefarten: (Pick<GeraetPruefart, 'id' | 'bezeichnung' | 'letztePruefung' | 'letztePruefungHerkunft'> & { frist: OeffentlicheFrist | null })[];
+  nachweise: (Pick<Nachweis, 'id' | 'geraetPruefartId' | 'pruefdatum' | 'ergebnis' | 'erfasstAm'> & { prueferName: string | null })[]; // Name nur beim neuesten je Prüfart
+  anlaesse: Pick<Anlass, 'id' | 'geraetPruefartId' | 'datum' | 'erfasstAm' | 'aufgehobenAm'>[];
+  offeneMaengel: { schwere: MangelSchwere }[];
+  zugeordnetMir: boolean;
+  offeneUebernahme: { vonMir: boolean; seit: IsoDateTime | null } | null; // seit nur bei vonMir
+}
+
+export interface TokenRohdaten extends Omit<KurzRohdaten, 'bereichName' | 'zugeordnetMir' | 'offeneUebernahme'> {
+  organisationName: string;
+}
+
+export interface Repository {
+  // … I1/I2-Methoden unverändert, außer:
+  /** GEÄNDERT: + token. Supabase: Token per Trigger, Parameter ignoriert. */
+  legeGeraetAn(daten: { geraet: Geraet; pruefarten: GeraetPruefart[]; ereignis: Ereignis; token: GeraetToken }): Promise<void>;
+
+  // Lesen I3M
+  /** RLS: ADM, VER (Bereich). */
+  listeTokens(organisationId: Id): Promise<GeraetToken[]>;
+  /** RLS: eigene; ADM alle; SIF/VER (Bereich) nur offene; PRF keine. Demo liefert alle – Dienste filtern nach F-27. */
+  listeUebernahmen(organisationId: Id, geraetId?: Id): Promise<Uebernahme[]>;
+  /** Nur für Rolle mitarbeiter. Supabase: RPC ma_kurzansichten. */
+  listeKurzRohdaten(organisationId: Id, auswahl: KurzAuswahl, fuerBenutzerId: Id): Promise<KurzRohdaten[]>;
+  /** Ohne Sitzung aufrufbar. Nur aktive Tokens. Supabase: RPC geraet_oeffentlich.
+   *  geraet.id/organisationId dienen nur dem Server (TokenSeite.kurz, akteUrl) und gehen nie unverändert an den Client. */
+  holeTokenRohdaten(token: string): Promise<TokenRohdaten | null>;
+
+  // Schreiben I3M (je Aufruf atomar)
+  /** vorherige: fremde offene Übernahme mit gesetztem bis/endeArt 'uebergabe'. Supabase: RPC uebernahme_starten. */
+  starteUebernahme(daten: { uebernahme: Uebernahme; vorherige: Uebernahme | null }): Promise<void>;
+  /** uebernahme mit gesetztem bis/endeArt/beendetVon. Supabase: RPC uebernahme_beenden. */
+  beendeUebernahme(daten: { uebernahme: Uebernahme }): Promise<void>;
+  setzeZuordnung(daten: { geraetId: Id; benutzerId: Id | null; ereignis: Ereignis }): Promise<void>;
+  /** Supabase: RPC etikett_erneuern (erzeugt den Token selbst; neu.token wird durch den Rückgabewert ersetzt). */
+  erneuereToken(daten: { geraetId: Id; neu: GeraetToken; ereignis: Ereignis }): Promise<string>;
+  /** F-20 Austritt. Demo: Zuordnungen lösen, offene Übernahmen 'austritt'. Supabase: No-op (Trigger). */
+  loeseNutzungen(daten: { organisationId: Id; benutzerId: Id; jetzt: IsoDateTime }): Promise<void>;
+}
+
+// src/server/token.ts (neu)
+export function neuerToken(): string; // randomBytes(16).toString('base64url') → 22 Zeichen
+export function tokenUrl(token: string): string; // `${NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/g/${token}`
+export function kurzUrl(url: string): string; // ohne 'https://' bzw. 'http://'
+
+// src/server/qr.ts (neu)
+export function qrMatrix(text: string): QrMatrix; // npm 'qrcode': QRCode.create(text, { errorCorrectionLevel: 'M' })
+
+// src/server/pfade.ts – unverändert, wird für next und zurueck verwendet
+export function sichererRuecksprung(wert: unknown, standard: string): string;
+```
+
+### 7.8 Routen I3M
+
+| Route | Besitzer | Zugriff |
+|---|---|---|
+| `/g/[token]` | FE (FE-12) | öffentlich, ohne Login; Kopfzeilen nach F-24 (Middleware, BE-18) |
+| `/meine-geraete` | FE (FE-13) | `meine_geraete.lesen` |
+| `/meine-geraete/suchen` | FE (FE-13) | `geraet.suchen` |
+| `/mangel-melden/[geraetId]` | FE (FE-13) | Rolle `mitarbeiter` + `holeMangelMeldung` ≠ null |
+| `/etiketten` | FE (FE-15) | `etikett.verwalten` |
+| `/mitarbeiter` | FE (FE-16) | `mitarbeiter.einladen` |
+| `/login?next=` | FE (FE-11) | öffentlich; `next` nur relativ |
+| `/` | FE (FE-11) | MA → `/meine-geraete` |
+
+## 8. Spätere Inkremente (Pakete grob)
+
+**I3 Erinnerungen** – BE: Fälligkeitsjob (`pg_cron` wie in I3M, oder Vercel Cron), Staffel 90/60/30 je Bereich, Eskalationsregeln, Resend-Adapter, Versandprotokoll, idempotent je (Prüfart, Stufe, Fälligkeit). FE: Einstellungen je Bereich, Protokollansicht.
+
+**I4 Export und Excel-Import** – BE: Stichtagsexport Excel/PDF/ZIP mit Frist, Quelle, Stufe, Fundstelle, Herkunft; Import-Parser mit Spaltenzuordnung, Dublettenprüfung, Validierung; Aufbewahrungs-Nachfrist; Ausmustern löst Zuordnung und beendet Übernahme (Q-46). FE: Export-Dialog, Import-Assistent mit Vorschau und Bestätigung.
+
+**I5 NFC, PWA, Offline** – BE: NFC-Tags mit derselben Token-URL wie QR. FE: PWA-Manifest, Service Worker (Offline-Lesen „Meine Geräte“ und zuletzt geöffnete QR-Seiten), Foto zum Mangel.
 
 **I6 KI-Import und Prüfdienstleister** – BE: KI-Adapter-Interface + Claude-Implementierung serverseitig, Namensentfernung vor Aufruf, Ergebnis nur als Vorschlag; Sammelupload; Import Prüfgeräte-CSV/XML über Inventarnummer. FE: Upload, Prüf- und Bestätigungsmaske.
 
