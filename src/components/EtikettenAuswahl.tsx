@@ -4,7 +4,8 @@ import { JE_BOGEN } from './EtikettenBogen';
 interface Props {
   bereiche: Bereich[];
   bereichId: string | null;
-  kategorie: GeraeteKategorie;
+  /** 'alle' bzw. undefined: keine Einschränkung nach Kategorie (Parameter leer oder 'alle'). */
+  kategorie: GeraeteKategorie | 'alle' | undefined;
   start: number;
   /** Einzelgerät aus der Akte: Bereich und Kategorie ausgeblendet, nur Startfeld (§8.17). */
   geraetIds: string[];
@@ -37,7 +38,8 @@ export function EtikettenAuswahl({ bereiche, bereichId, kategorie, start, geraet
             <label htmlFor="etiketten-kategorie" className="label">
               Kategorie
             </label>
-            <select id="etiketten-kategorie" name="kategorie" defaultValue={kategorie} className="feld">
+            <select id="etiketten-kategorie" name="kategorie" defaultValue={kategorie ?? 'alle'} className="feld">
+              <option value="alle">Alle Kategorien</option>
               {GERAETE_KATEGORIEN.map((k) => (
                 <option key={k} value={k}>
                   {KATEGORIE_LABEL[k]}
