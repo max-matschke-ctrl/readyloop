@@ -51,8 +51,9 @@ function meldungFuer(el: Pruefbar): string {
   const label = labelText(el);
   if (v.valueMissing) {
     if (el instanceof HTMLSelectElement) return `Bitte ${label} wählen.`;
-    if (el instanceof HTMLInputElement && el.type === 'file') return 'Bitte eine Datei wählen.';
-    if (el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio')) return 'Bitte eine Auswahl treffen.';
+    if (el instanceof HTMLInputElement && el.type === 'file') return label ? `Bitte ${label} wählen.` : 'Bitte eine Datei wählen.';
+    if (el instanceof HTMLInputElement && el.type === 'checkbox') return label ? `Bitte bestätigen: ${label}` : 'Bitte bestätigen.';
+    if (el instanceof HTMLInputElement && el.type === 'radio') return 'Bitte eine Auswahl treffen.';
     return `Bitte ${label} angeben.`;
   }
   if (v.tooShort && 'minLength' in el) return `Mindestens ${el.minLength} Zeichen eingeben.`;
@@ -184,7 +185,7 @@ export function FeldGruppe({ id, label, feld = id, state, optional, hilfe, einhe
         </p>
       )}
       {einheit ? (
-        <div className="relative">
+        <div className="relative max-w-48">
           {eingabe}
           <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-steel">
             {einheit}

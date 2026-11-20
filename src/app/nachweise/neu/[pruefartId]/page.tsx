@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AppHeader } from '@/components/AppHeader';
+import { FristAngabe } from '@/components/FristAngabe';
 import { NachweisForm } from '@/components/NachweisForm';
+import { Pruefplakette } from '@/components/Pruefplakette';
+import { Seitenkopf } from '@/components/Seitenkopf';
 import { StatusAmpel } from '@/components/StatusAmpel';
-import { datum } from '@/components/format';
+import { datum, restTageText } from '@/components/format';
 import { can } from '@/domain/rechte';
 import { erfordereSitzung, heute, holeNachweisKontext } from '@/server/data';
 
@@ -19,46 +21,58 @@ export default async function NachweisNeuSeite({ params }: { params: Promise<{ p
   const { pruefartAnsicht: ansicht, geraet } = kontext;
   const istPruefer = sitzung.rolle === 'pruefer';
   const zurueck = istPruefer ? '/pruefer' : `/geraete/${geraet.id}`;
+  const pfad = istPruefer
+    ? [{ label: 'Prüfaufgaben', href: '/pruefer' }, { label: 'Nachweis erfassen' }]
+    : [{ label: 'Geräte', href: '/geraete' }, { label: geraet.bezeichnung, href: zurueck }, { label: 'Nachweis erfassen' }];
+  const { status } = ansicht;
+  const rest = restTageText(status.restTage);
 
   return (
     <>
       <AppHeader sitzung={sitzung} aktiv={istPruefer ? 'pruefer' : 'geraete'} />
-      <main className="mx-auto max-w-2xl space-y-5 px-4 py-6">
-        <p className="text-sm">
-          <Link href={zurueck} className="link">
-            ← {istPruefer ? 'Prüfaufgaben' : 'Geräteakte'}
-          </Link>
-        </p>
-        <div>
-          <h1 className="text-2xl font-bold">Nachweis erfassen</h1>
-          <dl className="mt-2 grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1 text-sm">
-            <dt className="text-steel">Gerät</dt>
-            <dd>
-              {geraet.bezeichnung}
-              <span className="font-mono text-xs text-steel"> · {geraet.inventarnummer ?? 'ohne Inventarnummer'}</span>
-            </dd>
-            <dt className="text-steel">Bereich</dt>
-            <dd>{kontext.bereichName}</dd>
+      <main className="mx-auto max-w-[40rem] space-y-6 px-4 py-6 md:px-6">
+        <Seitenkopf pfad={pfad} titel="Nachweis erfassen" />
+
+        {/* Zusammenfassung (§8.8): Plakette 56, Gerät, Prüfart, fällig am, Frist mit Stufe und Quelle. */}
+        <section aria-labelledby="nachweis-geraet" className="karte space-y-3 p-4">
+          <div className="flex items-center gap-4">
+            <Pruefplakette status={status.status} faelligAm={status.faelligAm} groesse={56} />
+            <div className="min-w-0">
+              <h2 id="nachweis-geraet" className="font-sans text-[1.0625rem] font-semibold leading-6 tracking-normal [overflow-wrap:anywhere]">
+                {geraet.bezeichnung}
+              </h2>
+              <p className="text-sm text-steel">
+                <span className="font-mono">{geraet.inventarnummer ?? 'ohne Inventarnummer'}</span>
+                <span aria-hidden="true"> · </span>
+                <span className="sr-only">, Bereich </span>
+                {kontext.bereichName}
+              </p>
+            </div>
+          </div>
+          <dl className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 border-t border-steel-100 pt-3 text-sm sm:grid-cols-[7rem_minmax(0,1fr)]">
             <dt className="text-steel">Prüfart</dt>
-            <dd>{ansicht.pruefart.bezeichnung}</dd>
-            <dt className="text-steel">Status</dt>
-            <dd className="flex flex-wrap items-center gap-2">
-              <StatusAmpel status={ansicht.status.status} grund={ansicht.status.grund} kurz />
-              <span>
-                fällig am <span className="font-mono">{datum(ansicht.status.faelligAm)}</span>
-              </span>
+            <dd className="[overflow-wrap:anywhere]">{ansicht.pruefart.bezeichnung}</dd>
+            <dt className="text-steel">Fällig am</dt>
+            <dd className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="font-mono tabular-nums">{datum(status.faelligAm)}</span>
+              {rest && <span className="text-steel">{rest}</span>}
+              {status.status !== 'ok' && <StatusAmpel status={status.status} grund={status.grund} kurz />}
+            </dd>
+            <dt className="text-steel">Frist</dt>
+            <dd className="text-steel">
+              <FristAngabe ansicht={ansicht} />
             </dd>
           </dl>
-        </div>
-        <div className="karte p-4">
-          <NachweisForm
-            geraetPruefartId={ansicht.pruefart.id}
-            heute={heute()}
-            pruefumfang={ansicht.pruefart.bezeichnung}
-            prueferName={sitzung.benutzer.name}
-            mitMaengelHinweis={can(sitzung.rolle, 'mangel.erfassen')}
-          />
-        </div>
+        </section>
+
+        <NachweisForm
+          geraetPruefartId={ansicht.pruefart.id}
+          heute={heute()}
+          pruefumfang={ansicht.pruefart.bezeichnung}
+          prueferName={sitzung.benutzer.name}
+          mitMaengelHinweis={can(sitzung.rolle, 'mangel.erfassen')}
+          abbrechenHref={zurueck}
+        />
       </main>
     </>
   );

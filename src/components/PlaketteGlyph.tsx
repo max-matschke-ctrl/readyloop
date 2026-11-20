@@ -85,3 +85,46 @@ export function PlaketteLeer({ groesse = 64, zeichen, variante = 'leer', classNa
     </svg>
   );
 }
+
+interface BestaetigungProps {
+  /** Neues Fälligkeitsdatum, nur wenn der Server es liefert (§8.8). Ohne Datum: ✓ in der Mitte. */
+  faelligAm?: string | null;
+  groesse?: 24 | 40;
+}
+
+/**
+ * Bestätigungs-Plakette (§5.3): moss, Erfolgsmeldung nach „Nachweis speichern“. Mit Datum vom Server
+ * ist der neue Monat gefüllt und das Jahr steht in der Mitte; das Datum wird nie im Browser berechnet.
+ */
+export function PlaketteBestaetigung({ faelligAm = null, groesse = 24 }: BestaetigungProps) {
+  const teile = faelligAm?.split('-');
+  const jahr = teile?.[0]?.slice(2);
+  const monat = teile?.[1] ? Number(teile[1]) : null;
+  const label = monat && jahr ? `Gespeichert. Nächste Prüfung ${String(monat).padStart(2, '0')}/${teile![0]}` : 'Gespeichert';
+  return (
+    <svg role="img" aria-label={label} width={groesse} height={groesse} viewBox={VIEWBOX} className="shrink-0">
+      <circle cx={C} cy={C} r={R_INNEN - 1} fill="white" />
+      {MONATE.map((m) => (
+        <path
+          key={m}
+          d={segment(m)}
+          fill={m === monat ? 'var(--color-moss)' : 'color-mix(in srgb, var(--color-moss) 14%, white)'}
+          stroke="var(--color-moss)"
+          strokeWidth={0.6}
+        />
+      ))}
+      <text
+        x={C}
+        y={C}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontFamily="var(--font-display)"
+        fontWeight={600}
+        fontSize={19}
+        fill="var(--color-moss-800)"
+      >
+        {monat && jahr ? jahr : '✓'}
+      </text>
+    </svg>
+  );
+}
