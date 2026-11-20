@@ -27,6 +27,8 @@ export interface Fenster {
   /** Genau 12 Kalendermonate, beginnend mit dem aktuellen Monat (Designsystem §10 E-3). */
   monate: MonatEintrag[];
   summe: number;
+  /** Fälligkeiten vor heute (überfällig); liegen außerhalb des Fensters und werden getrennt ausgewiesen. */
+  ueberfaellig: number;
   /** Erster und letzter gezählter Tag (einschließlich). */
   von: IsoDate;
   bis: IsoDate;
@@ -49,11 +51,17 @@ export function jahresringFenster(faelligkeiten: readonly (IsoDate | null)[], he
   // Tag 31 als Obergrenze: Jeder Tag des letzten Monats ist als ISO-String <= „JJJJ-MM-31“.
   const bis = `${String(letzter.jahr).padStart(4, '0')}-${String(letzter.monat).padStart(2, '0')}-31`;
 
+  let ueberfaellig = 0;
   for (const f of faelligkeiten) {
-    if (!f || f < heute || f > bis) continue;
+    if (!f) continue;
+    if (f < heute) {
+      ueberfaellig += 1;
+      continue;
+    }
+    if (f > bis) continue;
     const [j, m] = f.split('-');
     const eintrag = monate.find((e) => e.jahr === Number(j) && e.monat === Number(m));
     if (eintrag) eintrag.anzahl += 1;
   }
-  return { monate, summe: monate.reduce((s, e) => s + e.anzahl, 0), von: heute, bis };
+  return { monate, summe: monate.reduce((s, e) => s + e.anzahl, 0), ueberfaellig, von: heute, bis };
 }

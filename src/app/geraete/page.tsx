@@ -93,8 +93,9 @@ export default async function GeraeteSeite({ searchParams }: { searchParams: Suc
             <StatusZaehler zaehler={zaehler} gesamt={ohneStatus.length} aktiv={status} params={{ bereich, q }} />
           </div>
           {gesamt > 0 && (
-            <section aria-label="Fälligkeiten im Jahresverlauf" className="shrink-0">
-              <Jahresring faelligkeiten={alle.map((g) => g.naechsteFaelligkeit)} heute={heute()} />
+            <section aria-label="Prüffälligkeiten im Jahresverlauf" className="shrink-0">
+              {/* Fälligkeiten aller Prüfarten, nicht nur die nächste je Gerät (Review-Befund). */}
+              <Jahresring faelligkeiten={alle.flatMap((g) => g.pruefarten.map((p) => p.faelligAm))} heute={heute()} />
             </section>
           )}
         </div>

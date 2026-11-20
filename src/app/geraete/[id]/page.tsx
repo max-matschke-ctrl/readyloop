@@ -83,6 +83,8 @@ export default async function GeraetDetailSeite({ params }: { params: Promise<{ 
   const abschnitte: { id: string; label: string; zahl?: { n: number; text: string } }[] = [
     { id: 'pruefarten', label: 'Prüfarten', zahl: { n: detail.pruefarten.length, text: 'Prüfarten' } },
     { id: 'stammdaten', label: 'Stammdaten' },
+    ...(darfBearbeiten ? [{ id: 'betrieb', label: 'Betrieb und Standort' }] : []),
+    ...(zeigeAnlaesse ? [{ id: 'anlaesse', label: 'Anlassprüfungen', ...(offeneAnlaesse > 0 ? { zahl: { n: offeneAnlaesse, text: 'offen' } } : {}) }] : []),
     ...(darfMangelLesen ? [{ id: 'maengel', label: 'Mängel', zahl: { n: offeneMaengel, text: 'offen' } }] : []),
     ...(darfNachweiseLesen ? [{ id: 'nachweise', label: 'Nachweise', zahl: { n: detail.nachweise.length, text: 'Nachweise' } }] : []),
     ...(darfVerlauf ? [{ id: 'verlauf', label: 'Verlauf' }] : []),
@@ -142,7 +144,7 @@ export default async function GeraetDetailSeite({ params }: { params: Promise<{ 
           </ul>
         </nav>
 
-        {/* Ab xl zweispaltig: Inhalt 1fr, rechte Spalte 20 rem. DOM-Reihenfolge: Prüfarten, Stammdaten …, Mängel, Nachweise, Verlauf. */}
+        {/* Ab xl zweispaltig: Inhalt 1fr, rechte Spalte 20 rem. DOM-Reihenfolge: Prüfarten, Stammdaten, Betrieb und Standort, Anlassprüfungen,, Mängel, Nachweise, Verlauf. */}
         <div className="mt-6 grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_20rem] xl:grid-rows-[auto_1fr] xl:items-start">
           <section id="pruefarten" aria-labelledby="pruefarten-titel" className={`${ABSCHNITT} xl:col-start-1 xl:row-start-1`}>
             <h2 id="pruefarten-titel" className={H2}>

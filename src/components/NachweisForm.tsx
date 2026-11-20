@@ -52,13 +52,21 @@ export function NachweisForm({ geraetPruefartId, heute, pruefumfang, prueferName
   const [datei, setDatei] = useState<{ name: string; groesse: number } | null>(null);
   const [pdfHinweis, setPdfHinweis] = useState<string | null>(null);
 
+  // setCustomValidity: ungültige Datei macht das Feld invalid, damit pruefeFormular (bzw. ohne JS der
+  // Browser) das Absenden verhindert. Der Server prüft Typ und Größe unabhängig davon erneut.
   const pdfPruefen = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const d = e.target.files?.[0];
+    const el = e.currentTarget;
+    const d = el.files?.[0];
     setDatei(d ? { name: d.name, groesse: d.size } : null);
-    if (!d) return setPdfHinweis(null);
-    if (d.type !== 'application/pdf') return setPdfHinweis('Die Datei ist kein PDF. Bitte den Prüfbericht als PDF wählen.');
-    if (d.size > PDF_MAX_BYTES) return setPdfHinweis(`PDF ist größer als ${MB} MB. Bitte kleinere Datei wählen.`);
-    setPdfHinweis(null);
+    const hinweis = !d
+      ? null
+      : d.type !== 'application/pdf'
+        ? 'Die Datei ist kein PDF. Bitte den Prüfbericht als PDF wählen.'
+        : d.size > PDF_MAX_BYTES
+          ? `PDF ist größer als ${MB} MB. Bitte kleinere Datei wählen.`
+          : null;
+    el.setCustomValidity(hinweis ?? '');
+    setPdfHinweis(hinweis);
   };
 
   const felder = {

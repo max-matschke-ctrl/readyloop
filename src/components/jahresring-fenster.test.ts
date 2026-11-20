@@ -43,4 +43,10 @@ describe('jahresringFenster (Designsystem §10 E-3)', () => {
     expect(f.summe).toBe(f.monate.reduce((s, m) => s + m.anzahl, 0));
     expect(f.summe).toBe(4);
   });
+
+  it('zählt Fälligkeiten vor heute getrennt als überfällig', () => {
+    const f = jahresringFenster(['2026-11-19', '2025-01-01', '2026-11-20', '2028-01-01', null], '2026-11-20');
+    expect(f.ueberfaellig).toBe(2);
+    expect(f.summe).toBe(1);
+  });
 });

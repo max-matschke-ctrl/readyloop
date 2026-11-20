@@ -14,8 +14,9 @@ function Fundstelle({ text, url }: { text: string; url: string | null }) {
 }
 
 /**
- * Frist in einer Zeile mit Stufe und Quelle (Leitsatz 3, §6.5): für Zusammenfassungen außerhalb der Akte
- * (Nachweisformular, Prüferkarte). Ohne freigegebene Frist steht der Vorschlag bzw. „Frist über GBU festlegen“.
+ * Frist in einer Zeile mit Stufe und Quelle (Leitsatz 3, §6.5): für Zusammenfassungen außerhalb der Akte,
+ * derzeit nur in der Zusammenfassung von „Nachweis erfassen“. Ohne freigegebene Frist steht der Vorschlag
+ * als „Nicht freigegeben“ (§10 E-1) bzw. „Frist über GBU festlegen“.
  */
 export function FristAngabe({ ansicht }: { ansicht: Pick<PruefartAnsicht, 'pruefart' | 'vorschlag'> }) {
   const { frist } = ansicht.pruefart;

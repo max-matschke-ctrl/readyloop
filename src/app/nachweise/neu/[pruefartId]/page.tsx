@@ -25,6 +25,8 @@ export default async function NachweisNeuSeite({ params }: { params: Promise<{ p
     ? [{ label: 'Prüfaufgaben', href: '/pruefer' }, { label: 'Nachweis erfassen' }]
     : [{ label: 'Geräte', href: '/geraete' }, { label: geraet.bezeichnung, href: zurueck }, { label: 'Nachweis erfassen' }];
   const { status } = ansicht;
+  // §10 E-1 (wie PruefartKarte): Vorschlag vorhanden, aber keine Frist freigegeben (Status bleibt 'gbu').
+  const nichtFreigegeben = !ansicht.pruefart.frist && ansicht.vorschlag.art !== 'gbu';
   const rest = restTageText(status.restTage);
 
   return (
@@ -36,7 +38,7 @@ export default async function NachweisNeuSeite({ params }: { params: Promise<{ p
         {/* Zusammenfassung (§8.8): Plakette 56, Gerät, Prüfart, fällig am, Frist mit Stufe und Quelle. */}
         <section aria-labelledby="nachweis-geraet" className="karte space-y-3 p-4">
           <div className="flex items-center gap-4">
-            <Pruefplakette status={status.status} faelligAm={status.faelligAm} groesse={56} />
+            <Pruefplakette status={status.status} faelligAm={status.faelligAm} groesse={56} ohneFreigabe={nichtFreigegeben} />
             <div className="min-w-0">
               <h2 id="nachweis-geraet" className="font-sans text-[1.0625rem] font-semibold leading-6 tracking-normal [overflow-wrap:anywhere]">
                 {geraet.bezeichnung}
@@ -56,7 +58,14 @@ export default async function NachweisNeuSeite({ params }: { params: Promise<{ p
             <dd className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="font-mono tabular-nums">{datum(status.faelligAm)}</span>
               {rest && <span className="text-steel">{rest}</span>}
-              {status.status !== 'ok' && <StatusAmpel status={status.status} grund={status.grund} kurz />}
+              {status.status !== 'ok' && (
+                <StatusAmpel
+                  status={status.status}
+                  grund={status.grund}
+                  kurz
+                  text={nichtFreigegeben && status.status === 'gbu' ? 'Frist nicht freigegeben' : undefined}
+                />
+              )}
             </dd>
             <dt className="text-steel">Frist</dt>
             <dd className="text-steel">

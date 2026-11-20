@@ -15,7 +15,7 @@ function stufe(n: number) {
 }
 
 interface Props {
-  /** naechsteFaelligkeit aller Geräte (ungefilterte Liste). */
+  /** faelligAm aller Prüfarten aller Geräte (ungefilterte Liste), nicht nur die nächste je Gerät. */
   faelligkeiten: (IsoDate | null)[];
   /** Serverdatum aus heute(), nie im Browser ermittelt. */
   heute: IsoDate;
@@ -23,19 +23,21 @@ interface Props {
 
 /**
  * Jahresring (§5.3, §9.3): Plakettenvariante, 12 Segmente = Kalendermonate (Januar oben),
- * Füllung nach Anzahl der Fälligkeiten von heute bis Ende des 11. Folgemonats (§10 E-3), Mitte = Summe.
+ * Füllung nach Anzahl der Prüfart-Fälligkeiten von heute bis Ende des 11. Folgemonats (§10 E-3), Mitte = Summe.
+ * Überfällige (vor heute) liegen außerhalb des Fensters und stehen als Hinweis daneben, nie stillschweigend weg.
  * Daneben ein Monatsüberblick für Screenreader.
  */
 export function Jahresring({ faelligkeiten, heute }: Props) {
-  const { monate, summe } = jahresringFenster(faelligkeiten, heute);
+  const { monate, summe, ueberfaellig } = jahresringFenster(faelligkeiten, heute);
   const erster = monate[0]!;
   const letzter = monate[11]!;
   const zeitraumLang = `von ${MONATSNAME[erster.monat - 1]} ${erster.jahr} bis ${MONATSNAME[letzter.monat - 1]} ${letzter.jahr}`;
 
   const maxEintrag = monate.reduce<(typeof monate)[number] | null>((m, e) => (e.anzahl > (m?.anzahl ?? 0) ? e : m), null);
   const label =
-    `${summe === 1 ? '1 Fälligkeit' : `${summe} Fälligkeiten`} ${zeitraumLang}` +
-    (maxEintrag ? `, die meisten im ${MONATSNAME[maxEintrag.monat - 1]} ${maxEintrag.jahr} (${maxEintrag.anzahl})` : '');
+    `${summe === 1 ? '1 Prüffälligkeit' : `${summe} Prüffälligkeiten`} aller Prüfarten ${zeitraumLang}` +
+    (maxEintrag ? `, die meisten im ${MONATSNAME[maxEintrag.monat - 1]} ${maxEintrag.jahr} (${maxEintrag.anzahl})` : '') +
+    (ueberfaellig > 0 ? `; zusätzlich ${ueberfaellig} überfällig` : '');
 
   const ueberblickId = 'jahresring-ueberblick';
 
@@ -77,6 +79,20 @@ export function Jahresring({ faelligkeiten, heute }: Props) {
       </svg>
 
       <div className="w-36 min-w-0 space-y-2 text-sm">
+        {ueberfaellig > 0 && (
+          <p className="inline-flex items-center gap-1.5 font-medium text-ink">
+            <span
+              aria-hidden="true"
+              className="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-brick font-display text-[0.625rem] font-bold text-white"
+            >
+              ✕
+            </span>
+            <span>
+              {ueberfaellig} überfällig
+              <span className="sr-only">{ueberfaellig === 1 ? ' (1 Prüfung' : ` (${ueberfaellig} Prüfungen`} vor heute fällig, nicht im Ring enthalten)</span>
+            </span>
+          </p>
+        )}
         <p className="text-ink" aria-hidden="true">
           fällig <span className="whitespace-nowrap">{`${MONATSKURZ[erster.monat - 1]} ${erster.jahr}`}</span> –{' '}
           <span className="whitespace-nowrap">{`${MONATSKURZ[letzter.monat - 1]} ${letzter.jahr}`}</span>
