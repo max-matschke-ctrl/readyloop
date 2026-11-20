@@ -46,7 +46,7 @@ export function Seitenkopf({ pfad, titel, kontext, aktion }: Props) {
             </ol>
           </nav>
         )}
-        <h1 className="text-[1.75rem] font-semibold leading-[2.125rem] tracking-[-0.015em] text-ink [overflow-wrap:anywhere]">
+        <h1 className="text-[1.75rem] font-semibold leading-[2.125rem] tracking-[-0.015em] text-ink hyphens-auto [overflow-wrap:break-word]">
           {titel}
         </h1>
         {kontext && <div className="mt-1 text-sm text-steel">{kontext}</div>}
