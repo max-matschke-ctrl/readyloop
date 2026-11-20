@@ -27,8 +27,17 @@ import {
   zuNachweis,
   zuPruefart,
   type PruefartZeile,
+  vonGeraetToken,
+  vonKurzRohdaten,
+  vonTokenRohdaten,
+  vonUebernahme,
+  zuGeraetToken,
+  zuKurzRohdaten,
+  zuTokenRohdaten,
+  zuUebernahme,
 } from '@/server/repo/supabase/mapping';
-import { erzeugeDemoStand } from '@/server/repo/demo/daten';
+import { DEMO_BENUTZER_IDS, DEMO_ORG_ID, erzeugeDemoStand } from '@/server/repo/demo/daten';
+import { erzeugeDemoRepository } from '@/server/repo/demo/repository';
 
 const stand = erzeugeDemoStand('2026-11-19');
 
@@ -131,4 +140,53 @@ describe('pgFehlerText', () => {
     expect(pgFehlerText('23514', 'new row for relation "x" violates check constraint "y"')).toBe('Die Eingabe verletzt eine fachliche Regel.');
   });
   it('unbekannt → allgemeiner Datenbankfehler', () => expect(pgFehlerText(undefined)).toContain('Datenbankfehler'));
+});
+
+// ---------------------------------------------------------------------------
+// BE-20: Mapping I3M (Token, Übernahme, Rohdaten der Kurz- und öffentlichen Ansicht)
+// ---------------------------------------------------------------------------
+
+describe('Mapping I3M hin und zurück', () => {
+  it('Geraet mit zugeordnet_an', () => {
+    for (const g of stand.geraete) expect(zuGeraet(vonGeraet(g))).toEqual(g);
+    const p008 = stand.geraete.find((g) => g.inventarnummer === 'P-008')!;
+    expect(vonGeraet(p008).zugeordnet_an).toBe(DEMO_BENUTZER_IDS.jonas);
+  });
+  it('GeraetToken', () => {
+    for (const t of stand.tokens) expect(zuGeraetToken(vonGeraetToken(t))).toEqual(t);
+    const alt = stand.tokens.find((t) => !t.aktiv)!;
+    expect(vonGeraetToken(alt)).toMatchObject({ aktiv: false, deaktiviert_am: alt.deaktiviertAm });
+    expect(zuGeraetToken({ ...vonGeraetToken(alt), erstellt_am: '2026-11-19 08:30:00+00' }).erstelltAm).toBe('2026-11-19T08:30:00.000Z');
+  });
+  it('Uebernahme (offen, abgeschlossen, pseudonymisiert)', () => {
+    for (const u of stand.uebernahmen) expect(zuUebernahme(vonUebernahme(u))).toEqual(u);
+    const p = stand.uebernahmen.find((u) => u.benutzerId === null)!;
+    expect(vonUebernahme(p)).toMatchObject({ benutzer_id: null, benutzer_name: null, beendet_von: null, ende_art: 'rueckgabe' });
+  });
+  it('KurzRohdaten und TokenRohdaten', async () => {
+    const repo = erzeugeDemoRepository('2026-11-19');
+    const kurz = await repo.listeKurzRohdaten(DEMO_ORG_ID, { art: 'suche', suche: 'le' }, DEMO_BENUTZER_IDS.jonas);
+    expect(kurz.length).toBeGreaterThan(2);
+    for (const k of kurz) expect(zuKurzRohdaten(vonKurzRohdaten(k))).toEqual(k);
+    const l002 = kurz.find((k) => k.geraet.inventarnummer === 'L-002')!;
+    expect(vonKurzRohdaten(l002).offene_uebernahme).toMatchObject({ von_mir: true });
+    const token = (await repo.holeTokenRohdaten('demoP001xxxxxxxxxxxxxx'))!;
+    expect(zuTokenRohdaten(vonTokenRohdaten(token))).toEqual(token);
+    expect(vonTokenRohdaten(token)).toMatchObject({ organisation_name: 'Elbtal Fördertechnik GmbH' });
+  });
+  it('JSON aus Postgres: Zeitstempel und Datumswerte normalisiert, seit nur bei eigener Übernahme', () => {
+    const roh = zuKurzRohdaten({
+      geraet: { id: 'g', organisation_id: 'o', bezeichnung: 'Leiter', inventarnummer: null, hersteller: null, typ: null, kategorie: 'wechselnd', betriebsstatus: 'in_betrieb' },
+      pruefarten: [{ id: 'p', bezeichnung: 'WP', letzte_pruefung: '2026-10-20', letzte_pruefung_herkunft: 'nachweis', frist: { monate: 12, quelle: 'gbu', stufe: 'C', fundstelle: 'GBU' } }],
+      nachweise: [{ id: 'n', geraet_pruefart_id: 'p', pruefdatum: '2026-10-20', ergebnis: 'ohne_maengel', erfasst_am: '2026-10-20T13:00:00.123456+00:00', pruefer_name: 'Prüfer Paul' }],
+      anlaesse: [],
+      offene_maengel: [{ schwere: 'gering' }],
+      bereich_name: 'Lager',
+      zugeordnet_mir: false,
+      offene_uebernahme: { von_mir: false, seit: '2026-11-19T08:00:00+00:00' },
+    });
+    expect(roh.nachweise[0].erfasstAm).toBe('2026-10-20T13:00:00.123Z');
+    expect(roh.offeneUebernahme).toEqual({ vonMir: false, seit: null });
+    expect(roh.pruefarten[0].frist).toEqual({ monate: 12, quelle: 'gbu', stufe: 'C', fundstelle: 'GBU' });
+  });
 });

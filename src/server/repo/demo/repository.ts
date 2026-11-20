@@ -1,11 +1,13 @@
 // In-Memory-Repository für den Demo-Modus (BE-5). Gibt Kopien heraus, damit Aufrufer den Store nicht verändern.
 import { randomUUID } from 'node:crypto';
+import { anlassErledigtDurch } from '@/domain/anlass';
 import { mangelUebergangErlaubt } from '@/domain/maengel';
-import type { Anlass, Geraet, GeraetToken, Id, Mangel, Uebernahme } from '@/domain/types';
+import type { Anlass, Geraet, GeraetToken, Id, Mangel, Nachweis, Uebernahme } from '@/domain/types';
 import { SUCHE_MAX, type KurzAuswahl, type KurzRohdaten, type Repository, type TokenRohdaten } from '../types';
 import { erzeugeDemoStand, type DemoStand } from './daten';
 
 const kopie = <T>(wert: T): T => structuredClone(wert);
+const nachNeuestem = (a: Nachweis, b: Nachweis) => b.pruefdatum.localeCompare(a.pruefdatum) || b.erfasstAm.localeCompare(a.erfasstAm);
 
 /** Höchstzahl hochgeladener PDFs im Speicher; danach wird das älteste verworfen. Demo-PDFs bleiben erhalten. */
 export const DEMO_MAX_HOCHGELADENE_PDFS = 50;
@@ -268,13 +270,17 @@ export class DemoRepository implements Repository {
     return { ...this.statusRohdaten(g), organisationName: org.name };
   }
 
-  /** Gemeinsamer Teil von Kurz- und Token-Rohdaten: nur öffentliche Felder (F-24), Prüfername nur beim neuesten Nachweis. */
+  /**
+   * Gemeinsamer Teil von Kurz- und Token-Rohdaten, wie app.geraet_status_json: nur öffentliche Felder (F-24),
+   * kein Verlauf – je Prüfart nur der neueste Nachweis (mit Prüfername), nur offene Anlässe, offene Mängel nur mit Schwere.
+   */
   private statusRohdaten(g: Geraet): Omit<TokenRohdaten, 'organisationName'> {
     const pruefarten = this.stand.pruefarten.filter((p) => p.geraetId === g.id);
-    const nachweise = this.stand.nachweise
-      .filter((n) => n.geraetId === g.id)
-      .sort((a, b) => b.pruefdatum.localeCompare(a.pruefdatum) || b.erfasstAm.localeCompare(a.erfasstAm));
-    const neueste = new Set(pruefarten.map((p) => nachweise.find((n) => n.geraetPruefartId === p.id)?.id).filter(Boolean));
+    const alleNachweise = this.stand.nachweise.filter((n) => n.geraetId === g.id);
+    const neueste = pruefarten
+      .map((p) => alleNachweise.filter((n) => n.geraetPruefartId === p.id).sort(nachNeuestem)[0])
+      .filter((n): n is Nachweis => n !== undefined)
+      .sort(nachNeuestem);
     return kopie({
       geraet: {
         id: g.id,
@@ -293,16 +299,16 @@ export class DemoRepository implements Repository {
         letztePruefungHerkunft: p.letztePruefungHerkunft,
         frist: p.frist ? { monate: p.frist.monate, quelle: p.frist.quelle, stufe: p.frist.stufe, fundstelle: p.frist.fundstelle } : null,
       })),
-      nachweise: nachweise.map((n) => ({
+      nachweise: neueste.map((n) => ({
         id: n.id,
         geraetPruefartId: n.geraetPruefartId,
         pruefdatum: n.pruefdatum,
         ergebnis: n.ergebnis,
         erfasstAm: n.erfasstAm,
-        prueferName: neueste.has(n.id) ? n.prueferName : null,
+        prueferName: n.prueferName,
       })),
       anlaesse: this.stand.anlaesse
-        .filter((a) => a.geraetId === g.id)
+        .filter((a) => a.geraetId === g.id && anlassErledigtDurch(a, alleNachweise).offen)
         .map((a) => ({ id: a.id, geraetPruefartId: a.geraetPruefartId, datum: a.datum, erfasstAm: a.erfasstAm, aufgehobenAm: a.aufgehobenAm })),
       offeneMaengel: this.stand.maengel.filter((m) => m.geraetId === g.id && m.status !== 'behoben').map((m) => ({ schwere: m.schwere })),
     });

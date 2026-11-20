@@ -277,3 +277,66 @@ describe('Einladung per Service-Role (Q-23)', () => {
     vi.unstubAllEnvs();
   });
 });
+
+// ---------------------------------------------------------------------------
+// BE-20: Supabase-Repository I3M (RPCs, Tabellen, No-op)
+// ---------------------------------------------------------------------------
+describe('I3M (BE-20)', () => {
+  it('holeTokenRohdaten → rpc geraet_oeffentlich; null bleibt null', async () => {
+    const { client, aufrufe } = fakeSupabase(() => ({ data: null }));
+    expect(await supabaseRepository(client, null).holeTokenRohdaten('a'.repeat(22))).toBeNull();
+    expect(aufrufe).toEqual([expect.objectContaining({ art: 'rpc', name: 'geraet_oeffentlich', args: { p_token: 'a'.repeat(22) } })]);
+  });
+
+  it('listeKurzRohdaten → rpc ma_kurzansichten mit Art, Suche, IDs', async () => {
+    const { client, aufrufe } = fakeSupabase(() => ({ data: [] }));
+    const repo = supabaseRepository(client, ORG);
+    await repo.listeKurzRohdaten(ORG, { art: 'meine' }, 'u1');
+    await repo.listeKurzRohdaten(ORG, { art: 'suche', suche: 'leiter' }, 'u1');
+    await repo.listeKurzRohdaten(ORG, { art: 'ids', geraetIds: ['g1'] }, 'u1');
+    expect(aufrufe.map((a) => a.args)).toEqual([
+      { p_org: ORG, p_art: 'meine', p_suche: null, p_ids: null },
+      { p_org: ORG, p_art: 'suche', p_suche: 'leiter', p_ids: null },
+      { p_org: ORG, p_art: 'ids', p_suche: null, p_ids: ['g1'] },
+    ]);
+  });
+
+  it('Übernahme starten/beenden, Etikett erneuern über RPCs; Zuordnung per UPDATE; loeseNutzungen ohne Aufruf', async () => {
+    const { client, aufrufe } = fakeSupabase((a) => (a.name === 'etikett_erneuern' ? { data: 'neuerToken0123456789ab' } : { data: null, count: 1 }));
+    const repo = supabaseRepository(client, ORG);
+    const u = stand.uebernahmen[0];
+    await repo.starteUebernahme({ uebernahme: u, vorherige: null });
+    await repo.beendeUebernahme({ uebernahme: { ...u, bis: '2026-11-19T10:00:00.000Z', endeArt: 'rueckgabe' } });
+    expect(await repo.erneuereToken({ geraetId: u.geraetId, neu: stand.tokens[0], ereignis })).toBe('neuerToken0123456789ab');
+    await repo.setzeZuordnung({ geraetId: u.geraetId, benutzerId: null, ereignis });
+    await repo.loeseNutzungen({ organisationId: ORG, benutzerId: 'u1', jetzt: '2026-11-19T10:00:00.000Z' });
+    expect(aufrufe.map((a) => a.name ?? `${a.op}:${a.tabelle}`)).toEqual(['uebernahme_starten', 'uebernahme_beenden', 'etikett_erneuern', 'update:geraet']);
+    expect(aufrufe[0].args).toEqual({ p_geraet: u.geraetId });
+    expect(aufrufe[3]).toMatchObject({ werte: { zugeordnet_an: null }, filter: [['eq', 'id', u.geraetId]] });
+  });
+
+  it('listeTokens/listeUebernahmen lesen gefiltert nach Organisation (und Gerät)', async () => {
+    const { client, aufrufe } = fakeSupabase(() => ({ data: [] }));
+    const repo = supabaseRepository(client, ORG);
+    await repo.listeTokens(ORG);
+    await repo.listeUebernahmen(ORG, 'g1');
+    expect(aufrufe.map((a) => [a.tabelle, a.filter])).toEqual([
+      ['geraet_token', [['eq', 'organisation_id', ORG]]],
+      ['uebernahme', [['eq', 'organisation_id', ORG], ['eq', 'geraet_id', 'g1']]],
+    ]);
+  });
+
+  it('erfasseMangel ohne select() (MA ohne SELECT-Policy)', async () => {
+    const { client, aufrufe } = fakeSupabase(() => ({ data: null }));
+    await supabaseRepository(client, ORG).erfasseMangel({ mangel: stand.maengel[0], ereignis });
+    expect(aufrufe[0].op).toBe('insert');
+    expect(aufrufe[0].spalten).toBeUndefined();
+  });
+
+  it('Fehler der RPC → RepositoryFehler mit deutscher Meldung', async () => {
+    const { client } = fakeSupabase(() => ({ error: { code: '23514', message: 'Sie haben dieses Gerät bereits übernommen' } }));
+    await expect(supabaseRepository(client, ORG).starteUebernahme({ uebernahme: stand.uebernahmen[0], vorherige: null })).rejects.toThrow(
+      'Sie haben dieses Gerät bereits übernommen.',
+    );
+  });
+});

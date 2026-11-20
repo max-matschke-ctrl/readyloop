@@ -63,10 +63,14 @@ describe('Demo-Daten I3M', () => {
 describe('Demo-Repository I3M', () => {
   it('holeTokenRohdaten enthält keine Personennamen außer dem Prüfernamen des neuesten Nachweises', async () => {
     const roh = (await repo.holeTokenRohdaten('demoL008xxxxxxxxxxxxxx'))!;
-    expect(roh.nachweise).toHaveLength(2);
-    expect(roh.nachweise.filter((n) => n.prueferName !== null)).toHaveLength(1);
+    // kein Verlauf: L-008 hat zwei Nachweise, öffentlich nur der neueste
+    expect(roh.nachweise).toHaveLength(1);
+    expect(roh.nachweise[0].prueferName).toBe('Marco Lindner');
+    // P-001: offener Anlass enthalten; L-001 ohne Anlass
+    expect((await repo.holeTokenRohdaten('demoP001xxxxxxxxxxxxxx'))!.anlaesse).toHaveLength(1);
+    expect((await repo.holeTokenRohdaten('demoL001xxxxxxxxxxxxxx'))!.anlaesse).toEqual([]);
     const text = JSON.stringify(roh);
-    for (const name of ['Jonas Richter', 'Katrin Vogel', 'Dr. Jens Hartmann']) expect(text).not.toContain(name);
+    for (const name of ['Jonas Richter', 'Katrin Vogel', 'Dr. Jens Hartmann', 'Rutschhemmende']) expect(text).not.toContain(name);
     expect(Object.keys(roh).sort()).toEqual(['anlaesse', 'geraet', 'nachweise', 'offeneMaengel', 'organisationName', 'pruefarten']);
   });
 

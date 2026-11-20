@@ -6,6 +6,5 @@ import type { QrMatrix } from '@/domain/types';
 export function qrMatrix(text: string): QrMatrix {
   const qr = QRCode.create(text, { errorCorrectionLevel: 'M' });
   const groesse = qr.modules.size;
-  const module = Array.from({ length: groesse * groesse }, (_, i) => qr.modules.data[i] === 1);
-  return { groesse, module };
+  return { groesse, module: Array.from({ length: groesse * groesse }, (_, i) => qr.modules.data[i] === 1) };
 }
