@@ -1,9 +1,13 @@
 // Kopfzeilen der öffentlichen QR-Seite (F-24). Ohne Node-Abhängigkeit (läuft in der Middleware).
 
-/** Nicht zwischenspeichern, keinen Referrer weitergeben, nicht indexieren. */
+/**
+ * Nicht zwischenspeichern, Referrer nur an die eigene Origin, nicht indexieren.
+ * 'same-origin' statt 'no-referrer': Bei 'no-referrer' sendet Chrome bei Formular-POST ohne JS `Origin: null`,
+ * Next lehnt die Server Action dann ab (500). Fremde Seiten erhalten die Token-URL weiterhin nicht.
+ */
 export const QR_KOPFZEILEN = {
   'Cache-Control': 'no-store',
-  'Referrer-Policy': 'no-referrer',
+  'Referrer-Policy': 'same-origin',
   'X-Robots-Tag': 'noindex, nofollow',
 } as const;
 

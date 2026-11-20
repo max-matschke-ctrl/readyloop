@@ -700,7 +700,18 @@ export const ETIKETTEN_MAX = 120;
 export interface EtikettenFilter {
   geraetIds?: Id[]; // hat Vorrang vor bereichId/kategorie
   bereichId?: Id;
-  kategorie?: GeraeteKategorie;
+  kategorie?: GeraeteKategorie; // fehlt = alle Kategorien (Abnahme FE-15: „leer bzw. alle → alle Geräte“)
+}
+
+/**
+ * Rückgabe von holeEtiketten (Vertrag geändert in I3M-Befunden, vorher Etikett[]).
+ * etiketten: höchstens ETIKETTEN_MAX, sortiert; gesamt: Anzahl aller passenden Geräte vor der Kappung;
+ * gekappt: gesamt > ETIKETTEN_MAX (UI zeigt „nur die ersten 120“).
+ */
+export interface EtikettenErgebnis {
+  etiketten: Etikett[];
+  gesamt: number;
+  gekappt: boolean;
 }
 
 export interface Etikett {

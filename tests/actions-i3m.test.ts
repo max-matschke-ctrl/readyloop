@@ -125,13 +125,20 @@ describe('QR-Seite (F-24)', () => {
     setzeQrKopfzeilen('/g/abc', h);
     expect(Object.fromEntries(h.entries())).toEqual({
       'cache-control': 'no-store',
-      'referrer-policy': 'no-referrer',
+      'referrer-policy': 'same-origin',
       'x-robots-tag': 'noindex, nofollow',
     });
     const leer = new Headers();
     setzeQrKopfzeilen('/geraete', leer);
     expect([...leer.keys()]).toEqual([]);
     expect(QR_KOPFZEILEN['X-Robots-Tag']).toBe('noindex, nofollow');
+  });
+  it('Referrer-Policy same-origin, nicht no-referrer (sonst Origin: null bei Formular-POST ohne JS → Server Action 500)', () => {
+    expect(QR_KOPFZEILEN['Referrer-Policy']).toBe('same-origin');
+    const h = new Headers();
+    setzeQrKopfzeilen('/g/abc', h);
+    expect(h.get('referrer-policy')).toBe('same-origin');
+    expect(h.get('referrer-policy')).not.toBe('no-referrer');
   });
 });
 
@@ -164,9 +171,12 @@ describe('Datenzugriff I3M (Rechte)', () => {
     als('sifa');
     expect(await holeMangelMeldung(v001)).toBeNull();
   });
-  it('holeEtiketten VER: Default wechselnd im Bereich; SIF → 404', async () => {
+  it('holeEtiketten VER: ohne Kategorie alle im Bereich, mit wechselnd gefiltert; SIF → 404', async () => {
     als('verantwortlicher');
-    expect((await holeEtiketten({})).map((e) => e.inventarnummer)).toEqual(['L-001', 'L-002', 'L-006', 'L-008']);
+    const alle = await holeEtiketten({});
+    expect(alle.etiketten.map((e) => e.inventarnummer)).toEqual(['L-001', 'L-002', 'L-003', 'L-004', 'L-005', 'L-006', 'L-007', 'L-008']);
+    expect(alle).toMatchObject({ gesamt: 8, gekappt: false });
+    expect((await holeEtiketten({ kategorie: 'wechselnd' })).etiketten.map((e) => e.inventarnummer)).toEqual(['L-001', 'L-002', 'L-006', 'L-008']);
     als('sifa');
     expect(await fehlerVon(holeEtiketten({}))).toBe('NOT_FOUND');
   });

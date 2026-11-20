@@ -9,7 +9,7 @@ import type {
   Bereich,
   BereichAnsicht,
   Betriebsmodus,
-  Etikett,
+  EtikettenErgebnis,
   EtikettenFilter,
   GeraetKurzansicht,
   GeraetDetail,
@@ -242,8 +242,8 @@ export async function listeMitarbeiter(): Promise<MitgliedAnsicht[]> {
 }
 
 /** etikett.verwalten (sonst notFound()). F-25: nur Geräte im Geltungsbereich, höchstens ETIKETTEN_MAX;
- *  ohne geraetIds und ohne kategorie gilt kategorie 'wechselnd'. Sortierung Bereich, Inventarnummer, Bezeichnung. */
-export async function holeEtiketten(filter: EtikettenFilter): Promise<Etikett[]> {
+ *  ohne kategorie alle Kategorien. Sortierung Bereich, Inventarnummer, Bezeichnung. gesamt/gekappt zeigen die Kappung. */
+export async function holeEtiketten(filter: EtikettenFilter): Promise<EtikettenErgebnis> {
   const sitzung = await erfordereSitzung('etikett.verwalten');
   return etiketten.holeEtiketten(sitzung, await holeRepository(sitzung), { heute: heute(), jetzt: new Date() }, filter);
 }

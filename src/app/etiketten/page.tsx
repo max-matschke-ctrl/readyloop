@@ -47,8 +47,10 @@ export default async function EtikettenSeite({ searchParams }: { searchParams: S
   const startRoh = Number(einzeln(sp.start) ?? '1');
   const start = Number.isInteger(startRoh) && startRoh >= 1 && startRoh <= JE_BOGEN ? startRoh : 1;
 
-  const [etiketten, bereiche] = await Promise.all([
-    holeEtiketten(geraetIds.length > 0 ? { geraetIds } : { bereichId: bereichId ?? undefined, kategorie }),
+  // Ohne Parameter Default 'wechselnd' (F-25); Parameter leer bzw. 'alle' → alle Kategorien (Abnahme FE-15).
+  const kategorieFilter = sp.kategorie === undefined ? kategorie : istKategorie(kategorieRoh) ? kategorieRoh : undefined;
+  const [{ etiketten, gesamt, gekappt }, bereiche] = await Promise.all([
+    holeEtiketten(geraetIds.length > 0 ? { geraetIds } : { bereichId: bereichId ?? undefined, kategorie: kategorieFilter }),
     geraetIds.length > 0 ? Promise.resolve([]) : listeBereiche(),
   ]);
 
@@ -98,9 +100,9 @@ export default async function EtikettenSeite({ searchParams }: { searchParams: S
                 </p>
                 <DruckenButton />
               </div>
-              {etiketten.length >= ETIKETTEN_MAX && (
+              {gekappt && (
                 <Meldung art="warnung" live={false}>
-                  Höchstens {ETIKETTEN_MAX} Etiketten je Druck. Bitte nach Bereich auswählen.
+                  Es passen {gesamt} Geräte, gedruckt werden nur die ersten {ETIKETTEN_MAX}. Bitte nach Bereich oder Kategorie auswählen.
                 </Meldung>
               )}
               <Meldung

@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { can } from '@/domain/rechte';
 import type { EtikettErneuernEingabe } from '@/domain/schemas';
 import { naechsteFaelligkeit } from '@/domain/status';
-import { ETIKETTEN_MAX, type Etikett, type EtikettenFilter, type Id, type Sitzung } from '@/domain/types';
+import { ETIKETTEN_MAX, type EtikettenErgebnis, type EtikettenFilter, type Id, type Sitzung } from '@/domain/types';
 import {
   baueAnsicht,
   fehler,
@@ -22,20 +22,20 @@ const vergleiche = (a: string | null, b: string | null) => (a ?? '').localeCompa
 
 /**
  * etikett.verwalten. F-25: nur Geräte im Geltungsbereich (andere werden ignoriert), höchstens ETIKETTEN_MAX;
- * geraetIds hat Vorrang; ohne geraetIds und ohne kategorie gilt 'wechselnd'. Sortierung Bereich, Inventarnummer, Bezeichnung.
+ * geraetIds hat Vorrang; ohne kategorie alle Kategorien. Sortierung Bereich, Inventarnummer, Bezeichnung.
+ * gesamt/gekappt machen die Kappung sichtbar.
  * Plakette: Gesamtstatus nach F-9 über alle Prüfarten und offenen Mängel zum Druckzeitpunkt. Drucken erzeugt kein Ereignis.
  */
-export async function holeEtiketten(sitzung: Sitzung, repo: Repository, zeit: Zeit, filter: EtikettenFilter): Promise<Etikett[]> {
-  if (!can(sitzung.rolle, 'etikett.verwalten')) return [];
+export async function holeEtiketten(sitzung: Sitzung, repo: Repository, zeit: Zeit, filter: EtikettenFilter): Promise<EtikettenErgebnis> {
+  if (!can(sitzung.rolle, 'etikett.verwalten')) return { etiketten: [], gesamt: 0, gekappt: false };
   const [ctx, tokens] = await Promise.all([ladeKontext(sitzung, repo), repo.listeTokens(sitzung.organisation.id)]);
   const aktiv = new Map(tokens.filter((t) => t.aktiv).map((t) => [t.geraetId, t.token]));
   const ids = filter.geraetIds && filter.geraetIds.length > 0 ? new Set(filter.geraetIds) : null;
-  const kategorie = filter.kategorie ?? 'wechselnd';
 
   const auswahl = [...ctx.geraete.values()].filter((g) => {
     if (!geraetImBereich(sitzung, g) || !aktiv.has(g.id)) return false;
     if (ids) return ids.has(g.id);
-    return (!filter.bereichId || g.bereichId === filter.bereichId) && g.kategorie === kategorie;
+    return (!filter.bereichId || g.bereichId === filter.bereichId) && (!filter.kategorie || g.kategorie === filter.kategorie);
   });
   const bereichName = (id: Id) => ctx.bereiche.get(id)?.name ?? '';
   auswahl.sort(
@@ -45,7 +45,7 @@ export async function holeEtiketten(sitzung: Sitzung, repo: Repository, zeit: Ze
       a.bezeichnung.localeCompare(b.bezeichnung, 'de'),
   );
 
-  return auswahl.slice(0, ETIKETTEN_MAX).map((g) => {
+  const etiketten = auswahl.slice(0, ETIKETTEN_MAX).map((g) => {
     const ansichten = ctx.pruefarten.filter((p) => p.geraetId === g.id).map((p) => baueAnsicht(p, g, ctx, zeit.heute));
     const gesamt = geraetGesamt(
       ansichten,
@@ -65,6 +65,7 @@ export async function holeEtiketten(sitzung: Sitzung, repo: Repository, zeit: Ze
       stand: zeit.heute,
     };
   });
+  return { etiketten, gesamt: auswahl.length, gekappt: auswahl.length > ETIKETTEN_MAX };
 }
 
 /** F-24: etikett.verwalten + Geltungsbereich. Alter Token sofort ungültig, neuer aus neuerToken(); Ereignis etikett_erneuert. */

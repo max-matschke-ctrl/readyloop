@@ -1,8 +1,9 @@
 // BE-17: Dienste I3M gegen das Demo-Repository (Abnahme docs/backlog.md §6 BE-17), inkl. negativer Fälle (F-27).
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { addTage } from '@/domain/datum';
-import type { DemoRolle, Sitzung } from '@/domain/types';
-import { holeGeraetDetail, listeGeraete, sitzungFuerBenutzer, sitzungFuerDemoRolle } from '@/server/dienste';
+import { geraetAnlegenSchema } from '@/domain/schemas';
+import { ETIKETTEN_MAX, type DemoRolle, type Sitzung } from '@/domain/types';
+import { geraetAnlegen, holeGeraetDetail, listeGeraete, sitzungFuerBenutzer, sitzungFuerDemoRolle } from '@/server/dienste';
 import { etikettErneuern, holeEtiketten } from '@/server/dienste-etiketten';
 import { holeMangelFormular, listeMaengel, mangelErfassen } from '@/server/dienste-maengel';
 import {
@@ -269,23 +270,61 @@ describe('holeGeraetDetail().nutzung (F-22, F-27)', () => {
   });
 });
 
+/** Alle Geräte des VER (Bereich Lager) über alle Kategorien; Erwartung aus dem Demo-Bestand. */
+const ALLE_VER = ['L-001', 'L-002', 'L-003', 'L-004', 'L-005', 'L-006', 'L-007', 'L-008'];
+const legeGeraetAn = async (s: Sitzung, i: number) => {
+  const r = await geraetAnlegen(
+    s,
+    repo,
+    geraetAnlegenSchema.parse({
+      bezeichnung: `Testgerät ${i}`,
+      inventarnummer: `T-${String(i).padStart(3, '0')}`,
+      bereichId: DEMO_BEREICH_IDS.lager,
+      geraetegruppe: 'flurfoerderzeug',
+      kategorie: 'wechselnd',
+      hersteller: '',
+      typ: '',
+      seriennummer: '',
+      baujahr: '',
+      einsatzort: '',
+      pruefartenJson: JSON.stringify([
+        { katalogSchluessel: 'flurfoerderzeug.wiederkehrend', bezeichnung: 'Wiederkehrende Prüfung', herstellerfristMonate: null, herstellerfristQuelle: null, letztePruefung: null, letztePruefungHerkunft: 'unbekannt' },
+      ]),
+    }),
+    ZEIT,
+  );
+  expect(r.ok).toBe(true);
+};
+
 describe('Etiketten (F-25)', () => {
   it('VER Lager, Bereich Lager, wechselnd → 4 Etiketten mit aktivem Token', async () => {
-    const e = await holeEtiketten(await sitzung('verantwortlicher'), repo, ZEIT, { bereichId: DEMO_BEREICH_IDS.lager, kategorie: 'wechselnd' });
+    const { etiketten: e, gekappt } = await holeEtiketten(await sitzung('verantwortlicher'), repo, ZEIT, { bereichId: DEMO_BEREICH_IDS.lager, kategorie: 'wechselnd' });
+    expect(gekappt).toBe(false);
     expect(e.map((x) => x.inventarnummer)).toEqual(['L-001', 'L-002', 'L-006', 'L-008']);
     expect(e[0].url).toMatch(/\/g\/demoL001xxxxxxxxxxxxxx$/);
     expect(e[0]).toMatchObject({ status: 'ueberfaellig', stand: HEUTE, organisationName: 'Elbtal Fördertechnik GmbH' });
     expect(e[0].kurzUrl).not.toMatch(/^https?:/);
     expect(e[0].qr.module).toHaveLength(e[0].qr.groesse ** 2);
   });
-  it('Default ohne Filter: wechselnd im Geltungsbereich; geraetIds außerhalb → []', async () => {
+  it('Ohne Kategorie: alle Geräte im Geltungsbereich; geraetIds außerhalb → []', async () => {
     const ver = await sitzung('verantwortlicher');
-    expect((await holeEtiketten(ver, repo, ZEIT, {})).map((x) => x.inventarnummer)).toEqual(['L-001', 'L-002', 'L-006', 'L-008']);
-    expect(await holeEtiketten(ver, repo, ZEIT, { geraetIds: [await idVon('P-001')] })).toEqual([]);
-    expect((await holeEtiketten(ver, repo, ZEIT, { geraetIds: [await idVon('L-003')] })).map((x) => x.inventarnummer)).toEqual(['L-003']);
+    const alle = await holeEtiketten(ver, repo, ZEIT, {});
+    expect(alle.etiketten.map((x) => x.inventarnummer)).toEqual(ALLE_VER);
+    expect(alle).toMatchObject({ gesamt: ALLE_VER.length, gekappt: false });
+    expect((await holeEtiketten(ver, repo, ZEIT, { geraetIds: [await idVon('P-001')] })).etiketten).toEqual([]);
+    expect((await holeEtiketten(ver, repo, ZEIT, { geraetIds: [await idVon('L-003')] })).etiketten.map((x) => x.inventarnummer)).toEqual(['L-003']);
   });
-  it('SIF, PRF, MA → []', async () => {
-    for (const r of ['sifa', 'pruefer', 'mitarbeiter'] as const) expect(await holeEtiketten(await sitzung(r), repo, ZEIT, {})).toEqual([]);
+  it('Kappung bei ETIKETTEN_MAX: gesamt vor Kappung, gekappt = true', async () => {
+    const adm = await sitzung('admin');
+    const vorher = (await holeEtiketten(adm, repo, ZEIT, {})).gesamt;
+    for (let i = 0; i < ETIKETTEN_MAX + 5 - vorher; i++) await legeGeraetAn(adm, i);
+    const e = await holeEtiketten(adm, repo, ZEIT, {});
+    expect(e).toMatchObject({ gesamt: ETIKETTEN_MAX + 5, gekappt: true });
+    expect(e.etiketten).toHaveLength(ETIKETTEN_MAX);
+  });
+  it('SIF, PRF, MA → leer', async () => {
+    for (const r of ['sifa', 'pruefer', 'mitarbeiter'] as const)
+      expect(await holeEtiketten(await sitzung(r), repo, ZEIT, {})).toEqual({ etiketten: [], gesamt: 0, gekappt: false });
   });
   it('etikettErneuern(L-002): alter Token ungültig, neuer funktioniert, Ereignis etikett_erneuert', async () => {
     const r = await etikettErneuern(await sitzung('verantwortlicher'), repo, { geraetId: await idVon('L-002'), bestaetigung: 'on' }, JETZT);
