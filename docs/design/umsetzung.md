@@ -148,3 +148,6 @@ P7a, P7b und P7c haben keine gemeinsamen Dateien und dürfen parallel laufen. Al
 - **Max:** Freigabe der Vorschläge §9.1–§9.6 im Designsystem. P3b und `lucide-react` warten darauf, alle anderen Pakete nicht.
 - **requirements-engineer:** Q-10 in `docs/requirements.md` als gelöst eintragen (skills-empfehlung §3). Die Pakete P1–P7 in `docs/backlog.md` übernehmen.
 - **backend-dev:** optional neues Fälligkeitsdatum als Rückgabe von „Nachweis speichern“ (P5b) und Zahl der Überfälligen je Betrieb (P7c).
+
+## Freigaben Max (20.11.2026)
+Alle Vorschläge aus designsystem.md §9.1–§9.6 freigegeben: Wortmarke Plakette + „Readyloop“, kein Dark Theme im MVP, Jahresring auf `/geraete` (P3b), ochre-600 für Linien, `lucide-react` als Icon-Set, Grundschrift 16 px / Untergrenze 13 px.
