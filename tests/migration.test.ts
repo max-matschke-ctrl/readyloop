@@ -1,9 +1,10 @@
 // Test der Migration: statisch (SQL als Text) und, wenn RL_TEST_PG gesetzt ist, gegen ein echtes Postgres
 // mit nachgebauter Supabase-Umgebung (tests/sql/). Beispiel: RL_TEST_PG='host=/var/run/postgresql' npm test
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { TOKEN_MUSTER } from '@/domain/nutzung';
 import {
   ANLASS_ARTEN,
   BETRIEBSSTATUS,
@@ -19,6 +20,7 @@ import {
   PRUEFER_TYPEN,
   ROLLEN,
   STUFEN,
+  UEBERNAHME_ENDE_ARTEN,
 } from '@/domain/types';
 
 const SQL = readFileSync(path.resolve(__dirname, '../supabase/migrations/20261119000000_init.sql'), 'utf8');
@@ -334,6 +336,138 @@ describe('Migration Review I2', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Inkrement I3M (BE-19): eigene Migration, frühere bleiben unverändert
+// ---------------------------------------------------------------------------
+
+const MIGRATIONEN = path.resolve(__dirname, '../supabase/migrations');
+const SQL4 = readFileSync(path.join(MIGRATIONEN, '20261128000000_inkrement3m.sql'), 'utf8');
+const sql4OhneKommentare = SQL4.replace(/--.*$/gm, '');
+const klein4 = sql4OhneKommentare.toLowerCase();
+const tabellen4 = [...klein4.matchAll(/create table public\.(\w+)/g)].map((m) => m[1]);
+const policies4 = [...klein4.matchAll(/create policy (\w+) on ([\w.]+)\s+for (\w+)/g)].map((m) => ({
+  name: m[1],
+  tabelle: m[2],
+  befehl: m[3],
+}));
+const funktionen4 = [...klein4.matchAll(/create or replace function ((?:app|public)\.\w+)\(([^)]*)\)/g)].map((m) => ({
+  name: m[1],
+  parameter: m[2],
+}));
+const block4 = (start: string) => klein4.split(start)[1].split('$$;')[0];
+
+describe('Migration Inkrement I3M', () => {
+  it('Migrationsversionen sind eindeutig (Zeitstempel-Präfix)', () => {
+    const versionen = readdirSync(MIGRATIONEN).filter((f) => f.endsWith('.sql')).map((f) => f.split('_')[0]);
+    expect(new Set(versionen).size).toBe(versionen.length);
+    expect(versionen.at(-1)).toBe('20261128000000');
+  });
+
+  it('neue Tabellen geraet_token und uebernahme mit RLS und organisation_id', () => {
+    expect(tabellen4.sort()).toEqual(['geraet_token', 'uebernahme']);
+    for (const t of tabellen4) {
+      expect(klein4, t).toContain(`alter table public.${t} enable row level security`);
+      expect(klein4.split(`create table public.${t} (`)[1].split(');')[0], t).toMatch(/organisation_id uuid not null/);
+      expect(klein4, t).toContain(`revoke all on public.${t} from anon`);
+    }
+  });
+
+  it('weiterhin einzige DELETE-Policy auf bereich_verantwortung; keine FOR ALL', () => {
+    const del = [...policies, ...policies2, ...policies4].filter((p) => p.befehl === 'delete');
+    expect(del).toEqual([{ name: 'bereich_verantwortung_delete', tabelle: 'public.bereich_verantwortung', befehl: 'delete' }]);
+    expect(policies4.filter((p) => p.befehl === 'all')).toEqual([]);
+  });
+
+  it('keine INSERT/UPDATE-Policy auf uebernahme; Schreiben nur über Funktionen', () => {
+    expect(policies4.filter((p) => p.tabelle === 'public.uebernahme')).toEqual([
+      { name: 'uebernahme_select', tabelle: 'public.uebernahme', befehl: 'select' },
+    ]);
+    expect(klein4).toContain('revoke insert, update, delete, truncate on public.uebernahme from authenticated');
+  });
+
+  it('grant execute an anon genau einmal (geraet_oeffentlich)', () => {
+    const anon = [...klein4.matchAll(/grant execute on function ([^;]*?) to ([^;]*);/g)].filter((m) => /\banon\b/.test(m[2]));
+    expect(anon.map((m) => m[1].trim())).toEqual(['public.geraet_oeffentlich(text)']);
+    for (const f of [SQL, SQL2, SQL3]) expect(f.toLowerCase()).not.toMatch(/grant execute[^;]*to [^;]*\banon\b/);
+  });
+
+  it('jede neue Funktion hat revoke execute from public, anon (geraet_oeffentlich: from public)', () => {
+    for (const f of funktionen4) {
+      const signatur = `${f.name}(${f.parameter.split(',').map((p) => p.trim().split(/\s+/).at(-1)).filter(Boolean).join(', ')})`;
+      if (f.name === 'public.geraet_oeffentlich') {
+        expect(klein4).toContain(`revoke execute on function ${signatur} from public;`);
+      } else {
+        expect(klein4, signatur).toMatch(new RegExp(`revoke execute on function ${signatur.replace(/[().[\]]/g, '\\$&')} from public, anon`));
+      }
+    }
+  });
+
+  it('security definer: QR-Seite, Kurzansicht, Übernahme; etikett_erneuern invoker; search_path gesetzt', () => {
+    for (const f of ['public.geraet_oeffentlich(', 'public.ma_kurzansichten(', 'public.uebernahme_starten(', 'public.uebernahme_beenden(']) {
+      const kopf = klein4.split(`create or replace function ${f}`)[1].split('$$')[0];
+      expect(kopf, f).toContain('security definer');
+      expect(kopf, f).toContain('set search_path = public, pg_temp');
+    }
+    const erneuern = klein4.split('create or replace function public.etikett_erneuern(')[1].split('$$')[0];
+    expect(erneuern).toContain('security invoker');
+    for (const f of funktionen4) {
+      const kopf = klein4.split(`create or replace function ${f.name}(`)[1].split('$$')[0];
+      expect(kopf, f.name).toContain('set search_path');
+    }
+  });
+
+  it.each([
+    ['ende_art', UEBERNAHME_ENDE_ARTEN],
+    ['typ', EREIGNIS_TYPEN],
+  ] as const)('Check %s enthält genau die Werte aus types.ts', (spalte, werte) => {
+    expect([...alleWerte(sql4OhneKommentare, spalte)].sort()).toEqual([...werte].sort());
+  });
+
+  it('Token: Check-Muster = TOKEN_MUSTER, eindeutig, ein aktiver je Gerät, 16 Zufallsbytes', () => {
+    const block = klein4.split('create table public.geraet_token (')[1].split(');')[0];
+    const muster = SQL4.split('create table public.geraet_token (')[1].match(/token ~ '([^']*)'/)![1];
+    expect(muster).toBe(TOKEN_MUSTER.source);
+    expect(block).toContain('token text not null unique');
+    expect(klein4).toMatch(/create unique index geraet_token_ein_aktiver on public\.geraet_token \(geraet_id\) where aktiv/);
+    expect(block4('create or replace function app.neuer_token(')).toContain('gen_random_bytes(16)');
+    expect(block4('create or replace function public.geraet_oeffentlich(')).toContain(`!~ '${TOKEN_MUSTER.source.toLowerCase()}'`);
+  });
+
+  it('Übernahme: höchstens eine offene je Gerät, Ende-Felder gekoppelt', () => {
+    expect(klein4).toMatch(/create unique index uebernahme_eine_offene on public\.uebernahme \(geraet_id\) where bis is null/);
+    expect(klein4).toContain('check ((bis is null) = (ende_art is null))');
+  });
+
+  it('geraet_oeffentlich liefert keine Personen- oder Bereichsfelder', () => {
+    const json = block4('create or replace function app.geraet_status_json(');
+    for (const verboten of ['zugeordnet_an', 'benutzer_name', 'erfasst_von_name', 'anzeigename', 'bereich_id', 'beschreibung', "'bereich_name'"]) {
+      expect(json, verboten).not.toContain(verboten);
+    }
+    expect(json).toContain('where n.rang = 1');
+  });
+
+  it('Zuordnung: Spalte mit Check, Spalten-Grant, Ereignis ohne Person', () => {
+    expect(klein4).toContain("check (zugeordnet_an is null or kategorie = 'personenbezogen')");
+    expect(klein4).toContain('grant update (zugeordnet_an) on public.geraet to authenticated');
+    const ereignis = block4('create or replace function app.zuordnung_ereignis(');
+    expect(ereignis).toContain("jsonb_build_object('zugeordnet', new.zugeordnet_an is not null)");
+    expect(ereignis).not.toMatch(/'zugeordnet_an'|mitglied_name/);
+  });
+
+  it('Mitgliedschaft: VER nur mitarbeiter; Austritt-Trigger; Pseudonymisierung mit pg_cron nur wenn verfügbar', () => {
+    expect(klein4).toMatch(/create policy mitgliedschaft_insert_mitarbeiter on public\.mitgliedschaft\s+for insert[^;]*rolle = 'mitarbeiter'/);
+    expect(block4('create or replace function app.mitarbeiter_austritt(')).toContain("ende_art = 'austritt'");
+    expect(block4('create or replace function app.uebernahmen_pseudonymisieren(')).toContain("interval '90 days'");
+    expect(klein4).toContain("pg_available_extensions where name = 'pg_cron'");
+  });
+
+  it('Mangel: MA-Insert ohne Prüfart/Verantwortlichen mit Termin nach Schwere', () => {
+    const p = klein4.split('create policy mangel_insert on public.mangel')[1].split(';')[0];
+    expect(p).toMatch(/hat_rolle\(organisation_id, array\['mitarbeiter'\]\)\s+and geraet_pruefart_id is null and nachweis_id is null and verantwortlich_id is null/);
+    expect(p).toContain("termin = app.heute() + case schwere when 'gefaehrlich' then 0 when 'erheblich' then 30 else 90 end");
+  });
+});
+
 const PG = process.env.RL_TEST_PG;
 
 describe.skipIf(!PG)('Migration gegen Postgres (RL_TEST_PG)', () => {
@@ -355,7 +489,8 @@ describe.skipIf(!PG)('Migration gegen Postgres (RL_TEST_PG)', () => {
     psql(ziel, '../supabase/migrations/20261119000000_init.sql');
     psql(ziel, '../supabase/migrations/20261126000000_inkrement2.sql');
     psql(ziel, '../supabase/migrations/20261127000000_review_i2.sql');
-    return [psql(ziel, 'sql/rls-szenario.sql'), psql(ziel, 'sql/rls-szenario-i2.sql')]
+    psql(ziel, '../supabase/migrations/20261128000000_inkrement3m.sql');
+    return [psql(ziel, 'sql/rls-szenario.sql'), psql(ziel, 'sql/rls-szenario-i2.sql'), psql(ziel, 'sql/rls-szenario-i3m.sql')]
       .join('\n')
       .split('\n')
       .map((z) => z.match(/^(.*) \(erw\. (.*)\): (.*)$/))
