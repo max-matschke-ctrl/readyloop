@@ -17,6 +17,7 @@ import {
   type Ereignis,
   type Id,
 } from '@/domain/types';
+import { Leerzustand } from './Leerzustand';
 import { datum, monate, zeitpunkt } from './format';
 
 function obj(wert: unknown): Record<string, unknown> | null {
@@ -148,27 +149,78 @@ function beschreibung(e: Ereignis, pruefartNamen: Map<Id, string>): { titel: str
   }
 }
 
-export function VerlaufListe({ verlauf, pruefartNamen }: { verlauf: Ereignis[]; pruefartNamen: Map<Id, string> }) {
-  if (verlauf.length === 0) return <p className="text-sm text-steel">Keine Ereignisse.</p>;
+/** Punktfarbe (§6.14): Statusfarbe, wenn das Ereignis einen Status hat, sonst steel-400. */
+function punktFarbe(e: Ereignis): string {
+  switch (e.typ) {
+    case 'nachweis_erfasst': {
+      const erg = aus(PRUEF_ERGEBNISSE, e.daten.ergebnis);
+      if (erg === 'ohne_maengel') return 'var(--color-moss)';
+      if (erg === 'maengel_weiterbetrieb') return 'var(--color-ochre-600)';
+      if (erg === 'nicht_bestanden') return 'var(--color-brick)';
+      return 'var(--color-steel-400)';
+    }
+    case 'mangel_erfasst':
+    case 'anlass_erfasst':
+      return 'var(--color-brick)';
+    case 'mangel_behoben':
+      return 'var(--color-moss)';
+    default:
+      return 'var(--color-steel-400)';
+  }
+}
+
+const SICHTBAR = 10;
+
+function Eintrag({ e, pruefartNamen }: { e: Ereignis; pruefartNamen: Map<Id, string> }) {
+  const b = beschreibung(e, pruefartNamen);
   return (
-    <ol className="karte divide-y divide-steel/15">
-      {verlauf.map((e) => {
-        const b = beschreibung(e, pruefartNamen);
-        return (
-          <li key={e.id} className="grid gap-1 px-4 py-2 text-sm sm:grid-cols-[10rem_1fr]">
-            <time dateTime={e.zeitpunkt} className="font-mono text-xs text-steel sm:pt-0.5">
-              {zeitpunkt(e.zeitpunkt)}
-            </time>
-            <div>
-              <p>
-                <span className="font-medium">{b.titel}</span>
-                <span className="text-steel"> · {e.akteurName}</span>
-              </p>
-              {b.details.length > 0 && <p className="text-xs text-steel">{b.details.join(' · ')}</p>}
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+    <li className="relative grid gap-x-4 gap-y-0.5 py-2.5 pl-6 text-sm sm:grid-cols-[9.5rem_1fr] sm:pl-0">
+      <time dateTime={e.zeitpunkt} className="font-mono text-sm tabular-nums text-steel sm:pt-px sm:text-right">
+        {zeitpunkt(e.zeitpunkt)}
+      </time>
+      <span
+        aria-hidden="true"
+        className="absolute left-[2.5px] top-[1.0625rem] size-2 rounded-full ring-2 ring-white sm:left-[calc(9.5rem+0.5rem-3.5px)]"
+        style={{ background: punktFarbe(e) }}
+      />
+      <div className="min-w-0 sm:pl-4">
+        <p>
+          <span className="font-medium">{b.titel}</span>
+          <span className="text-steel"> · {e.akteurName}</span>
+        </p>
+        {b.details.length > 0 && <p className="text-xs text-steel [overflow-wrap:anywhere]">{b.details.join(' · ')}</p>}
+      </div>
+    </li>
+  );
+}
+
+/** Verlauf (§6.14): senkrechte Linie, Punkt je Ereignis, links Datum, rechts Ereignis und Person. Neueste oben. */
+export function VerlaufListe({ verlauf, pruefartNamen }: { verlauf: Ereignis[]; pruefartNamen: Map<Id, string> }) {
+  if (verlauf.length === 0) return <Leerzustand art="leer" ebene="h3" titel="Noch keine Ereignisse." />;
+  const linie =
+    'relative before:absolute before:inset-y-0 before:left-[6px] before:w-px before:bg-steel-200 before:content-[""] sm:before:left-[calc(9.5rem+0.5rem)]';
+  const vorne = verlauf.slice(0, SICHTBAR);
+  const aeltere = verlauf.slice(SICHTBAR);
+  return (
+    <div className="karte px-4 py-2">
+      <ol className={linie}>
+        {vorne.map((e) => (
+          <Eintrag key={e.id} e={e} pruefartNamen={pruefartNamen} />
+        ))}
+      </ol>
+      {aeltere.length > 0 && (
+        <details className="group">
+          <summary className="btn btn-still my-1 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <span className="group-open:hidden">Ältere anzeigen ({aeltere.length})</span>
+            <span className="hidden group-open:inline">Ältere ausblenden</span>
+          </summary>
+          <ol className={linie} start={SICHTBAR + 1}>
+            {aeltere.map((e) => (
+              <Eintrag key={e.id} e={e} pruefartNamen={pruefartNamen} />
+            ))}
+          </ol>
+        </details>
+      )}
+    </div>
   );
 }
