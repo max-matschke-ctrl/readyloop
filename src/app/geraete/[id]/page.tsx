@@ -11,6 +11,7 @@ import { GeraetVerschiebenForm } from '@/components/GeraetVerschiebenForm';
 import { Leerzustand } from '@/components/Leerzustand';
 import { MaengelTabelle } from '@/components/MaengelTabelle';
 import { NachweisListe } from '@/components/NachweisListe';
+import { NutzungAbschnitt } from '@/components/NutzungAbschnitt';
 import { Pruefplakette } from '@/components/Pruefplakette';
 import { PruefartKarte } from '@/components/PruefartKarte';
 import { Seitenkopf } from '@/components/Seitenkopf';
@@ -18,8 +19,8 @@ import { StatusAmpel } from '@/components/StatusAmpel';
 import { VerlaufListe } from '@/components/VerlaufListe';
 import { datum } from '@/components/format';
 import { can } from '@/domain/rechte';
-import { BETRIEBSSTATUS_LABEL, EINSATZORT_LABEL, KATEGORIE_LABEL, type Bereich, type Id, type PrueferOption } from '@/domain/types';
-import { erfordereSitzung, heute, holeGeraetDetail, listeBereiche, listePrueferOptionen } from '@/server/data';
+import { BETRIEBSSTATUS_LABEL, EINSATZORT_LABEL, KATEGORIE_LABEL, type Bereich, type Id, type PersonOption, type PrueferOption } from '@/domain/types';
+import { erfordereSitzung, heute, holeGeraetDetail, listeBereiche, listeMitarbeiterOptionen, listePrueferOptionen } from '@/server/data';
 
 export const metadata: Metadata = { title: 'Geräteakte' };
 
@@ -67,9 +68,11 @@ export default async function GeraetDetailSeite({ params }: { params: Promise<{ 
   const darfMangelErfassen = can(sitzung.rolle, 'mangel.erfassen');
   const offeneMaengel = detail.maengel.filter((m) => m.status !== 'behoben').length;
 
-  const [prueferOptionen, bereiche]: [PrueferOption[], Bereich[]] = await Promise.all([
+  const ladeMitarbeiter = detail.nutzung?.darfZuordnen === true && geraet.kategorie === 'personenbezogen';
+  const [prueferOptionen, bereiche, mitarbeiterOptionen]: [PrueferOption[], Bereich[], PersonOption[]] = await Promise.all([
     darfZuweisen ? listePrueferOptionen() : Promise.resolve([]),
     darfBearbeiten ? listeBereiche() : Promise.resolve([]),
+    ladeMitarbeiter ? listeMitarbeiterOptionen() : Promise.resolve([]),
   ]);
   const ziele = bereiche.filter((b) => b.id !== bereich.id);
   const warnungAbgelaufen = detail.pruefarten.some((p) => p.status.grund === 'ausser_betrieb');
@@ -84,6 +87,7 @@ export default async function GeraetDetailSeite({ params }: { params: Promise<{ 
     { id: 'pruefarten', label: 'Prüfarten', zahl: { n: detail.pruefarten.length, text: 'Prüfarten' } },
     { id: 'stammdaten', label: 'Stammdaten' },
     ...(darfBearbeiten ? [{ id: 'betrieb', label: 'Betrieb und Standort' }] : []),
+    ...(detail.nutzung ? [{ id: 'nutzung', label: 'Nutzung' }] : []),
     ...(zeigeAnlaesse ? [{ id: 'anlaesse', label: 'Anlassprüfungen', ...(offeneAnlaesse > 0 ? { zahl: { n: offeneAnlaesse, text: 'offen' } } : {}) }] : []),
     ...(darfMangelLesen ? [{ id: 'maengel', label: 'Mängel', zahl: { n: offeneMaengel, text: 'offen' } }] : []),
     ...(darfNachweiseLesen ? [{ id: 'nachweise', label: 'Nachweise', zahl: { n: detail.nachweise.length, text: 'Nachweise' } }] : []),
@@ -232,6 +236,16 @@ export default async function GeraetDetailSeite({ params }: { params: Promise<{ 
                   </details>
                 </div>
               </section>
+            )}
+
+            {detail.nutzung && (
+              <NutzungAbschnitt
+                geraet={geraet}
+                nutzung={detail.nutzung}
+                mitarbeiterOptionen={mitarbeiterOptionen}
+                darfEinladen={can(sitzung.rolle, 'mitarbeiter.einladen')}
+                titelKlasse={H2}
+              />
             )}
 
             {zeigeAnlaesse && (
