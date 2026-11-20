@@ -1,12 +1,18 @@
-// Middleware (BE-12): nur Session-Refresh im Modus supabase (F-8). Keine Zugriffsentscheidung hier –
-// Rechte prüfen data.ts/actions.ts und RLS.
+// Middleware (BE-12, BE-18): Session-Refresh im Modus supabase (F-8) und Kopfzeilen der öffentlichen QR-Seite (F-24).
+// Keine Zugriffsentscheidung hier – Rechte prüfen data.ts/actions.ts und RLS. /g/* wird nie auf /login umgeleitet.
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { setzeQrKopfzeilen } from './server/kopfzeilen';
+
+function mitQrKopfzeilen(request: NextRequest, antwort: NextResponse): NextResponse {
+  setzeQrKopfzeilen(request.nextUrl.pathname, antwort.headers);
+  return antwort;
+}
 
 export async function middleware(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return NextResponse.next({ request });
+  if (!url || !key) return mitQrKopfzeilen(request, NextResponse.next({ request }));
 
   let antwort = NextResponse.next({ request });
   const client = createServerClient(url, key, {
@@ -21,7 +27,7 @@ export async function middleware(request: NextRequest) {
   });
   // Erneuert abgelaufene Access-Tokens; Ergebnis wird hier nicht ausgewertet.
   await client.auth.getUser();
-  return antwort;
+  return mitQrKopfzeilen(request, antwort);
 }
 
 export const config = {

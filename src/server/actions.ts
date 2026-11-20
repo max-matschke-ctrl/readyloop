@@ -14,13 +14,18 @@ import {
   bereichSpeichernSchema,
   betriebsstatusSetzenSchema,
   demoRolleSchema,
+  etikettErneuernSchema,
   fristFreigebenSchema,
   gbuDokumentSetzenSchema,
+  geraetAktionSchema,
   geraetAnlegenSchema,
   geraetVerschiebenSchema,
+  geraetZuordnenSchema,
   mangelBehebenSchema,
   mangelErfassenSchema,
   mangelKenntnisSchema,
+  mangelMeldenSchema,
+  mitarbeiterEinladenSchema,
   mitgliedAendernSchema,
   mitgliedEinladenSchema,
   nachweisErfassenSchema,
@@ -31,7 +36,9 @@ import type { Aktion, ActionState, Sitzung } from '@/domain/types';
 import * as auth from './auth';
 import * as dienste from './dienste';
 import type { DienstErgebnis } from './dienste-basis';
+import * as etiketten from './dienste-etiketten';
 import * as maengel from './dienste-maengel';
+import * as mitarbeiter from './dienste-mitarbeiter';
 import * as verwaltung from './dienste-verwaltung';
 import { sichererRuecksprung } from './pfade';
 import { RepositoryFehler } from './repo/supabase/mapping';
@@ -104,16 +111,19 @@ const zeit = () => ({ heute: heute(), jetzt: new Date() });
 // Sitzung und Anmeldung
 // ---------------------------------------------------------------------------
 
-/** Nur Demo-Modus. Setzt Cookie rl_demo_rolle; Erfolg: redirect('/pruefer') für pruefer, sonst redirect('/geraete'). */
+/** Nur Demo-Modus. Setzt Cookie rl_demo_rolle; Erfolg: redirect(sichererRuecksprung(next, standard)) mit standard
+ *  pruefer → '/pruefer', mitarbeiter → '/meine-geraete', sonst '/geraete' (F-20). */
 export async function setzeDemoRolle(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
   if (!istDemoModus()) return { status: 'fehler', meldung: 'Der Demo-Modus ist nicht aktiv.' };
-  const geprueft = demoRolleSchema.safeParse(felder(formData, ['rolle']));
+  const geprueft = demoRolleSchema.safeParse(felder(formData, ['rolle', 'next']));
   if (!geprueft.success) return validierungsfehler(geprueft.error);
   const jar = await cookies();
   jar.set(DEMO_COOKIE, geprueft.data.rolle, DEMO_COOKIE_OPTIONEN);
   jar.delete({ name: ORG_COOKIE, path: '/' });
-  redirect(geprueft.data.rolle === 'pruefer' ? '/pruefer' : '/geraete');
+  const rolle = geprueft.data.rolle;
+  const standard = rolle === 'pruefer' ? '/pruefer' : rolle === 'mitarbeiter' ? '/meine-geraete' : '/geraete';
+  redirect(sichererRuecksprung(geprueft.data.next, standard));
 }
 
 /** Supabase signOut (Modus supabase), Cookies rl_org und rl_demo_rolle löschen; redirect('/login'). */
@@ -125,12 +135,12 @@ export async function abmelden(): Promise<void> {
   redirect('/login');
 }
 
-/** Nur Modus supabase. Fehler immer 'E-Mail oder Passwort ist falsch.'. Erfolg: redirect('/'). */
+/** Nur Modus supabase. Fehler immer 'E-Mail oder Passwort ist falsch.'. Erfolg: redirect(sichererRuecksprung(next, '/')). */
 export async function anmelden(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  const ergebnis = await auth.anmelden(felder(formData, ['email', 'passwort']));
+  const ergebnis = await auth.anmelden(felder(formData, ['email', 'passwort', 'next']));
   if (ergebnis.status !== 'ok') return ergebnis;
-  redirect('/');
+  redirect(sichererRuecksprung(formData.get('next'), '/'));
 }
 
 /** Nur Modus supabase. Antwort immer gleich (keine Kontoaufzählung). */
@@ -341,9 +351,12 @@ export async function anlassAufheben(prev: ActionState, formData: FormData): Pro
 // Mängel
 // ---------------------------------------------------------------------------
 
-/** mangel.erfassen + Geltungsbereich; F-14. Redirect auf zurueck (nur relative Pfade) bzw. Default. */
+/** mangel.erfassen + Geltungsbereich; F-14. Redirect auf zurueck (nur relative Pfade) bzw. Default.
+ *  I3M: Rolle mitarbeiter → KEIN_RECHT (MA melden nur über mangelMelden, F-26). */
 export async function mangelErfassen(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
+  const s = await leseSitzung();
+  if (s?.rolle === 'mitarbeiter') return KEIN_RECHT;
   const r = await fuehreAus(
     'mangel.erfassen',
     mangelErfassenSchema,
@@ -446,56 +459,131 @@ export async function mitgliedAendern(prev: ActionState, formData: FormData): Pr
 }
 
 // ---------------------------------------------------------------------------
-// Inkrement I3M (§7.6) – Stubs bis BE-18
+// Inkrement I3M (§7.6)
 // ---------------------------------------------------------------------------
 
-const STUB: ActionState = { status: 'fehler', meldung: 'nicht implementiert (BE-18)' };
+/** F-24/F-23: Seiten, die Übernahme, Rückgabe oder Mängel anzeigen. */
+function revalidiereNutzung(geraetId: string) {
+  revalidatePath('/meine-geraete');
+  revalidatePath('/meine-geraete/suchen');
+  revalidatePath('/g/[token]', 'page');
+  revalidatePath(`/geraete/${geraetId}`);
+  revalidatePath('/geraete');
+}
 
-/** geraet.uebernehmen; F-23. */
+/** geraet.uebernehmen; F-23. Erfolg: { status: 'ok', id: geraetId, meldung: 'Gerät übernommen.' |
+ *  'Gerät übernommen. Die vorherige Übernahme wurde beendet.' }. */
 export async function geraetUebernehmen(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error(STUB.meldung);
+  const r = await fuehreAus(
+    'geraet.uebernehmen',
+    geraetAktionSchema,
+    felder(formData, ['geraetId']),
+    async (s, e) => mitarbeiter.geraetUebernehmen(s, await holeRepository(s), e, zeit()),
+    'geraetUebernehmen',
+  );
+  if (!r.ok) return r.state;
+  revalidiereNutzung(r.ergebnis.geraetId);
+  return {
+    status: 'ok',
+    id: r.ergebnis.geraetId,
+    meldung: r.ergebnis.vorherigeBeendet ? 'Gerät übernommen. Die vorherige Übernahme wurde beendet.' : 'Gerät übernommen.',
+  };
 }
 
-/** geraet.uebernehmen; nur eigene offene Übernahme. */
+/** geraet.uebernehmen; nur eigene offene Übernahme. Erfolg: { status: 'ok', id: geraetId, meldung: 'Gerät zurückgegeben.' }. */
 export async function geraetZurueckgeben(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error(STUB.meldung);
+  const r = await fuehreAus(
+    'geraet.uebernehmen',
+    geraetAktionSchema,
+    felder(formData, ['geraetId']),
+    async (s, e) => mitarbeiter.geraetZurueckgeben(s, await holeRepository(s), e, zeit()),
+    'geraetZurueckgeben',
+  );
+  if (!r.ok) return r.state;
+  revalidiereNutzung(r.ergebnis.geraetId);
+  return { status: 'ok', id: r.ergebnis.geraetId, meldung: 'Gerät zurückgegeben.' };
 }
 
-/** mangel.erfassen + Rolle mitarbeiter; F-26. */
+/** mangel.erfassen + Rolle mitarbeiter; F-26. Erfolg: { status: 'ok', id: mangelId, meldung: MANGEL_GEMELDET }. */
 export async function mangelMelden(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error(STUB.meldung);
+  const r = await fuehreAus(
+    'mangel.erfassen',
+    mangelMeldenSchema,
+    felder(formData, ['geraetId', 'schwere', 'beschreibung']),
+    async (s, e) => mitarbeiter.mangelMelden(s, await holeRepository(s), e, zeit()),
+    'mangelMelden',
+  );
+  if (!r.ok) return r.state;
+  revalidiereNutzung(r.ergebnis.geraetId);
+  revalidatePath('/maengel');
+  return { status: 'ok', id: r.ergebnis.id, meldung: 'Mangel gemeldet. Er steht beim Verantwortlichen in der Mängelliste.' };
 }
 
-/** geraet.zuordnen + Geltungsbereich; F-22. */
+/** geraet.zuordnen + Geltungsbereich; F-22. Erfolg: meldung 'Zuordnung gespeichert' | 'Zuordnung gelöst'. */
 export async function geraetZuordnen(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error(STUB.meldung);
+  const r = await fuehreAus(
+    'geraet.zuordnen',
+    geraetZuordnenSchema,
+    felder(formData, ['geraetId', 'benutzerId']),
+    async (s, e) => mitarbeiter.geraetZuordnen(s, await holeRepository(s), e, new Date()),
+    'geraetZuordnen',
+  );
+  if (!r.ok) return r.state;
+  revalidiereNutzung(r.ergebnis.geraetId);
+  return { status: 'ok', id: r.ergebnis.geraetId, meldung: r.ergebnis.geloest ? 'Zuordnung gelöst' : 'Zuordnung gespeichert' };
 }
 
-/** geraet.zuordnen + Geltungsbereich; F-23 (c). */
+/** geraet.zuordnen + Geltungsbereich; F-23 (c). Erfolg: meldung 'Übernahme beendet'. */
 export async function uebernahmeBeenden(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error(STUB.meldung);
+  const r = await fuehreAus(
+    'geraet.zuordnen',
+    geraetAktionSchema,
+    felder(formData, ['geraetId']),
+    async (s, e) => mitarbeiter.uebernahmeBeenden(s, await holeRepository(s), e, zeit()),
+    'uebernahmeBeenden',
+  );
+  if (!r.ok) return r.state;
+  revalidiereNutzung(r.ergebnis.geraetId);
+  return { status: 'ok', id: r.ergebnis.geraetId, meldung: 'Übernahme beendet' };
 }
 
 /** etikett.verwalten + Geltungsbereich; F-24. */
 export async function etikettErneuern(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error(STUB.meldung);
+  const r = await fuehreAus(
+    'etikett.verwalten',
+    etikettErneuernSchema,
+    felder(formData, ['geraetId', 'bestaetigung']),
+    async (s, e) => etiketten.etikettErneuern(s, await holeRepository(s), e, new Date()),
+    'etikettErneuern',
+  );
+  if (!r.ok) return r.state;
+  revalidiereNutzung(r.ergebnis.geraetId);
+  revalidatePath('/etiketten');
+  return {
+    status: 'ok',
+    id: r.ergebnis.geraetId,
+    meldung: 'Aufkleber erneuert. Der alte Aufkleber ist ungültig; bitte neues Etikett drucken.',
+  };
 }
 
-/** mitarbeiter.einladen; F-20 (Rolle fest 'mitarbeiter', keine Bereiche). */
+/** mitarbeiter.einladen; F-20 (Rolle fest 'mitarbeiter', keine Bereiche). Doppelte Mitgliedschaft → feldfehler.email. */
 export async function mitarbeiterEinladen(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
-  void formData;
-  throw new Error(STUB.meldung);
+  const r = await fuehreAus(
+    'mitarbeiter.einladen',
+    mitarbeiterEinladenSchema,
+    felder(formData, ['email', 'name']), // eine mitgeschickte 'rolle' wird ignoriert (US-27)
+    async (s, e) => verwaltung.mitarbeiterEinladen(s, await holeRepository(s), e, new Date()),
+    'mitarbeiterEinladen',
+  );
+  if (!r.ok) return r.state;
+  revalidatePath('/mitarbeiter');
+  revalidatePath('/admin/mitglieder');
+  return { status: 'ok', meldung: r.ergebnis.meldung, id: r.ergebnis.id };
 }

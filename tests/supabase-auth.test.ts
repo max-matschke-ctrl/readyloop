@@ -158,6 +158,11 @@ describe('Auth-Actions', () => {
     expect(b).toEqual(a);
     expect(await fehlerVon(anmelden(INITIAL_ACTION_STATE, form({ email: ' PRF@example.org ', passwort: 'richtig-und-lang' })))).toBe('REDIRECT:/');
     expect(fake.aufrufe).toContain('signIn:prf@example.org');
+    // F-20: Login mit Rücksprung, nur relative Pfade
+    const ok = { email: 'prf@example.org', passwort: 'richtig-und-lang' };
+    expect(await fehlerVon(anmelden(INITIAL_ACTION_STATE, form({ ...ok, next: '/g/demoL002xxxxxxxxxx_-' })))).toBe('REDIRECT:/g/demoL002xxxxxxxxxx_-');
+    expect(await fehlerVon(anmelden(INITIAL_ACTION_STATE, form({ ...ok, next: 'https://evil.example' })))).toBe('REDIRECT:/');
+    expect(await fehlerVon(anmelden(INITIAL_ACTION_STATE, form({ ...ok, next: '//evil.example' })))).toBe('REDIRECT:/');
   });
   it('passwortVergessen: bekannte und unbekannte E-Mail → dieselbe Antwort; redirectTo auf /api/auth/confirm', async () => {
     const a = await passwortVergessen(INITIAL_ACTION_STATE, form({ email: 'prf@example.org' }));
