@@ -4,6 +4,7 @@ import {
   startTransition,
   useActionState,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -215,6 +216,7 @@ interface FehleruebersichtProps {
  */
 export function Fehleruebersicht({ state, felder = {} }: FehleruebersichtProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const titelId = useId();
   const eintraege = Object.entries(state.feldfehler ?? {}).filter(([, v]) => v?.length) as [string, string[]][];
   const sichtbar = eintraege.length >= 2;
 
@@ -241,15 +243,15 @@ export function Fehleruebersicht({ state, felder = {} }: FehleruebersichtProps) 
       ref={ref}
       tabIndex={-1}
       role="alert"
-      aria-labelledby="fehleruebersicht-titel"
+      aria-labelledby={titelId}
       className="rounded-flaeche border-2 border-brick bg-brick-50 p-4 text-ink"
     >
-      <h2 id="fehleruebersicht-titel" className="flex items-center gap-2 font-sans text-base font-semibold tracking-normal">
+      <p id={titelId} className="flex items-center gap-2 text-base font-semibold">
         <span aria-hidden="true" className="inline-flex size-5 items-center justify-center rounded-full bg-brick text-xs font-bold text-white">
           ✕
         </span>
         Bitte korrigieren
-      </h2>
+      </p>
       <ul className="mt-2 space-y-1 pl-7 text-sm">
         {eintraege.map(([feld, meldungen]) => {
           const info = felder[feld];

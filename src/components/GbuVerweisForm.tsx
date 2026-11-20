@@ -2,7 +2,8 @@
 
 import type { GbuDokument } from '@/domain/types';
 import { gbuDokumentSetzen } from '@/server/actions';
-import { ActionMeldung, FeldFehler, feldProps, useFormularAction } from './formular';
+import { Unteraufklapper } from './Unteraufklapper';
+import { AbsendenButton, ActionMeldung, Aktionsleiste, FeldGruppe, useFormularAction } from './formular';
 
 /** F-18: Titel + optional https-Link. Titel leeren = Verweis entfernen. Kein Upload. */
 export function GbuVerweisForm({ geraetPruefartId, aktuell }: { geraetPruefartId: string; aktuell: GbuDokument | null }) {
@@ -10,35 +11,21 @@ export function GbuVerweisForm({ geraetPruefartId, aktuell }: { geraetPruefartId
   const id = (n: string) => `gbu-${n}-${geraetPruefartId}`;
 
   return (
-    <details className="rounded border border-steel/25 bg-paper/60">
-      <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
-        {aktuell ? 'GBU-Verweis ändern' : 'GBU-Verweis hinterlegen'}
-      </summary>
-      <form action={formAction} onSubmit={onSubmit} className="space-y-3 px-3 pb-3 pt-1" noValidate>
+    <Unteraufklapper
+      titel={aktuell ? 'GBU-Verweis ändern' : 'GBU-Verweis hinterlegen'}
+      zusammenfassung={aktuell ? `Aktuell: ${aktuell.titel}` : 'Aktuell: kein Verweis'}
+    >
+      <form action={formAction} onSubmit={onSubmit} className="space-y-4" noValidate>
         <input type="hidden" name="geraetPruefartId" value={geraetPruefartId} />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label htmlFor={id('titel')} className="label">
-              Titel
-            </label>
+        <FeldGruppe id={id('titel')} feld="titel" label="Titel" hilfe="Titel leeren und speichern entfernt den Verweis." state={state}>
+          {(p) => (
+            <input {...p} name="titel" type="text" maxLength={200} defaultValue={aktuell?.titel} placeholder="z. B. GBU Lager 2025, Abschn. 3" className="feld" />
+          )}
+        </FeldGruppe>
+        <FeldGruppe id={id('url')} feld="url" label="Link" optional hilfe="Nur https-Adressen." state={state}>
+          {(p) => (
             <input
-              id={id('titel')}
-              name="titel"
-              type="text"
-              maxLength={200}
-              defaultValue={aktuell?.titel}
-              placeholder="z. B. GBU Lager 2025, Abschn. 3"
-              className="feld"
-              {...feldProps(state, 'titel')}
-            />
-            <FeldFehler state={state} feld="titel" />
-          </div>
-          <div>
-            <label htmlFor={id('url')} className="label">
-              Link (optional, nur https)
-            </label>
-            <input
-              id={id('url')}
+              {...p}
               name="url"
               type="url"
               inputMode="url"
@@ -46,17 +33,16 @@ export function GbuVerweisForm({ geraetPruefartId, aktuell }: { geraetPruefartId
               defaultValue={aktuell?.url ?? ''}
               placeholder="https://…"
               className="feld font-mono"
-              {...feldProps(state, 'url')}
             />
-            <FeldFehler state={state} feld="url" />
-          </div>
-        </div>
-        <p className="text-xs text-steel">Titel leeren und speichern entfernt den Verweis.</p>
+          )}
+        </FeldGruppe>
         <ActionMeldung state={state} />
-        <button type="submit" className="btn btn-sekundaer" disabled={pending}>
-          {pending ? 'Wird gespeichert …' : 'GBU-Verweis speichern'}
-        </button>
+        <Aktionsleiste>
+          <AbsendenButton pending={pending} art="sekundaer">
+            GBU-Verweis speichern
+          </AbsendenButton>
+        </Aktionsleiste>
       </form>
-    </details>
+    </Unteraufklapper>
   );
 }
