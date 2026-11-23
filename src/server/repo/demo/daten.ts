@@ -1,6 +1,7 @@
 // Demo-Daten (BE-5): fiktive „Elbtal Fördertechnik GmbH“. Alle Datumswerte relativ zu `heute`,
 // damit die Statusverteilung stabil bleibt. Feste UUIDs.
-import { addTage } from '@/domain/datum';
+import { addTage, isoWocheMontag } from '@/domain/datum';
+import { postenSchluessel } from '@/domain/erinnerungen';
 import { ermittleFristVorschlag, waehleKatalogEintrag } from '@/domain/fristen';
 import type {
   Anlass,
@@ -9,6 +10,9 @@ import type {
   DemoRolle,
   Einsatzort,
   Ereignis,
+  ErinnerungEinstellung,
+  ErinnerungLauf,
+  ErinnerungPosten,
   FestgelegteFrist,
   Geraet,
   GeraeteKategorie,
@@ -18,6 +22,8 @@ import type {
   IsoDate,
   IsoDateTime,
   KatalogEintrag,
+  AbbestellbareMailArt,
+  MailVersand,
   Mangel,
   Mitgliedschaft,
   Nachweis,
@@ -45,6 +51,12 @@ export interface DemoStand {
   maengel: Mangel[];
   uebernahmen: Uebernahme[]; // I3M (F-23, F-27)
   tokens: GeraetToken[]; // I3M (F-24)
+  // I3 (F-30 bis F-43)
+  erinnerungEinstellungen: ErinnerungEinstellung[];
+  mailAbmeldungen: { organisationId: Id; benutzerId: Id; art: AbbestellbareMailArt; abgemeldet: boolean; geaendertAm: IsoDateTime }[];
+  erinnerungLaeufe: ErinnerungLauf[];
+  mailVersand: MailVersand[];
+  erinnerungPosten: ErinnerungPosten[];
 }
 
 const uuid = (praefix: string, n: number): Id => `${praefix}-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -586,6 +598,75 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
     });
   }
 
+  // ---------------------------------------------------------------- I3: Erinnerungen (BE-25)
+  // Produktion: angepasste Einstellung (vor 5 Tagen von Katrin Vogel), mit Ereignis F-42.
+  const produktionEinstellung: ErinnerungEinstellung = {
+    organisationId: DEMO_ORG_ID,
+    bereichId: DEMO_BEREICH_IDS.produktion,
+    staffelTage: [60, 30, 14],
+    eskalationTage: { verantwortlicher: 0, sifa: 3, admin: 10 },
+    sifaInKopie: false,
+    sifaEmpfaengerIds: null,
+    adminEmpfaengerIds: [b.katrin],
+    standard: false,
+    geaendertVon: b.katrin,
+    geaendertVonName: name(b.katrin),
+    geaendertAm: zeit(addTage(heute, -5), '09:15'),
+  };
+  ereignis(DEMO_ORG_ID, {
+    geraetId: null, typ: 'erinnerung_einstellung_gespeichert', akteurId: b.katrin, akteurName: name(b.katrin),
+    zeitpunkt: produktionEinstellung.geaendertAm!, daten: { bereichId: DEMO_BEREICH_IDS.produktion, bereich: 'Produktion', alt: null, neu: produktionEinstellung },
+  });
+
+  // Protokoll-Beispiele (F-41). Bezugsdaten bewusst ohne Wirkung auf den nächsten Lauf (andere Fälligkeit/Woche/Zustand).
+  const erinnerungLaeufe: ErinnerungLauf[] = [];
+  const mailVersand: MailVersand[] = [];
+  const erinnerungPosten: ErinnerungPosten[] = [];
+  const lauf = (datum: IsoDate, ausloeser: ErinnerungLauf['ausloeser']): Id => {
+    const id = uuid('e1000000', erinnerungLaeufe.length + 1);
+    erinnerungLaeufe.push({ id, laufDatum: datum, ausloeser, status: 'fertig', gestartetAm: zeit(datum, '06:00'), beendetAm: zeit(datum, '06:01') });
+    return id;
+  };
+  const versand = (
+    laufId: Id, datum: IsoDate, art: MailVersand['art'], empfaenger: Id, status: MailVersand['status'],
+    posten: { inv: string; art: ErinnerungPosten['art']; stufe: string; bezug: IsoDate | null; rolle: ErinnerungPosten['rolle']; kennung?: string }[],
+  ) => {
+    const id = uuid('e2000000', mailVersand.length + 1);
+    mailVersand.push({
+      id, organisationId: DEMO_ORG_ID, laufId, laufDatum: datum, art, empfaengerBenutzerId: empfaenger, status, versuche: 1,
+      anbieterId: `demo-${mailVersand.length + 1}`, fehlerCode: null, postenAnzahl: posten.length, erstelltAm: zeit(datum, '06:00'),
+      versendetAm: zeit(datum, '06:00'), statusAm: zeit(datum, status === 'versendet' ? '06:00' : '06:05'),
+    });
+    for (const p of posten) {
+      const g = geraetVon.get(p.inv)!;
+      const pa = p.art === 'ma_hinweis' ? null : (pruefartenVon.get(p.inv)?.[0] ?? null);
+      erinnerungPosten.push({
+        id: uuid('e3000000', erinnerungPosten.length + 1), organisationId: DEMO_ORG_ID, versandId: id,
+        schluessel:
+          p.art === 'frist'
+            ? postenSchluessel({ art: 'frist', geraetPruefartId: pa!, stufe: p.stufe, faelligAm: p.bezug!, empfaengerId: empfaenger })
+            : p.art === 'pruefer_woche'
+              ? postenSchluessel({ art: 'pruefer_woche', geraetPruefartId: pa!, montag: p.bezug!, empfaengerId: empfaenger })
+              : postenSchluessel({ art: 'ma_hinweis', geraetId: g.id, zustandsKennung: p.kennung!, empfaengerId: empfaenger }),
+        art: p.art, stufe: p.stufe, geraetId: g.id, geraetPruefartId: pa, bereichId: g.bereichId, bezugDatum: p.bezug, rolle: p.rolle,
+        empfaengerBenutzerId: empfaenger, erstelltAm: zeit(datum, '06:00'),
+      });
+    }
+  };
+  const gestern = addTage(heute, -1);
+  const vorwocheMontag = isoWocheMontag(addTage(heute, -7));
+  const vor10 = addTage(heute, -10);
+  versand(lauf(gestern, 'vercel_cron'), gestern, 'frist_digest', b.marco, 'zugestellt', [
+    { inv: 'L-003', art: 'frist', stufe: 'v90', bezug: addTage(heute, 85), rolle: 'zustaendig' },
+    { inv: 'L-004', art: 'frist', stufe: 'v90', bezug: addTage(heute, 88), rolle: 'zustaendig' },
+  ]);
+  versand(lauf(vorwocheMontag, 'pg_cron'), vorwocheMontag, 'pruefer_woche', b.tobias, 'bounce', [
+    { inv: 'P-003', art: 'pruefer_woche', stufe: 'woche', bezug: vorwocheMontag, rolle: 'zustaendig' },
+  ]);
+  versand(lauf(vor10, 'vercel_cron'), vor10, 'ma_hinweis', b.aylin, 'versendet', [
+    { inv: 'P-003', art: 'ma_hinweis', stufe: 'nicht_verwenden', bezug: null, rolle: 'zustaendig', kennung: 'demo:beispiel' },
+  ]);
+
   return {
     organisationen,
     standorte,
@@ -602,5 +683,10 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
     maengel,
     uebernahmen,
     tokens,
+    erinnerungEinstellungen: [produktionEinstellung],
+    mailAbmeldungen: [],
+    erinnerungLaeufe,
+    mailVersand,
+    erinnerungPosten,
   };
 }
