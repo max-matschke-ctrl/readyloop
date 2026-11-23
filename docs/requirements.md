@@ -1,6 +1,6 @@
 # Anforderungen Readyloop – Pilot Mittelstand
 
-Stand 20.11.2026 (Planung Inkrement I3M – Mitarbeiter, vor I3) · Quellen: `docs/context/projektstand.md`, `docs/research/recherche-anforderungen.md` · Backlog: `docs/backlog.md`
+Stand 20.11.2026 (Inkrement I3M – Mitarbeiter umgesetzt inkl. Review-Fixes, Migration `20261129000000_review_i3m.sql`; offen nur FE-15a und Gates G-4/G-5) · Quellen: `docs/context/projektstand.md`, `docs/research/recherche-anforderungen.md` · Backlog: `docs/backlog.md`
 
 ## 1. Rahmen
 
@@ -203,12 +203,14 @@ Umfang: Rolle Mitarbeiter (MA), „Meine Geräte“, Übernahme/Rückgabe, Zuord
 - Jedes Gerät hat genau einen aktiven Token: 16 Byte aus einem kryptografisch sicheren Zufallsgenerator, base64url ohne Auffüllung, 22 Zeichen (128 Bit). Der Token entsteht beim Anlegen des Geräts; für den Bestand legt die Migration Tokens an. „Aufkleber erneuern“ (`etikett.verwalten`) deaktiviert den alten Token sofort und legt einen neuen an; Ereignis `etikett_erneuert`.
 - URL `{NEXT_PUBLIC_SITE_URL}/g/{token}`. Falsches Format, unbekannter oder deaktivierter Token ergeben dieselbe Seite „Dieser Aufkleber ist nicht gültig.“ mit HTTP 404, ohne Unterscheidung.
 - Inhalt ohne Login: Betrieb (Name), Bezeichnung, Inventarnummer, Hersteller, Typ; Nutzbarkeit (F-21) mit Grund; Gesamtstatus; nächste Fälligkeit; je Prüfart: Bezeichnung, Status, fällig am, Frist (Monate, Quelle, Stufe, Fundstelle) oder „Frist über GBU festlegen“, letzte Prüfung mit Herkunft, letzter Nachweis (Prüfdatum, Ergebnis, Prüfername); Zeitpunkt „Stand“.
-- Nicht enthalten: Personennamen außer dem Prüfernamen aus dem Nachweis (Pflichtinhalt § 14 Abs. 7 BetrSichV); kein Halter, keine Zuordnung, kein Freigebender, kein Melder; keine Mängelbeschreibungen (nur der Grund „Gefährlicher Mangel offen“); kein Nachweis-PDF (Q-38); keine Bereichsnamen, keine internen IDs; kein Verlauf.
+- Nicht enthalten: Personennamen außer dem Prüfernamen aus dem Nachweis (Pflichtinhalt § 14 Abs. 7 BetrSichV); kein Halter, keine Zuordnung, kein Freigebender, kein Melder; keine Mängelbeschreibungen (nur der Grund „Gefährlicher Mangel offen“); kein Nachweis-PDF (Q-38); keine Bereichsnamen; kein Verlauf (je Prüfart nur der neueste Nachweis, nur offene Anlässe).
+- Keine internen IDs (weder Gerät noch Organisation, Prüfart, Nachweis oder Anlass), damit sich alter und neuer Aufkleber nicht verknüpfen und Geräte keinem Betrieb zuordnen lassen. Prüfarten tragen in den Rohdaten nur eine laufende Nummer je Gerät (`nr`), Nachweise und Anlässe verweisen über `pruefart_nr`. Einzige Ausnahme: Ist der Aufrufer angemeldet, aktives Mitglied der Geräte-Organisation und ist diese seine aktuelle Organisation der Sitzung, erhält der Server zusätzlich die Geräte-ID (für MA-Kurzansicht und Link „Geräteakte öffnen“). Anonyme und fremde Aufrufer erhalten sie nie; ein geratener Organisationsparameter hilft nicht.
 - Antwort mit `Cache-Control: no-store`, `Referrer-Policy: same-origin`, `robots: noindex, nofollow`. `same-origin` statt `no-referrer`, weil Chrome bei `no-referrer` für Formular-POST ohne JavaScript `Origin: null` sendet und Next.js die Server Action dann ablehnt; die Token-URL geht weiterhin an keine fremde Origin (externe Links und Ressourcen erhalten keinen Referrer).
 - Aktionen: ohne Anmeldung „Anmelden und übernehmen“ (nur `wechselnd`) bzw. „Anmelden und Mangel melden“ → `/login?next=/g/{token}`. Mit MA-Sitzung derselben Organisation direkt „Gerät übernehmen“, „Zurückgeben“, „Mangel melden“ nach F-23/F-26. Mit anderer Rolle und Recht `geraet.lesen` im Geltungsbereich: Link „Geräteakte öffnen“. Gehört das Gerät nicht zur aktuellen Organisation der Sitzung: nur die öffentliche Ansicht.
 
 **F-25 QR-Etiketten (R-20, ohne NFC).**
-- Recht `etikett.verwalten`: ADM ganze Organisation, VER eigene Bereiche. Druckseite `/etiketten`: Auswahl nach Bereich und Kategorie (Default `wechselnd`) oder ein einzelnes Gerät aus der Geräteakte; höchstens 120 Etiketten je Druck; Geräte außerhalb des Geltungsbereichs werden ignoriert.
+- Recht `etikett.verwalten`: ADM ganze Organisation, VER eigene Bereiche. Druckseite `/etiketten`: Auswahl nach Bereich und Kategorie oder ein einzelnes Gerät aus der Geräteakte (`?geraet=`, hat Vorrang). Kategorie: ohne URL-Parameter `kategorie` gilt `wechselnd`; Parameter leer oder `alle` = alle Kategorien. Geräte außerhalb des Geltungsbereichs werden ignoriert.
+- Höchstens 120 Etiketten je Druck (`ETIKETTEN_MAX`). Passen mehr Geräte, werden die ersten 120 (Sortierung Bereich, Inventarnummer, Bezeichnung) gedruckt, und die Seite zeigt den Hinweis „Es passen {n} Geräte, gedruckt werden nur die ersten 120. Bitte nach Bereich oder Kategorie auswählen.“
 - Je Etikett: QR-Code der Token-URL (Fehlerkorrektur M, serverseitig mit npm-Paket `qrcode` erzeugt, kein externer Dienst), Kurz-URL als Text, Bezeichnung, Inventarnummer, Betrieb, Prüfplakette mit der nächsten Fälligkeit (Stand Druckdatum; `gbu` → „GBU“, `unbekannt` → „?“) und Text „Aktueller Status: QR scannen“.
 - Format Default A4, 3 × 8 Etiketten à 70 × 37 mm (Q-39). Ausgabe als Druckseite; „Als PDF speichern“ über den Browser. Kein serverseitiges PDF in I3M.
 - Drucken erzeugt kein Ereignis; Erneuern schon (F-24).
@@ -222,11 +224,11 @@ Umfang: Rolle Mitarbeiter (MA), „Meine Geräte“, Übernahme/Rückgabe, Zuord
 
 **F-27 Datensparsamkeit bei Zuordnung und Übernahme (R-45; Betriebsrats-Gate G-4 bleibt).**
 - Aktueller Halter (offene Übernahme) und Zuordnung mit Namen: ADM, SIF, VER (Bereich). PRF: nichts. Andere MA: nur „Wird von einer anderen Person genutzt“. Öffentlich: nichts.
-- Abgeschlossene Übernahmen mit Namen sieht nur ADM (`uebernahmen.lesen`), nur in der Geräteakte je Gerät, nur bis 90 Tage nach Ende (`UEBERNAHME_AUFBEWAHRUNG_TAGE`). Zweck: Aufklärung von Unfällen und Schäden („wer hatte das Gerät zuletzt“). Keine Ansicht je Person, keine Suche oder Filter nach Person, keine Zählung, kein Export.
+- Abgeschlossene Übernahmen mit Namen sieht nur ADM (`uebernahmen.lesen`), nur in der Geräteakte je Gerät, nur bis 90 Tage nach Ende (`UEBERNAHME_AUFBEWAHRUNG_TAGE`), ohne die beendende Person (`beendet_von`). Supabase: Kein direkter SELECT auf abgeschlossene Zeilen, auch nicht für ADM; der Verlauf kommt nur über die RPC `uebernahmen_verlauf(p_geraet)`, die die 90 Tage selbst prüft – unabhängig davon, ob die Pseudonymisierung gelaufen ist. Zweck: Aufklärung von Unfällen und Schäden („wer hatte das Gerät zuletzt“). Keine Ansicht je Person, keine Suche oder Filter nach Person, keine Zählung, kein Export.
 - Begründung ADM statt VER: Der VER ist meist direkter Vorgesetzter; eine Rückschau „wer hatte was wann“ beim Vorgesetzten ist die naheliegendste Form der Verhaltenskontrolle (§ 87 Abs. 1 Nr. 6 BetrVG). Der ADM verwaltet das Firmenkonto, braucht die Daten nur im Einzelfall und je Gerät.
-- Nach 90 Tagen entfernt ein täglicher Job Person und Namen aus abgeschlossenen Übernahmen (Pseudonymisierung); Gerät, Zeitraum und Ende-Art bleiben.
+- Nach 90 Tagen entfernt ein täglicher Job (`pg_cron`, 03:15 Europe/Berlin) Person, Namen und beendende Person aus abgeschlossenen Übernahmen (Pseudonymisierung); Gerät, Zeitraum und Ende-Art bleiben. Fehlt `pg_cron` im Supabase-Projekt, meldet die Migration das als WARNING mit Anleitung; der pgTAP-Test `cron_pseudonymisierung.test.sql` schlägt dann fehl (Gate G-5).
 - Übernahmen und die Person einer Zuordnung stehen nicht in `ereignis`, weil Ereignisse unveränderlich und unbefristet sind und so keine Löschfrist zuließen.
-- MA sehen nur eigene offene Übernahmen und eigene Zuordnungen.
+- MA sehen nur eigene offene Übernahmen und eigene Zuordnungen; eigene abgeschlossene Übernahmen nicht (auch nicht, wer sie beendet hat).
 - Änderungen an dieser Regel (Frist, Rollen) nur nach Abstimmung mit dem Betriebsrat (G-4).
 
 **F-28 Ereignisse I3M (R-24).**
@@ -343,7 +345,8 @@ Rollen: ADM Admin · SIF Sifa · VER Verantwortlicher · PRF Prüfer · MA Mitar
 - G: Aufkleber an L-001 (überfällig), nicht angemeldet. W: QR mit der Kamera-App scannen. T: Seite ohne Login mit „Nicht verwenden – Überfällig“, Betrieb, Gerät, Inventarnummer; je Prüfart fällig am, Frist mit Quelle, Stufe und Fundstelle, letzte Prüfung mit Herkunft, letzter Nachweis mit Prüfdatum, Ergebnis und Prüfername; „Stand“ mit Uhrzeit.
 - G: dieselbe Seite. T: kein weiterer Personenname (kein Halter, kein Freigebender, kein Melder), keine Mängelbeschreibung, kein PDF-Link, kein Bereichsname.
 - G: Token mit falschem Format, unbekannter Token, durch „Aufkleber erneuern“ deaktivierter Token. W: URL aufrufen. T: in allen drei Fällen dieselbe Seite „Dieser Aufkleber ist nicht gültig.“, HTTP 404.
-- G: neues Gerät. T: Token hat 22 Zeichen base64url aus 16 Zufallsbytes; Antwort trägt `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `noindex`.
+- G: neues Gerät. T: Token hat 22 Zeichen base64url aus 16 Zufallsbytes; Antwort trägt `Cache-Control: no-store`, `Referrer-Policy: same-origin`, `noindex` (Begründung `same-origin` siehe F-24).
+- G: QR-Seite, nicht angemeldet. W: Antwort (HTML und RPC-Ergebnis) untersuchen. T: keine UUID von Gerät, Organisation, Prüfart, Nachweis oder Anlass. G: angemeldetes Mitglied einer anderen Organisation. T: ebenfalls keine Geräte-ID.
 - G: nicht angemeldet, Gerät `wechselnd`. W: „Anmelden und übernehmen“. T: `/login?next=/g/{token}`; nach Anmeldung als MA zurück auf der QR-Seite mit Button „Gerät übernehmen“ (noch nicht übernommen).
 - G: VER Lager angemeldet. W: QR von L-003 scannen. T: zusätzlich Link „Geräteakte öffnen“. W: QR von P-001 scannen. T: nur die öffentliche Ansicht.
 
@@ -425,12 +428,16 @@ Rollen: ADM Admin · SIF Sifa · VER Verantwortlicher · PRF Prüfer · MA Mitar
 - G: VER Lager. W: `/etiketten`, Bereich Lager, Kategorie „Wechselnder Einsatzort“, „Etiketten anzeigen“. T: Druckseite mit 4 Etiketten (L-001, L-002, L-006, L-008), je QR, Kurz-URL, Bezeichnung, Inventarnummer, Betrieb, Prüfplakette; Druckvorschau zeigt A4 mit 3 × 8 Feldern à 70 × 37 mm.
 - G: gedrucktes Etikett. W: QR scannen. T: öffnet `/g/{token}` genau dieses Geräts.
 - G: VER Lager. W: `/etiketten?geraet={P-001}`. T: P-001 nicht enthalten (Leerzustand).
-- G: Akte L-002. W: „Aufkleber erneuern“, Bestätigung „Der alte Aufkleber wird ungültig“. T: alter QR → „Dieser Aufkleber ist nicht gültig.“; neues Etikett druckbar; Ereignis `etikett_erneuert`.
+- G: Akte L-002. W: „Aufkleber erneuern“ ohne Bestätigungs-Checkbox. T: Feldfehler „Bitte bestätigen, dass der alte Aufkleber ungültig wird.“ W: mit Checkbox (kein Dialog, Design E-5). T: alter QR → „Dieser Aufkleber ist nicht gültig.“; neues Etikett druckbar; Ereignis `etikett_erneuert`.
 - G: MA, PRF, SIF. W: `/etiketten`. T: 404.
+- G: ADM. W: `/etiketten?kategorie=alle` (oder `kategorie=` leer). T: Etiketten aller Kategorien. W: `/etiketten` ohne Parameter. T: nur `wechselnd`.
+- G: mehr als 120 passende Geräte. T: 120 Etiketten und Hinweis „Es passen {n} Geräte, gedruckt werden nur die ersten 120. …“.
 
 **US-32 Übernahmen datensparsam (F-27, R-45, I3M)** – Als Betriebsrat will ich, dass die App keine Rückschau „wer hatte was wann“ für Vorgesetzte bietet, damit sie nicht zur Verhaltenskontrolle dient.
 - G: L-006 vor 20 Tagen von Aylin übernommen und zurückgegeben. W: ADM öffnet die Akte. T: Abschnitt „Übernahmen der letzten 90 Tage“ mit Name, von, bis, Ende-Art.
-- G: VER Lager oder SIF. W: Akte L-006. T: nur aktueller Halter (hier keiner); keine abgeschlossenen Übernahmen. Supabase: RLS liefert keine Zeilen.
+- G: VER Lager oder SIF. W: Akte L-006. T: nur aktueller Halter (hier keiner); keine abgeschlossenen Übernahmen. Supabase: RLS liefert keine abgeschlossenen Zeilen; `uebernahmen_verlauf` liefert für Nicht-Admins keine Zeilen.
+- G: Supabase, ADM. W: direkter SELECT auf `uebernahme`. T: nur offene Zeilen; der Verlauf kommt nur über `uebernahmen_verlauf(p_geraet)` (ein Gerät, Ende ≤ 90 Tage, ohne `beendet_von`).
+- G: MA. W: direkter SELECT auf `uebernahme`. T: nur eigene offene Zeilen.
 - G: Übernahme vor 120 Tagen beendet. T: Datensatz ohne Person und ohne Namen; nirgends mit Namen sichtbar.
 - G: beliebige Rolle. T: es gibt keine Ansicht „Übernahmen je Person“, keine Zählung, keinen Export von Übernahmen.
 - G: PRF öffnet ein zugewiesenes Gerät. T: keine Angaben zu Halter oder Zuordnung.
@@ -441,7 +448,7 @@ Rollen: ADM Admin · SIF Sifa · VER Verantwortlicher · PRF Prüfer · MA Mitar
 - T: keine Funktion verlangt Installation, Kamera-Berechtigung, Service Worker oder Push.
 - G: gemeinsam genutzter PC. W: Menü „Abmelden“. T: Sitzung beendet, zurück auf `/login` mit Hinweis „An gemeinsam genutzten Computern nach der Arbeit abmelden.“
 
-**Pilot-Gates (kein Code):** G-1 Katalogeinträge der Pilotgeräte vom Sicherheitsingenieur freigegeben (R-40). G-2 AVV, TOM, Unterauftragsverarbeiter-Liste unterschrieben (R-42). G-3 Supabase-Projekt in EU-Region (R-43). G-4 Betriebsrat informiert, Betriebsvereinbarung oder schriftlicher Verzicht, bevor im Pilot der erste Mitarbeiter eingeladen wird (R-44; Grundlage: F-27 und Datenkatalog §6a). Ohne Betriebsrat: schriftliche Bestätigung der Geschäftsführung, dass keiner besteht. G-5 Migrationen I1+I2+I3M gegen echte Supabase eingespielt (I3M inkl. `pg_cron`-Job für F-27), pgTAP-RLS-Tests (`supabase test db`) grün, E-Mail-Vorlagen (Einladung, Passwort) und SMTP-Absender mit EU-Anbieter eingerichtet – vor dem ersten echten Datensatz.
+**Pilot-Gates (kein Code):** G-1 Katalogeinträge der Pilotgeräte vom Sicherheitsingenieur freigegeben (R-40). G-2 AVV, TOM, Unterauftragsverarbeiter-Liste unterschrieben (R-42). G-3 Supabase-Projekt in EU-Region (R-43). G-4 Betriebsrat informiert, Betriebsvereinbarung oder schriftlicher Verzicht, bevor im Pilot der erste Mitarbeiter eingeladen wird (R-44; Grundlage: F-27 und Datenkatalog §6a). Ohne Betriebsrat: schriftliche Bestätigung der Geschäftsführung, dass keiner besteht. G-5 Migrationen I1+I2+I3M (inkl. `20261129000000_review_i3m.sql`) gegen echte Supabase eingespielt (I3M inkl. `pg_cron`-Job für F-27; keine WARNING „READYLOOP F-27“ beim Einspielen, `cron_pseudonymisierung.test.sql` grün), pgTAP-RLS-Tests (`supabase test db`) grün, E-Mail-Vorlagen (Einladung, Passwort) und SMTP-Absender mit EU-Anbieter eingerichtet – vor dem ersten echten Datensatz.
 
 ## 5. Datenmodell
 
@@ -470,7 +477,13 @@ Ereignisse I1: `geraet_angelegt`, `frist_freigegeben` (alte und neue Frist in `d
 
 RPCs (Supabase, `security invoker`, damit RLS greift und mehrere Schreibvorgänge eine Transaktion sind): `geraet_anlegen`, `frist_setzen`, `geraet_verschieben`, `betriebsstatus_setzen`, `mitglied_speichern`; I3M: `etikett_erneuern`. Begründungen und Nachweisbezug gelangen über `set_config('readyloop.kontext', …, true)` in die Ereignis-Trigger.
 
-RPCs I3M mit `security definer` (bewusste Ausnahme, weil MA und anonyme Aufrufer keine SELECT-Rechte auf Fachtabellen haben; jede Funktion prüft Mitgliedschaft und Regeln selbst und liefert nur Felder der öffentlichen Ansicht): `geraet_oeffentlich(p_token)` (einzige Funktion mit `grant execute … to anon`), `ma_kurzansichten(p_org, p_art, p_suche, p_ids)`, `uebernahme_starten(p_geraet)`, `uebernahme_beenden(p_geraet)`. Job `app.uebernahmen_pseudonymisieren()` täglich per `pg_cron` (F-27).
+RPCs I3M mit `security definer` (bewusste Ausnahme, weil MA und anonyme Aufrufer keine SELECT-Rechte auf Fachtabellen haben; jede Funktion prüft Mitgliedschaft und Regeln selbst und liefert nur Felder der öffentlichen Ansicht): 
+- `geraet_oeffentlich(p_token text, p_organisation uuid default null) returns jsonb` – einzige Funktion mit `grant execute … to anon`. `null` bei falschem Format, unbekanntem oder inaktivem Token. Liefert Status-JSON ohne interne IDs (F-24) plus `organisation_name`. `p_organisation` = aktuelle Organisation der Sitzung (anon: `null`); nur wenn sie die Geräte-Organisation ist und der Aufrufer (`auth.uid()`) dort aktives Mitglied ist, zusätzlich `geraet_id` und `gleiche_organisation`. Aufruf nur mit `p_token` bleibt gültig.
+- `ma_kurzansichten(p_org, p_art, p_suche, p_ids)` – nur aktives MA-Mitglied von `p_org`; Status-JSON plus `geraet_id` auf oberster Ebene, `bereich_name`, `zugeordnet_mir`, `offene_uebernahme` (`seit` nur bei eigener).
+- `uebernahme_starten(p_geraet)`, `uebernahme_beenden(p_geraet)`.
+- `uebernahmen_verlauf(p_geraet uuid)` – nur ADM der Geräte-Organisation, genau ein Gerät, nur abgeschlossene Übernahmen mit Person und Ende innerhalb der letzten 90 Tage, neueste zuerst; Spalten ohne `beendet_von`. Kein Parameter für Person, keine Liste über mehrere Geräte. Für Nicht-Admins leer.
+- Hilfsfunktion `app.geraet_status_json(p_geraet)` (nicht ausführbar für `anon`/`public`) erzeugt das gemeinsame Status-JSON; gespiegelt in `StatusRohdaten` (Backlog §7.7).
+- Job `app.uebernahmen_pseudonymisieren()` täglich per `pg_cron` (F-27).
 
 Speicherung PDF: Supabase Storage, privater Bucket `nachweise`, Pfad `{organisation_id}/{geraet_id}/{geraet_pruefart_id}/{nachweis_id}.pdf` (Prüfart im Pfad, damit Storage-Rechte pro Prüfart greifen).
 
@@ -504,7 +517,7 @@ Rollenebene = `can(rolle, aktion)`. Geltungsbereich zusätzlich: ADM/SIF ganze O
 | geraet.uebernehmen (I3M, inkl. zurückgeben) | – | – | – | – | ✓ nur `wechselnd`, `in_betrieb`, nicht „nicht verwenden“; zurückgeben nur eigene |
 | geraet.zuordnen (I3M: personenbezogen zuordnen/lösen, fremde Übernahme beenden) | ✓ | – | ✓ Bereich | – | – |
 | Halter und Zuordnung mit Namen sehen (I3M, Teil von geraet.lesen) | ✓ | ✓ | ✓ Bereich | – | nur eigene; sonst „andere Person“ |
-| uebernahmen.lesen (I3M: abgeschlossene Übernahmen, 90 Tage, je Gerät) | ✓ | – | – | – | – |
+| uebernahmen.lesen (I3M: abgeschlossene Übernahmen, ≤ 90 Tage nach Ende, je Gerät, ohne beendende Person; Supabase nur über RPC `uebernahmen_verlauf`) | ✓ ein Gerät | – | – | – | – |
 | etikett.verwalten (I3M: drucken, erneuern) | ✓ | – | ✓ Bereich | – | – |
 | mitarbeiter.einladen (I3M) | ✓ | – | ✓ nur Rolle `mitarbeiter` | – | – |
 | Öffentliche QR-Seite `/g/{token}` (I3M) | jeder, auch ohne Login | ← | ← | ← | ← |
@@ -516,12 +529,12 @@ RLS-Ausnahme I2: `bereich_verantwortung` erhält als einzige Tabelle eine DELETE
 
 RLS I3M (Kurzfassung, Details Backlog BE-19):
 - MA haben **keine** SELECT-Policy auf `geraet`, `geraet_pruefart`, `nachweis`, `anlass`, `mangel`, `ereignis`, `geraet_token`. Sie lesen nur über `ma_kurzansichten` (security definer, nur öffentliche Felder).
-- `uebernahme` SELECT: eigene Zeilen; ADM alle der Organisation; SIF und VER (Bereich) nur offene Zeilen (`bis is null`); PRF keine. Schreiben nur über `uebernahme_starten`/`uebernahme_beenden`, Trigger (Austritt) und den Pseudonymisierungs-Job.
+- `uebernahme` SELECT: **nur offene Zeilen** (`bis is null`) – MA nur eigene offene; ADM und SIF offene der Organisation; VER offene im Bereich; PRF keine. Abgeschlossene Zeilen liest niemand direkt, auch ADM nicht; ADM erhält den Verlauf nur über `uebernahmen_verlauf(p_geraet)` (ein Gerät, ≤ 90 Tage, ohne `beendet_von`). Schreiben nur über `uebernahme_starten`/`uebernahme_beenden`, Trigger (Austritt) und den Pseudonymisierungs-Job.
 - `mangel` INSERT zusätzlich für MA: `geraet_pruefart_id`, `nachweis_id`, `verantwortlich_id` null, `erfasst_von = auth.uid()`, Termin = heute + Tage nach Schwere.
 - `geraet.zugeordnet_an` UPDATE: ADM oder VER (Bereich), Ziel aktives MA-Mitglied derselben Organisation, nur `personenbezogen`.
 - `geraet_token` SELECT/INSERT/UPDATE: ADM, VER (Bereich); UPDATE nur `aktiv → false`.
 - `mitgliedschaft` INSERT zusätzlich für VER, nur Rolle `mitarbeiter`, ohne Bereichszuordnung.
-- `anon`: nur `execute` auf `geraet_oeffentlich`; alle übrigen Funktionen ausdrücklich `revoke execute … from anon, public`.
+- `anon`: nur `execute` auf `geraet_oeffentlich(text, uuid)`; alle übrigen Funktionen (auch `app.geraet_status_json`, `ma_kurzansichten`, `uebernahmen_verlauf`) ausdrücklich `revoke execute … from anon, public`.
 
 ## 6a. Datenkatalog Mitarbeiter (Baustein Betriebsrats-Paket R-44, G-4)
 
@@ -529,8 +542,9 @@ RLS I3M (Kurzfassung, Details Backlog BE-19):
 |---|---|---|---|
 | Name, E-Mail, Rolle, aktiv | Anmeldung, Einladung | ADM; VER (Liste `/mitarbeiter`) | bis Deaktivierung; danach Name in Ereignissen/Mängeln wie andere Rollen |
 | Zuordnung personenbezogenes Gerät (aktuell) | MA sieht Prüfstatus seiner PSA/Werkzeuge | ADM, SIF, VER (Bereich), MA selbst | bis Lösen oder Austritt; keine Historie mit Person |
-| Offene Übernahme (Halter, seit) | Gerät auffinden, Prüfung veranlassen | ADM, SIF, VER (Bereich), MA selbst | bis Ende der Übernahme |
-| Abgeschlossene Übernahme (Person, von, bis, Ende-Art) | Unfall- und Schadensaufklärung | nur ADM, je Gerät | 90 Tage nach Ende, dann ohne Person |
+| Offene Übernahme (Halter, seit) | Gerät auffinden, Prüfung veranlassen | ADM, SIF, VER (Bereich), MA nur die eigene; andere MA nur „Wird von einer anderen Person genutzt“ | bis Ende der Übernahme |
+| Abgeschlossene Übernahme (Person, von, bis, Ende-Art) | Unfall- und Schadensaufklärung | nur ADM, je Gerät in der Geräteakte (Supabase nur über `uebernahmen_verlauf`, kein direkter Tabellenzugriff); MA, SIF, VER, PRF nicht – auch nicht die eigenen | Anzeige höchstens 90 Tage nach Ende (unabhängig vom Job); täglicher Job entfernt danach Person und Namen |
+| Beendende Person einer Übernahme (`beendet_von`, Benutzer-ID) | technische Nachvollziehbarkeit des Endes (Übergabe, Beenden durch Verwaltung) | niemand in der App | wie abgeschlossene Übernahme: nach 90 Tagen entfernt |
 | Gemeldeter Mangel (Name des Melders, Zeitpunkt, Beschreibung) | Rückfragen, Sicherheitsdokumentation (R-12) | ADM, SIF, VER (Bereich) | wie Mängel (unbefristet, R-02/Q-12) |
 | Login-Zeitpunkte | Betrieb der Anmeldung | nur Plattform (Supabase-Auth-Protokoll), nicht in der App | nach Supabase-Standard; in AVV/TOM benennen (G-2) |
 
