@@ -19,8 +19,15 @@ import {
   PRUEF_ERGEBNISSE,
   PRUEFER_TYPEN,
   ROLLEN,
+  LAUF_AUSLOESER,
+  LAUF_STATUS,
+  MAIL_ARTEN,
+  MAIL_FEHLER_CODES,
+  POSTEN_ARTEN,
+  POSTEN_ROLLEN,
   STUFEN,
   UEBERNAHME_ENDE_ARTEN,
+  VERSAND_STATUS,
 } from '@/domain/types';
 
 const SQL = readFileSync(path.resolve(__dirname, '../supabase/migrations/20261119000000_init.sql'), 'utf8');
@@ -360,7 +367,7 @@ describe('Migration Inkrement I3M', () => {
   it('Migrationsversionen sind eindeutig (Zeitstempel-Präfix)', () => {
     const versionen = readdirSync(MIGRATIONEN).filter((f) => f.endsWith('.sql')).map((f) => f.split('_')[0]);
     expect(new Set(versionen).size).toBe(versionen.length);
-    expect(versionen.at(-1)).toBe('20261129000000');
+    expect(versionen.at(-1)).toBe('20261130000000'); // I3 (BE-27)
   });
 
   it('neue Tabellen geraet_token und uebernahme mit RLS und organisation_id', () => {
@@ -524,6 +531,168 @@ describe('Migration Review I3M', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Inkrement I3 – E-Mail-Erinnerungen (BE-27): eigene Migration, frühere unverändert
+// ---------------------------------------------------------------------------
+
+const SQL6 = readFileSync(path.join(MIGRATIONEN, '20261130000000_inkrement3.sql'), 'utf8');
+const sql6OhneKommentare = SQL6.replace(/--.*$/gm, '');
+const klein6 = sql6OhneKommentare.toLowerCase();
+const tabellen6 = [...klein6.matchAll(/create table public\.(\w+)/g)].map((m) => m[1]);
+const policies6 = [...klein6.matchAll(/create policy (\w+) on ([\w.]+)\s+for (\w+)(?:\s+to (\w+))?/g)].map((m) => ({
+  name: m[1],
+  tabelle: m[2],
+  befehl: m[3],
+  rolle: m[4],
+}));
+const funktionen6 = [...klein6.matchAll(/create or replace function ((?:app|public)\.\w+)\(([^)]*)\)/g)].map((m) => ({
+  name: m[1],
+  signatur: `${m[1]}(${m[2]
+    .split(',')
+    .map((p) => p.trim().split(/\s+/)[1])
+    .filter(Boolean)
+    .join(', ')})`,
+}));
+const block6 = (start: string) => klein6.split(start)[1].split('$$;')[0];
+const esc = (t: string) => t.replace(/[().[\]|*+?]/g, '\\$&');
+const SYSTEM_RPCS = [
+  'public.erinnerung_lauf_starten(date, text, boolean)',
+  'public.erinnerung_lauf_beenden(uuid, text)',
+  'public.erinnerung_versand_reservieren(jsonb, jsonb)',
+  'public.erinnerung_versand_status(uuid, text, int, text, text)',
+  'public.erinnerung_status_per_anbieter(text, text)',
+  'public.mail_abmelden_system(uuid, uuid, text, boolean)',
+];
+
+describe('Migration Inkrement I3', () => {
+  it('fünf neue Tabellen, RLS an, organisation_id auf allen außer erinnerung_lauf', () => {
+    expect(tabellen6.sort()).toEqual(['erinnerung_einstellung', 'erinnerung_lauf', 'erinnerung_posten', 'mail_abmeldung', 'mail_versand']);
+    for (const t of tabellen6) {
+      expect(klein6, t).toContain(`alter table public.${t} enable row level security`);
+      const block = klein6.split(`create table public.${t} (`)[1].split(');')[0];
+      if (t === 'erinnerung_lauf') expect(block).not.toContain('organisation_id');
+      else expect(block, t).toMatch(/organisation_id uuid not null/);
+    }
+  });
+
+  it('keine Policy auf Versand, Posten, Lauf; keine DELETE-Policy; Policies nur für authenticated', () => {
+    for (const t of ['mail_versand', 'erinnerung_posten', 'erinnerung_lauf']) {
+      expect(policies6.filter((p) => p.tabelle === `public.${t}`), t).toEqual([]);
+    }
+    expect(policies6.filter((p) => p.befehl === 'delete' || p.befehl === 'all')).toEqual([]);
+    expect(policies6.length).toBeGreaterThanOrEqual(6);
+    for (const p of policies6) expect(p.rolle, p.name).toBe('authenticated');
+    expect(klein6).toMatch(/revoke all on public\.erinnerung_lauf, public\.mail_versand, public\.erinnerung_posten from authenticated/);
+  });
+
+  it('Versand ohne Betreff, Inhalt, E-Mail-Adresse (F-41)', () => {
+    const block = klein6.split('create table public.mail_versand (')[1].split(');')[0];
+    for (const verboten of ['betreff', 'subject', 'html', 'email', 'adresse', 'inhalt']) {
+      expect(block.replace(/--.*$/gm, ''), verboten).not.toMatch(new RegExp(`\\b${verboten.trim()}\\b`));
+    }
+    expect(block).toContain('unique (organisation_id, empfaenger_benutzer_id, lauf_datum)');
+    expect(block).toContain('check (versuche between 0 and 3)');
+    expect(klein6).toContain('unique (versand_id, schluessel)');
+    expect(klein6).toMatch(/create unique index erinnerung_lauf_ein_laufender on public\.erinnerung_lauf \(lauf_datum\) where status = 'laeuft'/);
+  });
+
+  it.each([
+    ['art', [...MAIL_ARTEN, ...POSTEN_ARTEN, 'pruefer_woche', 'ma_hinweis']],
+    ['status', [...VERSAND_STATUS, ...LAUF_STATUS]],
+    ['fehler_code', MAIL_FEHLER_CODES],
+    ['ausloeser', LAUF_AUSLOESER],
+    ['rolle', POSTEN_ROLLEN],
+    ['typ', EREIGNIS_TYPEN],
+  ] as const)('Check %s enthält genau die Werte aus types.ts', (spalte, werte) => {
+    expect([...alleWerte(sql6OhneKommentare, spalte)].sort()).toEqual([...new Set(werte)].sort());
+  });
+
+  it('jede neue Funktion: revoke execute from public, anon; search_path gesetzt', () => {
+    expect(funktionen6.length).toBeGreaterThanOrEqual(18);
+    for (const f of funktionen6) {
+      expect(klein6, f.signatur).toMatch(new RegExp(`revoke execute on function ${esc(f.signatur)} from public, anon`));
+      const kopf = klein6.split(`create or replace function ${f.name}(`)[1].split('$$')[0];
+      expect(kopf, f.name).toContain('set search_path');
+    }
+  });
+
+  it('System-RPCs: security definer, revoke auch von authenticated, grant nur an service_role', () => {
+    for (const sig of SYSTEM_RPCS) {
+      const name = sig.split('(')[0];
+      const kopf = klein6.split(`create or replace function ${name}(`)[1].split('$$')[0];
+      expect(kopf, sig).toContain('security definer');
+      expect(kopf, sig).toContain('set search_path = public, pg_temp');
+      expect(klein6, sig).toMatch(new RegExp(`revoke execute on function ${esc(sig)} from public, anon, authenticated`));
+    }
+    const grant = klein6.match(/grant execute on function (public\.erinnerung_lauf_starten[^;]*?) to (\w+);/)!;
+    expect(grant[2]).toBe('service_role');
+    for (const sig of SYSTEM_RPCS) expect(grant[1].replace(/\s+/g, ' '), sig).toContain(sig);
+    for (const f of ['app.mail_pseudonymisieren()', 'app.erinnerungen_ausloesen()']) {
+      expect(klein6, f).toMatch(new RegExp(`revoke execute on function ${esc(f)} from public, anon, authenticated`));
+    }
+  });
+
+  it('mail_protokoll: nur ADM/SIF (42501), authenticated ja, anon nein, MA-Hinweise maskiert, kein Personenfilter', () => {
+    const kopf = klein6.split('create or replace function public.mail_protokoll(')[1].split('$$')[0];
+    expect(kopf).toContain('security definer');
+    expect(kopf).not.toMatch(/p_(empfaenger|benutzer|person)/);
+    const rumpf = block6('create or replace function public.mail_protokoll(');
+    expect(rumpf).toContain("app.hat_rolle(p_org, array['admin', 'sifa'])");
+    expect(rumpf).toContain("errcode = '42501'");
+    expect(rumpf).toContain("v.art <> 'ma_hinweis' or v.status in ('fehler', 'bounce', 'beschwerde') as sichtbar");
+    expect(rumpf).toContain("p_status = 'probleme' and v.status in ('fehler', 'bounce', 'beschwerde')");
+    expect(klein6).toContain('grant execute on function public.mail_protokoll(uuid, date, date, text, text, uuid, int, int) to authenticated;');
+  });
+
+  it('anon: keine neue Freigabe (grant execute an anon bleibt genau einmal: geraet_oeffentlich)', () => {
+    expect([...klein6.matchAll(/grant execute on function [^;]*? to ([^;]*);/g)].filter((m) => /\banon\b/.test(m[1]))).toEqual([]);
+    expect(klein6).not.toMatch(/grant [^;]* to [^;]*\banon\b/);
+  });
+
+  it('Unveränderlichkeit: Trigger auf Posten, Versand, Lauf; Statusübergänge nach F-41; kein DELETE', () => {
+    const versand = block6('create or replace function app.mail_versand_pruefen(');
+    expect(versand).toContain("(old.status = 'vorbereitet' and new.status in ('versendet', 'fehler', 'vorschau'))");
+    expect(versand).toContain("(old.status = 'versendet' and new.status in ('zugestellt', 'bounce', 'beschwerde'))");
+    expect(versand).toContain("(old.status = 'zugestellt' and new.status in ('bounce', 'beschwerde'))");
+    for (const t of ['mail_versand', 'erinnerung_posten', 'erinnerung_lauf']) {
+      expect(klein6, t).toMatch(new RegExp(`before delete on public\\.${t}\\s+for each row execute function app\\.verbiete_loeschen\\(\\)`));
+      expect(klein6, t).toMatch(new RegExp(`before update on public\\.${t}\\s+for each row`));
+    }
+  });
+
+  it('Einstellung: Trigger stempelt, prüft Auswahl (23514) und schreibt Ereignis mit alt/neu', () => {
+    const pruefen = block6('create or replace function app.erinnerung_einstellung_pruefen(');
+    expect(pruefen).toContain("errcode = '23514'");
+    expect(pruefen).toContain('new.geaendert_von := auth.uid()');
+    const ereignis = block6('create or replace function app.erinnerung_einstellung_ereignis(');
+    expect(ereignis).toContain("'erinnerung_einstellung_gespeichert'");
+    expect(ereignis).toMatch(/'alt', case when tg_op = 'update' then app\.erinnerung_einstellung_json\(old\) else null end/);
+    expect(klein6).toContain('check (app.staffel_gueltig(staffel_tage))');
+    expect(klein6).toContain('eskalation_sifa <= eskalation_admin and eskalation_admin <= 90');
+  });
+
+  it('Jobs: Lauf Mo–Fr 05:00 UTC über pg_net mit Vault-Secrets; Pseudonymisierung 03:20 Berlin; laute Warnung', () => {
+    expect(SQL6).toContain("perform cron.schedule(v_job_lauf, '0 5 * * 1-5', v_cmd_lauf)");
+    expect(SQL6).toContain("perform cron.schedule(v_job_pseudo, '20 1,2 * * *', v_cmd_pseudo)");
+    expect(SQL6).toContain("extract(hour from now() at time zone 'Europe/Berlin') = 3");
+    const ausloesen = block6('create or replace function app.erinnerungen_ausloesen(');
+    expect(ausloesen).toContain("name = 'readyloop_cron_url'");
+    expect(ausloesen).toContain("name = 'readyloop_cron_secret'");
+    expect(ausloesen).toContain('net.http_post(');
+    expect(ausloesen).toContain('timeout_milliseconds := 55000');
+    expect(ausloesen).toContain(`'{"ausloeser":"pg_cron"}'`);
+    expect(SQL6).toMatch(/raise warning 'READYLOOP F-36: Vault-Secrets fehlen/);
+    expect(SQL6.match(/message = 'READYLOOP F-36:/g)?.length).toBe(2);
+    expect(block6('create or replace function app.mail_pseudonymisieren(')).toContain("interval '90 days'");
+  });
+
+  it('frühere Migrationen bleiben unverändert (I3-Ereignistyp nur in der neuen Migration)', () => {
+    for (const f of readdirSync(MIGRATIONEN).filter((x) => x.endsWith('.sql') && !x.startsWith('20261130'))) {
+      expect(readFileSync(path.join(MIGRATIONEN, f), 'utf8'), f).not.toContain('erinnerung');
+    }
+  });
+});
+
 const PG = process.env.RL_TEST_PG;
 
 describe.skipIf(!PG)('Migration gegen Postgres (RL_TEST_PG)', () => {
@@ -547,7 +716,13 @@ describe.skipIf(!PG)('Migration gegen Postgres (RL_TEST_PG)', () => {
     psql(ziel, '../supabase/migrations/20261127000000_review_i2.sql');
     psql(ziel, '../supabase/migrations/20261128000000_inkrement3m.sql');
     psql(ziel, '../supabase/migrations/20261129000000_review_i3m.sql');
-    return [psql(ziel, 'sql/rls-szenario.sql'), psql(ziel, 'sql/rls-szenario-i2.sql'), psql(ziel, 'sql/rls-szenario-i3m.sql')]
+    psql(ziel, '../supabase/migrations/20261130000000_inkrement3.sql');
+    return [
+      psql(ziel, 'sql/rls-szenario.sql'),
+      psql(ziel, 'sql/rls-szenario-i2.sql'),
+      psql(ziel, 'sql/rls-szenario-i3m.sql'),
+      psql(ziel, 'sql/rls-szenario-i3.sql'),
+    ]
       .join('\n')
       .split('\n')
       .map((z) => z.match(/^(.*) \(erw\. (.*)\): (.*)$/))
