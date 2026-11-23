@@ -1,0 +1,223 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Snapshots je Art > u-jonas: Text und HTML > betreff 1`] = `"Readyloop · Nicht verwenden: Stehleiter 6 Stufen"`;
+
+exports[`Snapshots je Art > u-jonas: Text und HTML > html 1`] = `"<!DOCTYPE html><html lang="de" xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>Readyloop · Nicht verwenden: Stehleiter 6 Stufen</title><style>.m{font-family:Menlo,Consolas,'Courier New',monospace}</style><!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><style>table,td,div,p,a,span,b,h1,h2{font-family:'Segoe UI',Arial,sans-serif !important}.m{font-family:Consolas,'Courier New',monospace !important}</style><![endif]--></head><body style="margin:0;padding:0;background:#f5f3ee;color:#1e2328;-webkit-text-size-adjust:100%"><div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f5f3ee">Überfällig. Gerät nicht benutzen und den Verantwortlichen informieren.&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f5f3ee" style="background:#f5f3ee"><tr><td align="center" style="padding:16px 8px"><!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]--><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;color:#1e2328;text-align:left"><tr><td bgcolor="#44546a" style="background:#44546a;padding:14px 24px;border-radius:6px 6px 0 0;color:#ffffff"><div style="font-size:18px;line-height:24px;font-weight:700;color:#ffffff">Readyloop</div><div style="font-size:14px;line-height:20px;color:#ffffff">Elbtal Fördertechnik GmbH</div><h1 style="margin:0;font-size:14px;line-height:20px;font-weight:400;color:#ffffff">Hinweis „Nicht verwenden“ vom 30.11.2026</h1></td></tr><tr><td bgcolor="#ffffff" style="background:#ffffff;padding:24px;border:1px solid #c5ccd5;border-top:0;border-radius:0 0 6px 6px"><p style="margin:0 0 12px;font-size:16px;line-height:24px">Guten Tag,</p><p style="margin:0 0 16px;font-size:16px;line-height:24px">ein Gerät, das Sie haben, darf ab sofort nicht benutzt werden.</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#a6452f" style="background:#a6452f;border-radius:6px;padding:16px 20px;color:#ffffff"><p style="margin:0;font-size:22px;line-height:28px;font-weight:700;color:#ffffff">✕ Nicht verwenden</p><p style="margin:4px 0 0;font-size:16px;line-height:24px;color:#ffffff">Gerät nicht benutzen. Verantwortlichen informieren.</p></td></tr><tr><td height="16" style="font-size:0;line-height:0">&nbsp;</td></tr></table><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#44546a" style="background:#44546a;border-radius:4px"><a href="https://app.readyloop.example/meine-geraete" style="display:inline-block;border-top:12px solid #44546a;border-bottom:12px solid #44546a;border-left:20px solid #44546a;border-right:20px solid #44546a;border-radius:4px;background:#44546a;color:#ffffff;font-size:16px;line-height:20px;font-weight:700;text-decoration:none">Meine Geräte öffnen</a></td></tr></table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="20" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td style="padding:12px 0;border-top:1px solid #c5ccd5;font-size:16px;line-height:24px"><b>Stehleiter 6 Stufen</b><br><span class="m">L-008</span><br>Grund: <b>Überfällig</b><br>Gerät nicht verwenden, den Verantwortlichen informieren und zurückgeben.</td></tr></table><p style="margin:16px 0 0;font-size:14px;line-height:20px;color:#44546a">Den aktuellen Stand zeigen „Meine Geräte“ und der QR-Code am Gerät.</p></td></tr><tr><td style="padding:16px 24px 24px;font-size:13px;line-height:18px;color:#44546a"><p style="margin:0 0 8px">Sie erhalten diese Mail als Mitarbeiter bei Elbtal Fördertechnik GmbH.</p><p style="margin:0 0 8px"><a href="https://app.readyloop.example/abmelden?t=tok.sig" style="color:#44546a">Diese Mails abbestellen</a> · <a href="https://app.readyloop.example/einstellungen/benachrichtigungen" style="color:#44546a">Benachrichtigungen in Readyloop</a></p><p style="margin:0">Readyloop – Prüffristen für Arbeitsmittel. Automatisch erstellt am 30.11.2026. Den aktuellen Stand zeigt Readyloop.</p></td></tr></table><!--[if mso]></td></tr></table><![endif]--></td></tr></table></body></html>"`;
+
+exports[`Snapshots je Art > u-jonas: Text und HTML > text 1`] = `
+"Readyloop · Elbtal Fördertechnik GmbH
+Hinweis „Nicht verwenden“ vom 30.11.2026
+
+Guten Tag,
+
+ein Gerät, das Sie haben, darf ab sofort nicht benutzt werden.
+
+✕ NICHT VERWENDEN
+Gerät nicht benutzen. Verantwortlichen informieren.
+
+Meine Geräte öffnen:
+https://app.readyloop.example/meine-geraete
+
+Stehleiter 6 Stufen
+  L-008
+  Grund: Überfällig
+  Gerät nicht verwenden, den Verantwortlichen informieren und
+  zurückgeben.
+
+Den aktuellen Stand zeigen „Meine Geräte“ und der QR-Code am Gerät.
+
+------------------------------------------------------------------------
+Sie erhalten diese Mail als Mitarbeiter bei Elbtal Fördertechnik GmbH.
+Diese Mails abbestellen:
+https://app.readyloop.example/abmelden?t=tok.sig
+Benachrichtigungen in Readyloop:
+https://app.readyloop.example/einstellungen/benachrichtigungen
+
+Readyloop – Prüffristen für Arbeitsmittel. Automatisch erstellt am
+30.11.2026. Den aktuellen Stand zeigt Readyloop.
+"
+`;
+
+exports[`Snapshots je Art > u-prf: Text und HTML > betreff 1`] = `"Readyloop · Elbtal Fördertechnik GmbH: 5 Prüfungen fällig (KW 49)"`;
+
+exports[`Snapshots je Art > u-prf: Text und HTML > html 1`] = `"<!DOCTYPE html><html lang="de" xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>Readyloop · Elbtal Fördertechnik GmbH: 5 Prüfungen fällig (KW 49)</title><style>.m{font-family:Menlo,Consolas,'Courier New',monospace}</style><!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><style>table,td,div,p,a,span,b,h1,h2{font-family:'Segoe UI',Arial,sans-serif !important}.m{font-family:Consolas,'Courier New',monospace !important}</style><![endif]--></head><body style="margin:0;padding:0;background:#f5f3ee;color:#1e2328;-webkit-text-size-adjust:100%"><div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f5f3ee">Zuerst: Hebebühne – nicht verwenden. 5 Prüfungen bei Elbtal Fördertechnik GmbH in KW 49.&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f5f3ee" style="background:#f5f3ee"><tr><td align="center" style="padding:16px 8px"><!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]--><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;color:#1e2328;text-align:left"><tr><td bgcolor="#44546a" style="background:#44546a;padding:14px 24px;border-radius:6px 6px 0 0;color:#ffffff"><div style="font-size:18px;line-height:24px;font-weight:700;color:#ffffff">Readyloop</div><div style="font-size:14px;line-height:20px;color:#ffffff">Elbtal Fördertechnik GmbH</div><h1 style="margin:0;font-size:14px;line-height:20px;font-weight:400;color:#ffffff">Wochenübersicht für Prüfer · KW 49</h1></td></tr><tr><td bgcolor="#ffffff" style="background:#ffffff;padding:24px;border:1px solid #c5ccd5;border-top:0;border-radius:0 0 6px 6px"><p style="margin:0 0 12px;font-size:16px;line-height:24px">Guten Tag,</p><p style="margin:0 0 16px;font-size:16px;line-height:24px">diese Prüfungen sind Ihnen bei Elbtal Fördertechnik GmbH zugewiesen und fällig oder noch ohne Termin.</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-left:4px solid #a6452f;padding:2px 0 2px 12px;font-size:16px;line-height:24px"><b style="font-size:20px;line-height:24px">1</b>&nbsp; ✕ Nicht verwenden</td></tr><tr><td height="6" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td style="border-left:4px solid #a6452f;padding:2px 0 2px 12px;font-size:16px;line-height:24px"><b style="font-size:20px;line-height:24px">1</b>&nbsp; ✕ Überfällig</td></tr><tr><td height="6" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td style="border-left:4px solid #b07d22;padding:2px 0 2px 12px;font-size:16px;line-height:24px"><b style="font-size:20px;line-height:24px">1</b>&nbsp; ! Heute fällig</td></tr><tr><td height="6" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td style="border-left:4px solid #b07d22;padding:2px 0 2px 12px;font-size:16px;line-height:24px"><b style="font-size:20px;line-height:24px">1</b>&nbsp; ! In den nächsten 30 Tagen fällig</td></tr><tr><td height="6" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td style="border-left:4px solid #7c8797;padding:2px 0 2px 12px;font-size:16px;line-height:24px"><b style="font-size:20px;line-height:24px">1</b>&nbsp; ? Ohne Termin</td></tr><tr><td height="6" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td height="10" style="font-size:0;line-height:0">&nbsp;</td></tr></table><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#44546a" style="background:#44546a;border-radius:4px"><a href="https://app.readyloop.example/pruefer" style="display:inline-block;border-top:12px solid #44546a;border-bottom:12px solid #44546a;border-left:20px solid #44546a;border-right:20px solid #44546a;border-radius:4px;background:#44546a;color:#ffffff;font-size:16px;line-height:20px;font-weight:700;text-decoration:none">Prüfaufgaben öffnen</a></td></tr></table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td colspan="2" height="28" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td colspan="2" style="border-left:4px solid #a6452f;padding:2px 0 2px 12px"><h2 style="margin:0;font-size:18px;line-height:24px;font-weight:700;color:#1e2328">✕ Nicht verwenden (1)</h2></td></tr><tr><td colspan="2" height="8" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td width="56" valign="top" style="padding:12px 12px 12px 0;border-top:1px solid #c5ccd5"><div style="width:40px;height:40px;border:2px solid #a6452f;border-radius:50%;background:#f9ece8;text-align:center;font-size:20px;line-height:40px;font-weight:700;color:#a6452f">!</div></td><td valign="top" style="padding:12px 0;border-top:1px solid #c5ccd5"><b style="font-size:16px;line-height:24px">Hebebühne</b><br><span class="m">L-006</span> · Lager · Wiederkehrende Prüfung<br><b>! Vor Nutzung prüfen – nicht verwenden</b> · fällig am 12.12.2026, in 12 Tagen<br><span style="color:#44546a">Frist: 12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043</span></td></tr></table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td colspan="2" height="28" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td colspan="2" style="border-left:4px solid #a6452f;padding:2px 0 2px 12px"><h2 style="margin:0;font-size:18px;line-height:24px;font-weight:700;color:#1e2328">✕ Überfällig (1)</h2></td></tr><tr><td colspan="2" height="8" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td width="56" valign="top" style="padding:12px 12px 12px 0;border-top:1px solid #c5ccd5"><div style="width:40px;height:35px;padding-top:5px;border:2px solid #a6452f;border-radius:50%;background:#f9ece8;text-align:center;font-size:13px;line-height:15px;font-weight:700;color:#1e2328">10<br>2026</div></td><td valign="top" style="padding:12px 0;border-top:1px solid #c5ccd5"><b style="font-size:16px;line-height:24px">Gabelstapler Linde H25</b><br><span class="m">L-001</span> · Lager · Wiederkehrende Prüfung<br><b>✕ Überfällig – nicht verwenden</b> · fällig am 26.10.2026, seit 35 Tagen überfällig<br><span style="color:#44546a">Frist: 12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043</span></td></tr></table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td colspan="2" height="28" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td colspan="2" style="border-left:4px solid #b07d22;padding:2px 0 2px 12px"><h2 style="margin:0;font-size:18px;line-height:24px;font-weight:700;color:#1e2328">! Heute fällig (1)</h2></td></tr><tr><td colspan="2" height="8" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td width="56" valign="top" style="padding:12px 12px 12px 0;border-top:1px solid #c5ccd5"><div style="width:40px;height:35px;padding-top:5px;border:2px solid #b07d22;border-radius:50%;background:#fbf3e2;text-align:center;font-size:13px;line-height:15px;font-weight:700;color:#1e2328">11<br>2026</div></td><td valign="top" style="padding:12px 0;border-top:1px solid #c5ccd5"><b style="font-size:16px;line-height:24px">Regal Halle 2</b><br>Lager · Wiederkehrende Prüfung<br><b>! Bald fällig</b> · fällig heute, 30.11.2026<br><span style="color:#44546a">Frist: 12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043</span></td></tr></table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td colspan="2" height="28" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td colspan="2" style="border-left:4px solid #b07d22;padding:2px 0 2px 12px"><h2 style="margin:0;font-size:18px;line-height:24px;font-weight:700;color:#1e2328">! In den nächsten 30 Tagen fällig (1)</h2></td></tr><tr><td colspan="2" height="8" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td width="56" valign="top" style="padding:12px 12px 12px 0;border-top:1px solid #c5ccd5"><div style="width:40px;height:35px;padding-top:5px;border:2px solid #b07d22;border-radius:50%;background:#fbf3e2;text-align:center;font-size:13px;line-height:15px;font-weight:700;color:#1e2328">12<br>2026</div></td><td valign="top" style="padding:12px 0;border-top:1px solid #c5ccd5"><b style="font-size:16px;line-height:24px">Elektro-Hubwagen</b><br><span class="m">L-002</span> · Lager · Wiederkehrende Prüfung<br><b>! Bald fällig</b> · fällig am 25.12.2026, in 25 Tagen<br><span style="color:#44546a">Frist: 12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043 · Prüfkatalog: Entwurf</span></td></tr></table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td colspan="2" height="28" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td colspan="2" style="border-left:4px solid #7c8797;padding:2px 0 2px 12px"><h2 style="margin:0;font-size:18px;line-height:24px;font-weight:700;color:#1e2328">? Ohne Termin (1)</h2></td></tr><tr><td colspan="2" height="8" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td width="56" valign="top" style="padding:12px 12px 12px 0;border-top:1px solid #c5ccd5"><div style="width:40px;height:40px;border:2px dashed #7c8797;border-radius:50%;background:#ffffff;text-align:center;font-size:13px;line-height:40px;font-weight:700;color:#1e2328">GBU</div></td><td valign="top" style="padding:12px 0;border-top:1px solid #c5ccd5"><b style="font-size:16px;line-height:24px">Druckluftbehälter</b><br><span class="m">L-005</span> · Lager · Wiederkehrende Prüfung<br><b>§ Frist über GBU festlegen</b> · kein Fälligkeitsdatum<br><span style="color:#44546a">Frist über GBU festlegen</span></td></tr></table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="24" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td bgcolor="#f1f3f6" style="background:#f1f3f6;border-left:4px solid #44546a;padding:12px 16px;font-size:14px;line-height:20px"><b>i&nbsp; Prüfkatalog im Entwurf</b><br>Der Readyloop-Prüfkatalog ist für 1 Prüfart dieser Mail noch nicht fachlich freigegeben (Entwurf). Maßgeblich sind die in Readyloop freigegebenen Fristen mit der angegebenen Quelle und Ihre Gefährdungsbeurteilung.</td></tr></table></td></tr><tr><td style="padding:16px 24px 24px;font-size:13px;line-height:18px;color:#44546a"><p style="margin:0 0 8px">Sie erhalten diese Mail als Prüfer bei Elbtal Fördertechnik GmbH.</p><p style="margin:0 0 8px"><a href="https://app.readyloop.example/abmelden?t=tok.sig" style="color:#44546a">Diese Mails abbestellen</a> · <a href="https://app.readyloop.example/einstellungen/benachrichtigungen" style="color:#44546a">Benachrichtigungen in Readyloop</a></p><p style="margin:0">Readyloop – Prüffristen für Arbeitsmittel. Automatisch erstellt am 30.11.2026. Den aktuellen Stand zeigt Readyloop.</p></td></tr></table><!--[if mso]></td></tr></table><![endif]--></td></tr></table></body></html>"`;
+
+exports[`Snapshots je Art > u-prf: Text und HTML > text 1`] = `
+"Readyloop · Elbtal Fördertechnik GmbH
+Wochenübersicht für Prüfer · KW 49
+
+Guten Tag,
+
+diese Prüfungen sind Ihnen bei Elbtal Fördertechnik GmbH zugewiesen und
+fällig oder noch ohne Termin.
+
+  1  ✕ Nicht verwenden
+  1  ✕ Überfällig
+  1  ! Heute fällig
+  1  ! In den nächsten 30 Tagen fällig
+  1  ? Ohne Termin
+
+Prüfaufgaben öffnen:
+https://app.readyloop.example/pruefer
+
+
+✕ Nicht verwenden (1)
+=====================
+
+[!] Hebebühne · L-006 · Lager
+  Prüfung:  Wiederkehrende Prüfung
+  Status:   ! Vor Nutzung prüfen – nicht verwenden
+            fällig am 12.12.2026, in 12 Tagen
+  Frist:    12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043
+
+
+✕ Überfällig (1)
+================
+
+[10/2026] Gabelstapler Linde H25 · L-001 · Lager
+  Prüfung:  Wiederkehrende Prüfung
+  Status:   ✕ Überfällig – nicht verwenden
+            fällig am 26.10.2026, seit 35 Tagen überfällig
+  Frist:    12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043
+
+
+! Heute fällig (1)
+==================
+
+[11/2026] Regal Halle 2 · Lager
+  Prüfung:  Wiederkehrende Prüfung
+  Status:   ! Bald fällig
+            fällig heute, 30.11.2026
+  Frist:    12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043
+
+
+! In den nächsten 30 Tagen fällig (1)
+=====================================
+
+[12/2026] Elektro-Hubwagen · L-002 · Lager
+  Prüfung:  Wiederkehrende Prüfung
+  Status:   ! Bald fällig
+            fällig am 25.12.2026, in 25 Tagen
+  Frist:    12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043
+            · Prüfkatalog: Entwurf
+
+
+? Ohne Termin (1)
+=================
+
+[GBU] Druckluftbehälter · L-005 · Lager
+  Prüfung:  Wiederkehrende Prüfung
+  Status:   § Frist über GBU festlegen
+            kein Fälligkeitsdatum
+  Frist:    Frist über GBU festlegen
+
+i  Prüfkatalog im Entwurf
+Der Readyloop-Prüfkatalog ist für 1 Prüfart dieser Mail noch nicht
+fachlich freigegeben (Entwurf). Maßgeblich sind die in Readyloop
+freigegebenen Fristen mit der angegebenen Quelle und Ihre
+Gefährdungsbeurteilung.
+
+------------------------------------------------------------------------
+Sie erhalten diese Mail als Prüfer bei Elbtal Fördertechnik GmbH.
+Diese Mails abbestellen:
+https://app.readyloop.example/abmelden?t=tok.sig
+Benachrichtigungen in Readyloop:
+https://app.readyloop.example/einstellungen/benachrichtigungen
+
+Readyloop – Prüffristen für Arbeitsmittel. Automatisch erstellt am
+30.11.2026. Den aktuellen Stand zeigt Readyloop.
+"
+`;
+
+exports[`Snapshots je Art > u-ver: Text und HTML > betreff 1`] = `"Readyloop · Elbtal Fördertechnik GmbH: 1 nicht verwenden, 1 überfällig, 1 heute fällig, 1 demnächst"`;
+
+exports[`Snapshots je Art > u-ver: Text und HTML > html 1`] = `"<!DOCTYPE html><html lang="de" xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>Readyloop · Elbtal Fördertechnik GmbH: 1 nicht verwenden, 1 überfällig, 1 heute fällig, 1 demnächst</title><style>.m{font-family:Menlo,Consolas,'Courier New',monospace}</style><!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><style>table,td,div,p,a,span,b,h1,h2{font-family:'Segoe UI',Arial,sans-serif !important}.m{font-family:Consolas,'Courier New',monospace !important}</style><![endif]--></head><body style="margin:0;padding:0;background:#f5f3ee;color:#1e2328;-webkit-text-size-adjust:100%"><div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f5f3ee">Zuerst: Hebebühne – nicht verwenden. 4 Prüfungen in dieser Mail.&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f5f3ee" style="background:#f5f3ee"><tr><td align="center" style="padding:16px 8px"><!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]--><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;color:#1e2328;text-align:left"><tr><td bgcolor="#44546a" style="background:#44546a;padding:14px 24px;border-radius:6px 6px 0 0;color:#ffffff"><div style="font-size:18px;line-height:24px;font-weight:700;color:#ffffff">Readyloop</div><div style="font-size:14px;line-height:20px;color:#ffffff">Elbtal Fördertechnik GmbH</div><h1 style="margin:0;font-size:14px;line-height:20px;font-weight:400;color:#ffffff">Fristen-Erinnerung vom 30.11.2026</h1></td></tr><tr><td bgcolor="#ffffff" style="background:#ffffff;padding:24px;border:1px solid #c5ccd5;border-top:0;border-radius:0 0 6px 6px"><p style="margin:0 0 12px;font-size:16px;line-height:24px">Guten Tag,</p><p style="margin:0 0 16px;font-size:16px;line-height:24px">diese Prüfungen bei Elbtal Fördertechnik GmbH brauchen Aufmerksamkeit. Die dringlichsten stehen oben.</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-left:4px solid #a6452f;padding:2px 0 2px 12px;font-size:16px;line-height:24px"><b style="font-size:20px;line-height:24px">1</b>&nbsp; ✕ Nicht verwenden</td></tr><tr><td height="6" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td style="border-left:4px solid #a6452f;padding:2px 0 2px 12px;font-size:16px;line-height:24px"><b style="font-size:20px;line-height:24px">1</b>&nbsp; ✕ Überfällig</td></tr><tr><td height="6" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td style="border-left:4px solid #b07d22;padding:2px 0 2px 12px;font-size:16px;line-height:24px"><b style="font-size:20px;line-height:24px">1</b>&nbsp; ! Heute fällig</td></tr><tr><td height="6" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td style="border-left:4px solid #b07d22;padding:2px 0 2px 12px;font-size:16px;line-height:24px"><b style="font-size:20px;line-height:24px">1</b>&nbsp; ! In den nächsten 30 Tagen fällig</td></tr><tr><td height="6" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td height="10" style="font-size:0;line-height:0">&nbsp;</td></tr></table><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#44546a" style="background:#44546a;border-radius:4px"><a href="https://app.readyloop.example/geraete" style="display:inline-block;border-top:12px solid #44546a;border-bottom:12px solid #44546a;border-left:20px solid #44546a;border-right:20px solid #44546a;border-radius:4px;background:#44546a;color:#ffffff;font-size:16px;line-height:20px;font-weight:700;text-decoration:none">Geräteliste öffnen</a></td></tr></table><p style="margin:16px 0 0;font-size:14px;line-height:20px;color:#44546a">„Sie sind zuständig“: Sie veranlassen die Prüfung. „Zur Kenntnis“: Sie werden informiert, zuständig sind andere.</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td colspan="2" height="28" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td colspan="2" style="border-left:4px solid #a6452f;padding:2px 0 2px 12px"><h2 style="margin:0;font-size:18px;line-height:24px;font-weight:700;color:#1e2328">✕ Nicht verwenden (1)</h2></td></tr><tr><td colspan="2" height="8" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td width="56" valign="top" style="padding:12px 12px 12px 0;border-top:1px solid #c5ccd5"><div style="width:40px;height:40px;border:2px solid #a6452f;border-radius:50%;background:#f9ece8;text-align:center;font-size:20px;line-height:40px;font-weight:700;color:#a6452f">!</div></td><td valign="top" style="padding:12px 0;border-top:1px solid #c5ccd5"><b style="font-size:16px;line-height:24px">Hebebühne</b><br><span class="m">L-006</span> · Lager · Wiederkehrende Prüfung<br><b>! Vor Nutzung prüfen – nicht verwenden</b> · fällig am 12.12.2026, in 12 Tagen<br><span style="color:#44546a">Frist: 12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043</span><br><b>Sie sind zuständig</b><br><a href="https://app.readyloop.example/geraete/g-006" style="color:#2c3646">Geräteakte öffnen</a></td></tr></table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td colspan="2" height="28" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td colspan="2" style="border-left:4px solid #a6452f;padding:2px 0 2px 12px"><h2 style="margin:0;font-size:18px;line-height:24px;font-weight:700;color:#1e2328">✕ Überfällig (1)</h2></td></tr><tr><td colspan="2" height="8" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td width="56" valign="top" style="padding:12px 12px 12px 0;border-top:1px solid #c5ccd5"><div style="width:40px;height:35px;padding-top:5px;border:2px solid #a6452f;border-radius:50%;background:#f9ece8;text-align:center;font-size:13px;line-height:15px;font-weight:700;color:#1e2328">10<br>2026</div></td><td valign="top" style="padding:12px 0;border-top:1px solid #c5ccd5"><b style="font-size:16px;line-height:24px">Gabelstapler Linde H25</b><br><span class="m">L-001</span> · Lager · Wiederkehrende Prüfung<br><b>✕ Überfällig – nicht verwenden</b> · fällig am 26.10.2026, seit 35 Tagen überfällig<br><span style="color:#44546a">Frist: 12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043</span><br>Zur Kenntnis · Eskaliert an Admin/Geschäftsführung<br><a href="https://app.readyloop.example/geraete/g-001" style="color:#2c3646">Geräteakte öffnen</a></td></tr></table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td colspan="2" height="28" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td colspan="2" style="border-left:4px solid #b07d22;padding:2px 0 2px 12px"><h2 style="margin:0;font-size:18px;line-height:24px;font-weight:700;color:#1e2328">! Heute fällig (1)</h2></td></tr><tr><td colspan="2" height="8" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td width="56" valign="top" style="padding:12px 12px 12px 0;border-top:1px solid #c5ccd5"><div style="width:40px;height:35px;padding-top:5px;border:2px solid #b07d22;border-radius:50%;background:#fbf3e2;text-align:center;font-size:13px;line-height:15px;font-weight:700;color:#1e2328">11<br>2026</div></td><td valign="top" style="padding:12px 0;border-top:1px solid #c5ccd5"><b style="font-size:16px;line-height:24px">Regal Halle 2</b><br>Lager · Wiederkehrende Prüfung<br><b>! Bald fällig</b> · fällig heute, 30.11.2026<br><span style="color:#44546a">Frist: 12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043</span><br><b>Sie sind zuständig</b> · Fällig – an Verantwortliche<br><a href="https://app.readyloop.example/geraete/g-003" style="color:#2c3646">Geräteakte öffnen</a></td></tr></table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td colspan="2" height="28" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td colspan="2" style="border-left:4px solid #b07d22;padding:2px 0 2px 12px"><h2 style="margin:0;font-size:18px;line-height:24px;font-weight:700;color:#1e2328">! In den nächsten 30 Tagen fällig (1)</h2></td></tr><tr><td colspan="2" height="8" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td width="56" valign="top" style="padding:12px 12px 12px 0;border-top:1px solid #c5ccd5"><div style="width:40px;height:35px;padding-top:5px;border:2px solid #b07d22;border-radius:50%;background:#fbf3e2;text-align:center;font-size:13px;line-height:15px;font-weight:700;color:#1e2328">12<br>2026</div></td><td valign="top" style="padding:12px 0;border-top:1px solid #c5ccd5"><b style="font-size:16px;line-height:24px">Elektro-Hubwagen</b><br><span class="m">L-002</span> · Lager · Wiederkehrende Prüfung<br><b>! Bald fällig</b> · fällig am 25.12.2026, in 25 Tagen<br><span style="color:#44546a">Frist: 12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043 · Prüfkatalog: Entwurf</span><br><b>Sie sind zuständig</b><br><a href="https://app.readyloop.example/geraete/g-002" style="color:#2c3646">Geräteakte öffnen</a></td></tr></table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="24" style="font-size:0;line-height:0">&nbsp;</td></tr><tr><td bgcolor="#f1f3f6" style="background:#f1f3f6;border-left:4px solid #44546a;padding:12px 16px;font-size:14px;line-height:20px"><b>i&nbsp; Prüfkatalog im Entwurf</b><br>Der Readyloop-Prüfkatalog ist für 1 Prüfart dieser Mail noch nicht fachlich freigegeben (Entwurf). Maßgeblich sind die in Readyloop freigegebenen Fristen mit der angegebenen Quelle und Ihre Gefährdungsbeurteilung.</td></tr></table></td></tr><tr><td style="padding:16px 24px 24px;font-size:13px;line-height:18px;color:#44546a"><p style="margin:0 0 8px">Sie erhalten diese Mail als Verantwortlicher bei Elbtal Fördertechnik GmbH.</p><p style="margin:0 0 8px">Diese Erinnerung gehört zur Fristenüberwachung Ihres Betriebs (§ 3 Abs. 6, § 14 BetrSichV) und kann nicht abbestellt werden. Empfänger und Zeitpunkte legt der Admin je Bereich fest. <a href="https://app.readyloop.example/einstellungen/benachrichtigungen" style="color:#44546a">Ihre Benachrichtigungen</a></p><p style="margin:0">Readyloop – Prüffristen für Arbeitsmittel. Automatisch erstellt am 30.11.2026. Den aktuellen Stand zeigt Readyloop.</p></td></tr></table><!--[if mso]></td></tr></table><![endif]--></td></tr></table></body></html>"`;
+
+exports[`Snapshots je Art > u-ver: Text und HTML > text 1`] = `
+"Readyloop · Elbtal Fördertechnik GmbH
+Fristen-Erinnerung vom 30.11.2026
+
+Guten Tag,
+
+diese Prüfungen bei Elbtal Fördertechnik GmbH brauchen Aufmerksamkeit.
+Die dringlichsten stehen oben.
+
+  1  ✕ Nicht verwenden
+  1  ✕ Überfällig
+  1  ! Heute fällig
+  1  ! In den nächsten 30 Tagen fällig
+
+Geräteliste öffnen:
+https://app.readyloop.example/geraete
+
+„Sie sind zuständig“: Sie veranlassen die Prüfung. „Zur Kenntnis“: Sie
+werden informiert, zuständig sind andere.
+
+
+✕ Nicht verwenden (1)
+=====================
+
+[!] Hebebühne · L-006 · Lager
+  Prüfung:  Wiederkehrende Prüfung
+  Status:   ! Vor Nutzung prüfen – nicht verwenden
+            fällig am 12.12.2026, in 12 Tagen
+  Frist:    12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043
+  Rolle:    Sie sind zuständig
+  Öffnen:   https://app.readyloop.example/geraete/g-006
+
+
+✕ Überfällig (1)
+================
+
+[10/2026] Gabelstapler Linde H25 · L-001 · Lager
+  Prüfung:  Wiederkehrende Prüfung
+  Status:   ✕ Überfällig – nicht verwenden
+            fällig am 26.10.2026, seit 35 Tagen überfällig
+  Frist:    12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043
+  Rolle:    Zur Kenntnis · Eskaliert an Admin/Geschäftsführung
+  Öffnen:   https://app.readyloop.example/geraete/g-001
+
+
+! Heute fällig (1)
+==================
+
+[11/2026] Regal Halle 2 · Lager
+  Prüfung:  Wiederkehrende Prüfung
+  Status:   ! Bald fällig
+            fällig heute, 30.11.2026
+  Frist:    12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043
+  Rolle:    Sie sind zuständig · Fällig – an Verantwortliche
+  Öffnen:   https://app.readyloop.example/geraete/g-003
+
+
+! In den nächsten 30 Tagen fällig (1)
+=====================================
+
+[12/2026] Elektro-Hubwagen · L-002 · Lager
+  Prüfung:  Wiederkehrende Prüfung
+  Status:   ! Bald fällig
+            fällig am 25.12.2026, in 25 Tagen
+  Frist:    12 Monate · Prüfkatalog · Stufe B · DGUV Information 208-043
+            · Prüfkatalog: Entwurf
+  Rolle:    Sie sind zuständig
+  Öffnen:   https://app.readyloop.example/geraete/g-002
+
+i  Prüfkatalog im Entwurf
+Der Readyloop-Prüfkatalog ist für 1 Prüfart dieser Mail noch nicht
+fachlich freigegeben (Entwurf). Maßgeblich sind die in Readyloop
+freigegebenen Fristen mit der angegebenen Quelle und Ihre
+Gefährdungsbeurteilung.
+
+------------------------------------------------------------------------
+Sie erhalten diese Mail als Verantwortlicher bei Elbtal Fördertechnik
+GmbH.
+Diese Erinnerung gehört zur Fristenüberwachung Ihres Betriebs (§ 3 Abs.
+6, § 14 BetrSichV) und kann nicht abbestellt werden. Empfänger und
+Zeitpunkte legt der Admin je Bereich fest.
+Ihre Benachrichtigungen:
+https://app.readyloop.example/einstellungen/benachrichtigungen
+
+Readyloop – Prüffristen für Arbeitsmittel. Automatisch erstellt am
+30.11.2026. Den aktuellen Stand zeigt Readyloop.
+"
+`;
