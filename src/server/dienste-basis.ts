@@ -6,8 +6,9 @@ import { heuteBerlin } from '@/domain/datum';
 import { ermittleFristVorschlag, waehleKatalogEintrag, wirksamerEinsatzort } from '@/domain/fristen';
 import { istMangelOffen, terminUeberschritten } from '@/domain/maengel';
 import { qualifikationsWarnung } from '@/domain/qualifikation';
+import { nutzungAus, uebernahmeHinweis } from '@/domain/nutzung';
 import { can, imGeltungsbereich } from '@/domain/rechte';
-import { berechneStatusImKontext, gesamtStatus } from '@/domain/status';
+import { berechneStatusImKontext, gesamtStatus, naechsteFaelligkeit, statusRang } from '@/domain/status';
 import {
   MANGEL_SCHWEREN,
   VOR_NUTZUNG_GRUENDE,
@@ -18,7 +19,9 @@ import {
   type EreignisTyp,
   type FristStatus,
   type Geraet,
+  type GeraetKurzansicht,
   type GeraetPruefart,
+  type GeraetStatusKern,
   type Id,
   type IsoDate,
   type KatalogEintrag,
@@ -26,12 +29,13 @@ import {
   type MangelAnsicht,
   type Mitgliedschaft,
   type Nachweis,
+  type OeffentlichePruefart,
   type PruefartAnsicht,
   type PrueferTyp,
   type Sitzung,
   type VorNutzungGrund,
 } from '@/domain/types';
-import type { Repository } from './repo/types';
+import type { KurzRohdaten, Repository, StatusRohdaten } from './repo/types';
 
 export type DienstErgebnis<T extends object = object> =
   | ({ ok: true } & T)
@@ -275,18 +279,100 @@ export function geraetGesamt(
   ansichten: readonly Pick<PruefartAnsicht, 'status'>[],
   sichtbareMaengel: readonly Mangel[],
 ): { status: FristStatus; grund: VorNutzungGrund | null } {
-  const gefaehrlich = sichtbareMaengel.some((m) => m.schwere === 'gefaehrlich' && istMangelOffen(m));
+  return gesamtMitGrund(
+    ansichten.map((a) => a.status),
+    sichtbareMaengel.some((m) => m.schwere === 'gefaehrlich' && istMangelOffen(m)),
+  );
+}
+
+/** F-9: schlechtester Status; Grund bei vor_nutzung_pruefen nach Reihenfolge VOR_NUTZUNG_GRUENDE. */
+export function gesamtMitGrund(
+  ergebnisse: readonly Pick<PruefartAnsicht['status'], 'status' | 'grund'>[],
+  gefaehrlicherMangelOffen: boolean,
+): { status: FristStatus; grund: VorNutzungGrund | null } {
   const status = gesamtStatus(
-    ansichten.map((a) => a.status.status),
-    gefaehrlich,
+    ergebnisse.map((e) => e.status),
+    gefaehrlicherMangelOffen,
   );
   if (status !== 'vor_nutzung_pruefen') return { status, grund: null };
-  const gruende = new Set<VorNutzungGrund>(ansichten.map((a) => a.status.grund).filter((g): g is VorNutzungGrund => !!g));
-  if (gefaehrlich) gruende.add('gefaehrlicher_mangel');
+  const gruende = new Set<VorNutzungGrund>(ergebnisse.map((e) => e.grund).filter((g): g is VorNutzungGrund => !!g));
+  if (gefaehrlicherMangelOffen) gruende.add('gefaehrlicher_mangel');
   return { status, grund: VOR_NUTZUNG_GRUENDE.find((g) => gruende.has(g)) ?? null };
 }
 
 /** Datum einer Erfassung (UTC-Zeitpunkt) in Europe/Berlin. */
 export function datumVon(zeitpunkt: string): IsoDate {
   return heuteBerlin(new Date(zeitpunkt));
+}
+
+// ---------------------------------------------------------------------------
+// I3M: Kurzansicht und öffentliche Ansicht aus Rohdaten (F-21, F-24)
+// ---------------------------------------------------------------------------
+
+/**
+ * F-21: Status über ALLE Prüfarten und ALLE offenen Mängel des Geräts (unabhängig vom Betrachter), Kontext nach F-9.
+ * Enthält keine Personennamen außer dem Prüfernamen des neuesten Nachweises je Prüfart.
+ */
+export function statusKernAus(roh: StatusRohdaten, heute: IsoDate): GeraetStatusKern {
+  // Rohdaten ohne IDs (F-24): Bezug über die laufende Prüfart-Nummer; lokale Schlüssel nur für anlassErledigtDurch.
+  const nachNeu = roh.nachweise
+    .map((n, i) => ({ ...n, id: `n${i}`, geraetPruefartId: String(n.pruefartNr) }))
+    .sort((a, b) => b.pruefdatum.localeCompare(a.pruefdatum) || b.erfasstAm.localeCompare(a.erfasstAm));
+  const pruefarten = roh.pruefarten.map((p) => {
+    const eigene = nachNeu.filter((n) => n.pruefartNr === p.nr);
+    const letzter = eigene[0];
+    const anlassOffen = roh.anlaesse
+      .filter((a) => a.pruefartNr === p.nr)
+      .some((a) => anlassErledigtDurch({ ...a, geraetPruefartId: String(a.pruefartNr) }, eigene).offen);
+    const status = berechneStatusImKontext({ frist: p.frist, letztePruefung: p.letztePruefung }, heute, {
+      betriebsstatus: roh.geraet.betriebsstatus,
+      anlassOffen,
+      nichtBestanden: letzter?.ergebnis === 'nicht_bestanden',
+    });
+    const ansicht: OeffentlichePruefart = {
+      bezeichnung: p.bezeichnung,
+      status,
+      frist: p.frist ? { monate: p.frist.monate, quelle: p.frist.quelle, stufe: p.frist.stufe, fundstelle: p.frist.fundstelle } : null,
+      letztePruefung: p.letztePruefung,
+      letztePruefungHerkunft: p.letztePruefungHerkunft,
+      letzterNachweis: letzter
+        ? { pruefdatum: letzter.pruefdatum, ergebnis: letzter.ergebnis, prueferName: letzter.prueferName ?? '' }
+        : null,
+    };
+    return ansicht;
+  });
+  const gesamt = gesamtMitGrund(
+    pruefarten.map((p) => p.status),
+    roh.offeneMaengel.some((m) => m.schwere === 'gefaehrlich'),
+  );
+  return {
+    bezeichnung: roh.geraet.bezeichnung,
+    inventarnummer: roh.geraet.inventarnummer,
+    hersteller: roh.geraet.hersteller,
+    typ: roh.geraet.typ,
+    kategorie: roh.geraet.kategorie,
+    betriebsstatus: roh.geraet.betriebsstatus,
+    gesamtStatus: gesamt.status,
+    gesamtStatusGrund: gesamt.grund,
+    naechsteFaelligkeit: naechsteFaelligkeit(pruefarten.map((p) => p.status)),
+    nutzung: nutzungAus(gesamt.status, roh.geraet.betriebsstatus),
+    pruefarten: pruefarten.sort(
+      (a, b) => statusRang(a.status.status) - statusRang(b.status.status) || a.bezeichnung.localeCompare(b.bezeichnung, 'de'),
+    ),
+  };
+}
+
+/** Kurzansicht für Mitarbeiter (F-21, F-23): öffentliche Felder + Anzahl offener Mängel + eigener Bezug. */
+export function kurzansichtAus(roh: KurzRohdaten, heute: IsoDate): GeraetKurzansicht {
+  const kern = statusKernAus(roh, heute);
+  const u = roh.offeneUebernahme;
+  return {
+    ...kern,
+    geraetId: roh.geraetId,
+    bereichName: roh.bereichName,
+    offeneMaengel: roh.offeneMaengel.length,
+    zugeordnetMir: roh.zugeordnetMir,
+    uebernahme: roh.geraet.kategorie !== 'wechselnd' ? null : u === null ? 'frei' : u.vonMir ? 'von_mir' : 'von_anderen',
+    uebernahmeHinweis: uebernahmeHinweis(roh.geraet, kern.nutzung),
+  };
 }

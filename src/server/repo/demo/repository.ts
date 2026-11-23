@@ -1,11 +1,22 @@
 // In-Memory-Repository für den Demo-Modus (BE-5). Gibt Kopien heraus, damit Aufrufer den Store nicht verändern.
 import { randomUUID } from 'node:crypto';
+import { anlassErledigtDurch } from '@/domain/anlass';
 import { mangelUebergangErlaubt } from '@/domain/maengel';
-import type { Anlass, Id, Mangel } from '@/domain/types';
-import type { Repository } from '../types';
+import { imUebernahmeVerlauf } from '@/domain/nutzung';
+import type { Anlass, Geraet, GeraetToken, Id, Mangel, Nachweis, Uebernahme } from '@/domain/types';
+import {
+  SUCHE_MAX,
+  type KurzAuswahl,
+  type KurzRohdaten,
+  type Repository,
+  type StatusRohdaten,
+  type TokenRohdaten,
+  type UebernahmeVerlaufEintrag,
+} from '../types';
 import { erzeugeDemoStand, type DemoStand } from './daten';
 
 const kopie = <T>(wert: T): T => structuredClone(wert);
+const nachNeuestem = (a: Nachweis, b: Nachweis) => b.pruefdatum.localeCompare(a.pruefdatum) || b.erfasstAm.localeCompare(a.erfasstAm);
 
 /** Höchstzahl hochgeladener PDFs im Speicher; danach wird das älteste verworfen. Demo-PDFs bleiben erhalten. */
 export const DEMO_MAX_HOCHGELADENE_PDFS = 50;
@@ -69,12 +80,6 @@ export class DemoRepository implements Repository {
         (e) => e.organisationId === organisationId && (geraetId === undefined || e.geraetId === geraetId),
       ),
     );
-  }
-
-  async legeGeraetAn({ geraet, pruefarten, ereignis }: Parameters<Repository['legeGeraetAn']>[0]) {
-    this.stand.geraete.push(kopie(geraet));
-    this.stand.pruefarten.push(...kopie(pruefarten));
-    this.stand.ereignisse.push(kopie(ereignis));
   }
 
   /** nachweisId nur für Supabase (Trigger-Kontext); in der Demo steht der Bezug im Ereignis. */
@@ -219,6 +224,183 @@ export class DemoRepository implements Repository {
       erfasstVonName: alt.erfasstVonName,
       erfasstAm: alt.erfasstAm,
     });
+    this.stand.ereignisse.push(kopie(ereignis));
+  }
+
+  // ---- Inkrement I3M ----
+
+  async listeTokens(organisationId: Id): Promise<GeraetToken[]> {
+    return kopie(this.stand.tokens.filter((t) => t.organisationId === organisationId));
+  }
+  /** Nur offene Übernahmen (wie Supabase-Filter bis is null); die Sichtbarkeit nach Rolle setzen die Dienste durch. */
+  async listeOffeneUebernahmen(organisationId: Id, geraetId?: Id): Promise<Uebernahme[]> {
+    return kopie(
+      this.stand.uebernahmen.filter(
+        (u) => u.bis === null && u.organisationId === organisationId && (geraetId === undefined || u.geraetId === geraetId),
+      ),
+    );
+  }
+  /** Wie RPC uebernahmen_verlauf ohne Rollenprüfung (Dienst prüft uebernahmen.lesen): ein Gerät, abgeschlossen, Person
+   *  vorhanden, Ende innerhalb der letzten 90 Tage, ohne beendetVon, neueste zuerst. */
+  async listeUebernahmeVerlauf(geraetId: Id, jetzt: Date): Promise<UebernahmeVerlaufEintrag[]> {
+    return kopie(
+      this.stand.uebernahmen
+        .filter((u) => u.geraetId === geraetId && imUebernahmeVerlauf(u, jetzt))
+        .sort((a, b) => (b.bis ?? '').localeCompare(a.bis ?? '') || a.id.localeCompare(b.id))
+        .map((u) => ({ ...u, beendetVon: null })),
+    );
+  }
+
+  async listeKurzRohdaten(organisationId: Id, auswahl: KurzAuswahl, fuerBenutzerId: Id): Promise<KurzRohdaten[]> {
+    const geraete = this.stand.geraete.filter((g) => g.organisationId === organisationId);
+    let treffer: Geraet[];
+    if (auswahl.art === 'meine') {
+      const uebernommen = new Set(
+        this.stand.uebernahmen.filter((u) => u.bis === null && u.benutzerId === fuerBenutzerId).map((u) => u.geraetId),
+      );
+      treffer = geraete.filter((g) => g.zugeordnetAn === fuerBenutzerId || uebernommen.has(g.id));
+    } else if (auswahl.art === 'suche') {
+      const q = auswahl.suche.trim().toLocaleLowerCase('de');
+      if (q.length < 2) return [];
+      treffer = geraete
+        .filter((g) => [g.bezeichnung, g.inventarnummer, g.seriennummer, g.hersteller].some((f) => f?.toLocaleLowerCase('de').includes(q)))
+        .sort((a, b) => a.bezeichnung.localeCompare(b.bezeichnung, 'de'))
+        .slice(0, SUCHE_MAX);
+    } else {
+      const ids = new Set(auswahl.geraetIds);
+      treffer = geraete.filter((g) => ids.has(g.id));
+    }
+    return treffer.map((g) => {
+      const offen = this.stand.uebernahmen.find((u) => u.geraetId === g.id && u.bis === null) ?? null;
+      const vonMir = offen !== null && offen.benutzerId === fuerBenutzerId;
+      return {
+        ...this.statusRohdaten(g),
+        geraetId: g.id,
+        bereichName: this.stand.bereiche.find((b) => b.id === g.bereichId)?.name ?? '',
+        zugeordnetMir: g.zugeordnetAn === fuerBenutzerId,
+        offeneUebernahme: offen ? { vonMir, seit: vonMir ? offen.von : null } : null,
+      };
+    });
+  }
+
+  /** Nur aktive Tokens. eigeneOrganisation nur, wenn fuer.organisationId die Geräte-Organisation ist und der Benutzer dort
+   *  aktives Mitglied ist (wie geraet_oeffentlich). */
+  async holeTokenRohdaten(token: string, fuer: { benutzerId: Id; organisationId: Id } | null): Promise<TokenRohdaten | null> {
+    const t = this.stand.tokens.find((x) => x.token === token && x.aktiv);
+    const g = t ? this.stand.geraete.find((x) => x.id === t.geraetId) : undefined;
+    const org = g ? this.stand.organisationen.find((o) => o.id === g.organisationId) : undefined;
+    if (!g || !org) return null;
+    const mitglied =
+      fuer !== null &&
+      fuer.organisationId === g.organisationId &&
+      this.stand.mitgliedschaften.some((m) => m.organisationId === g.organisationId && m.benutzerId === fuer.benutzerId && m.aktiv);
+    return { ...this.statusRohdaten(g), organisationName: org.name, eigeneOrganisation: mitglied ? { geraetId: g.id } : null };
+  }
+
+  /**
+   * Gemeinsamer Teil von Kurz- und Token-Rohdaten, wie app.geraet_status_json: nur öffentliche Felder (F-24), keine
+   * internen IDs, kein Verlauf – je Prüfart nur der neueste Nachweis (mit Prüfername), nur offene Anlässe, offene Mängel
+   * nur mit Schwere. Prüfarten nummeriert nach Bezeichnung, dann ID (wie row_number() in SQL).
+   */
+  private statusRohdaten(g: Geraet): StatusRohdaten {
+    const pruefarten = this.stand.pruefarten
+      .filter((p) => p.geraetId === g.id)
+      .sort((a, b) => (a.bezeichnung < b.bezeichnung ? -1 : a.bezeichnung > b.bezeichnung ? 1 : a.id.localeCompare(b.id)));
+    const nr = new Map(pruefarten.map((p, i) => [p.id, i + 1]));
+    const alleNachweise = this.stand.nachweise.filter((n) => n.geraetId === g.id);
+    const neueste = pruefarten
+      .map((p) => alleNachweise.filter((n) => n.geraetPruefartId === p.id).sort(nachNeuestem)[0])
+      .filter((n): n is Nachweis => n !== undefined)
+      .sort(nachNeuestem);
+    return kopie({
+      geraet: {
+        bezeichnung: g.bezeichnung,
+        inventarnummer: g.inventarnummer,
+        hersteller: g.hersteller,
+        typ: g.typ,
+        kategorie: g.kategorie,
+        betriebsstatus: g.betriebsstatus,
+      },
+      pruefarten: pruefarten.map((p) => ({
+        nr: nr.get(p.id)!,
+        bezeichnung: p.bezeichnung,
+        letztePruefung: p.letztePruefung,
+        letztePruefungHerkunft: p.letztePruefungHerkunft,
+        frist: p.frist ? { monate: p.frist.monate, quelle: p.frist.quelle, stufe: p.frist.stufe, fundstelle: p.frist.fundstelle } : null,
+      })),
+      nachweise: neueste.map((n) => ({
+        pruefartNr: nr.get(n.geraetPruefartId)!,
+        pruefdatum: n.pruefdatum,
+        ergebnis: n.ergebnis,
+        erfasstAm: n.erfasstAm,
+        prueferName: n.prueferName,
+      })),
+      anlaesse: this.stand.anlaesse
+        .filter((a) => a.geraetId === g.id && nr.has(a.geraetPruefartId) && anlassErledigtDurch(a, alleNachweise).offen)
+        .map((a) => ({ pruefartNr: nr.get(a.geraetPruefartId)!, datum: a.datum, erfasstAm: a.erfasstAm, aufgehobenAm: a.aufgehobenAm })),
+      offeneMaengel: this.stand.maengel.filter((m) => m.geraetId === g.id && m.status !== 'behoben').map((m) => ({ schwere: m.schwere })),
+    });
+  }
+
+  async starteUebernahme({ uebernahme, vorherige }: Parameters<Repository['starteUebernahme']>[0]): Promise<void> {
+    const offen = this.stand.uebernahmen.find((u) => u.geraetId === uebernahme.geraetId && u.bis === null);
+    if (offen && (!vorherige || offen.id !== vorherige.id)) throw new Error('Gerät hat bereits eine offene Übernahme');
+    if (offen && vorherige) {
+      offen.bis = vorherige.bis;
+      offen.endeArt = vorherige.endeArt;
+      offen.beendetVon = vorherige.beendetVon;
+    }
+    this.stand.uebernahmen.push(kopie(uebernahme));
+  }
+
+  async beendeUebernahme({ uebernahme }: Parameters<Repository['beendeUebernahme']>[0]): Promise<void> {
+    const u = this.stand.uebernahmen.find((x) => x.id === uebernahme.id);
+    if (!u) throw new Error('Übernahme nicht gefunden');
+    if (u.bis !== null) throw new Error('Übernahme bereits beendet');
+    // Nur die Endefelder ändern (einmaliges Beenden).
+    u.bis = uebernahme.bis;
+    u.endeArt = uebernahme.endeArt;
+    u.beendetVon = uebernahme.beendetVon;
+  }
+
+  async setzeZuordnung({ geraetId, benutzerId, ereignis }: Parameters<Repository['setzeZuordnung']>[0]): Promise<void> {
+    const g = this.geraet(geraetId);
+    if (benutzerId !== null && g.kategorie !== 'personenbezogen') throw new Error('Nur personenbezogene Geräte');
+    g.zugeordnetAn = benutzerId;
+    this.stand.ereignisse.push(kopie(ereignis));
+  }
+
+  async erneuereToken({ geraetId, neu, ereignis }: Parameters<Repository['erneuereToken']>[0]): Promise<string> {
+    this.geraet(geraetId);
+    for (const t of this.stand.tokens) {
+      if (t.geraetId === geraetId && t.aktiv) {
+        t.aktiv = false;
+        t.deaktiviertAm = neu.erstelltAm;
+      }
+    }
+    this.stand.tokens.push(kopie({ ...neu, geraetId, aktiv: true, deaktiviertAm: null }));
+    this.stand.ereignisse.push(kopie(ereignis));
+    return neu.token;
+  }
+
+  /** F-20 Austritt: Zuordnungen lösen, offene Übernahmen mit Ende-Art 'austritt'. Ohne Ereignis (Anlass ist mitglied_gespeichert). */
+  async loeseNutzungen({ organisationId, benutzerId, jetzt }: Parameters<Repository['loeseNutzungen']>[0]): Promise<void> {
+    for (const g of this.stand.geraete) {
+      if (g.organisationId === organisationId && g.zugeordnetAn === benutzerId) g.zugeordnetAn = null;
+    }
+    for (const u of this.stand.uebernahmen) {
+      if (u.organisationId === organisationId && u.benutzerId === benutzerId && u.bis === null) {
+        u.bis = jetzt;
+        u.endeArt = 'austritt';
+        u.beendetVon = null;
+      }
+    }
+  }
+
+  async legeGeraetAn({ geraet, pruefarten, ereignis, token }: Parameters<Repository['legeGeraetAn']>[0]) {
+    this.stand.geraete.push(kopie(geraet));
+    this.stand.pruefarten.push(...kopie(pruefarten));
+    this.stand.tokens.push(kopie(token));
     this.stand.ereignisse.push(kopie(ereignis));
   }
 }

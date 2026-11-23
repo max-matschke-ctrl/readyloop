@@ -1,13 +1,19 @@
 // Vertrag §3.4/§5.7 – Statusampel (F-5, F-6; Rangfolge F-9 über FRIST_STATUS).
 import { addMonate, tageZwischen } from './datum';
 import { FRIST_STATUS } from './types';
-import type { Betriebsstatus, FristStatus, GeraetPruefart, IsoDate, StatusErgebnis } from './types';
+import type { Betriebsstatus, FestgelegteFrist, FristStatus, IsoDate, StatusErgebnis } from './types';
+
+/** Strukturell kompatibel zu Pick<GeraetPruefart, 'frist' | 'letztePruefung'> (I3M: auch Rohdaten der Kurzansicht). */
+export interface StatusEingabe {
+  frist: Pick<FestgelegteFrist, 'monate'> | null;
+  letztePruefung: IsoDate | null;
+}
 
 export const VORLAUF_TAGE = 30;
 
 /** F-5: ohne Frist → gbu; ohne Prüfdatum → unbekannt; sonst nach Resttagen bis faelligAm. */
 export function berechneStatus(
-  pruefart: Pick<GeraetPruefart, 'frist' | 'letztePruefung'>,
+  pruefart: StatusEingabe,
   heute: IsoDate,
   vorlaufTage: number = VORLAUF_TAGE,
 ): StatusErgebnis {
@@ -31,7 +37,7 @@ export interface StatusKontext {
  * faelligAm/restTage werden berechnet, sobald Frist und Datum vorliegen. Ohne Kontext-Abweichung = berechneStatus.
  */
 export function berechneStatusImKontext(
-  pruefart: Pick<GeraetPruefart, 'frist' | 'letztePruefung'>,
+  pruefart: StatusEingabe,
   heute: IsoDate,
   kontext: StatusKontext,
   vorlaufTage: number = VORLAUF_TAGE,

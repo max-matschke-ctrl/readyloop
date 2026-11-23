@@ -4,6 +4,7 @@ import { DemoRollenWahl, LoginForm } from '@/components/LoginForm';
 import { Meldung } from '@/components/Meldung';
 import { PlaketteLive } from '@/components/PlaketteLive';
 import { betriebsmodus, heute, holeAnmeldestatus } from '@/server/data';
+import { sichererRuecksprung } from '@/server/pfade';
 
 export const metadata: Metadata = { title: 'Anmelden' };
 export const dynamic = 'force-dynamic';
@@ -20,10 +21,13 @@ export default async function LoginSeite({ searchParams }: { searchParams: SuchP
   const sp = await searchParams;
   const fehlerKey = typeof sp.fehler === 'string' ? sp.fehler : undefined;
   const fehler = fehlerKey ? FEHLER_TEXT[fehlerKey] : undefined;
+  // F-20: Rücksprung (z. B. zur QR-Seite) als verstecktes Feld; geprüft wird er im Server.
+  const next = typeof sp.next === 'string' && sp.next.length <= 300 ? sp.next : undefined;
+  const zumGeraet = next?.startsWith('/g/') ?? false;
 
   if (modus === 'supabase') {
     const status = await holeAnmeldestatus();
-    if (status === 'angemeldet') redirect('/');
+    if (status === 'angemeldet') redirect(sichererRuecksprung(next, '/'));
     if (status === 'ohne_mitgliedschaft') redirect('/kein-zugang');
   }
 
@@ -60,8 +64,16 @@ export default async function LoginSeite({ searchParams }: { searchParams: SuchP
             Anmelden
           </h2>
           {fehler && <Meldung art="fehler">{fehler}</Meldung>}
-          {modus === 'demo' && <DemoRollenWahl />}
-          {modus === 'supabase' && <LoginForm />}
+          {zumGeraet && modus !== 'unkonfiguriert' && (
+            <Meldung art="hinweis">Nach der Anmeldung geht es zurück zum Gerät.</Meldung>
+          )}
+          {modus === 'demo' && <DemoRollenWahl next={next} />}
+          {modus === 'supabase' && <LoginForm next={next} />}
+          {modus !== 'unkonfiguriert' && (
+            <p className="border-t border-steel-200 pt-3 text-sm text-steel">
+              An gemeinsam genutzten Computern nach der Arbeit abmelden.
+            </p>
+          )}
           {modus === 'unkonfiguriert' && (
             <Meldung art="hinweis" text="Es fehlen die Zugangsdaten zur Datenbank. Bitte wenden Sie sich an den Betreiber dieser Installation.">
               Readyloop ist nicht konfiguriert.

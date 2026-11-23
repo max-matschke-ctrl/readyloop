@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { anlassErledigtDurch } from '@/domain/anlass';
 import { istIsoDate } from '@/domain/datum';
 import { ermittleFristVorschlag, fristRichtung, legeFristFest, wirksamerEinsatzort } from '@/domain/fristen';
+import { imUebernahmeVerlauf } from '@/domain/nutzung';
 import { can, darfVerschieben, imGeltungsbereich } from '@/domain/rechte';
 import type {
   AnlassAufhebenEingabe,
@@ -30,6 +31,7 @@ import {
   type GeraeteFilter,
   type GeraetegruppeOption,
   type GeraetListenEintrag,
+  type GeraetNutzung,
   type GeraetPruefart,
   type Id,
   type IsoDate,
@@ -60,6 +62,7 @@ import {
   type Zeit,
 } from './dienste-basis';
 import { sha256Hex } from './pdf';
+import { neuerToken, tokenUrl } from './token';
 import { DEMO_ROLLE_BENUTZER } from './repo/demo/daten';
 import type { Repository } from './repo/types';
 
@@ -196,6 +199,7 @@ export async function holeGeraetDetail(
   repo: Repository,
   heute: IsoDate,
   geraetId: Id,
+  jetzt: Date = new Date(`${heute}T12:00:00Z`),
 ): Promise<GeraetDetail | null> {
   const ctx = await ladeKontext(sitzung, repo);
   const geraet = ctx.geraete.get(geraetId);
@@ -247,6 +251,44 @@ export async function holeGeraetDetail(
     maengel,
     anlaesse,
     verlauf,
+    nutzung: await geraetNutzung(sitzung, repo, ctx, geraet, jetzt),
+  };
+}
+
+/**
+ * F-22/F-27: Zuordnung und aktueller Halter mit Namen für ADM, SIF, VER (Bereich); PRF → null.
+ * Abgeschlossene Übernahmen nur mit uebernahmen.lesen (ADM), ≤ 90 Tage nach Ende, Person vorhanden, neueste zuerst.
+ */
+async function geraetNutzung(
+  sitzung: Sitzung,
+  repo: Repository,
+  ctx: Awaited<ReturnType<typeof ladeKontext>>,
+  geraet: Geraet,
+  jetzt: Date,
+): Promise<GeraetNutzung | null> {
+  if (sitzung.rolle === 'pruefer' || sitzung.rolle === 'mitarbeiter' || !geraetImBereich(sitzung, geraet)) return null;
+  const darfVerlauf = can(sitzung.rolle, 'uebernahmen.lesen');
+  const [offene, verlauf, tokens] = await Promise.all([
+    repo.listeOffeneUebernahmen(sitzung.organisation.id, geraet.id),
+    // F-27/US-32: nur je Gerät, nur ADM, nur 90 Tage (RPC uebernahmen_verlauf); kein direkter Tabellenzugriff
+    darfVerlauf ? repo.listeUebernahmeVerlauf(geraet.id, jetzt) : Promise.resolve([]),
+    can(sitzung.rolle, 'etikett.verwalten') ? repo.listeTokens(sitzung.organisation.id) : Promise.resolve([]),
+  ]);
+  const offen = offene.find((u) => u.geraetId === geraet.id && u.bis === null && u.benutzerName !== null) ?? null;
+  const zugeordnetAn = geraet.kategorie === 'personenbezogen' ? geraet.zugeordnetAn : null;
+  const token = tokens.find((t) => t.geraetId === geraet.id && t.aktiv) ?? null;
+  return {
+    zugeordnet: zugeordnetAn
+      ? { benutzerId: zugeordnetAn, name: ctx.benutzerName.get(zugeordnetAn) ?? '', rolle: 'mitarbeiter' }
+      : null,
+    uebernahme: offen ? { benutzerName: offen.benutzerName!, seit: offen.von } : null,
+    verlauf: darfVerlauf
+      ? verlauf
+          .filter((u) => u.geraetId === geraet.id && imUebernahmeVerlauf(u, jetzt))
+          .sort((a, b) => (b.bis ?? '').localeCompare(a.bis ?? ''))
+      : [],
+    darfZuordnen: can(sitzung.rolle, 'geraet.zuordnen'), // Geltungsbereich oben geprüft
+    etikett: can(sitzung.rolle, 'etikett.verwalten') && token ? { token: token.token, url: tokenUrl(token.token) } : null,
   };
 }
 
@@ -414,6 +456,7 @@ export async function geraetAnlegen(
     einsatzort: eingabe.einsatzort,
     betriebsstatus: 'in_betrieb',
     angelegtAm: jetzt,
+    zugeordnetAn: null,
   };
   const pruefarten: GeraetPruefart[] = eingabe.pruefartenJson.map((p) => ({
     id: randomUUID(),
@@ -432,6 +475,8 @@ export async function geraetAnlegen(
   await repo.legeGeraetAn({
     geraet,
     pruefarten,
+    // F-24: genau ein aktiver Token je Gerät, entsteht beim Anlegen (Supabase: Trigger)
+    token: { id: randomUUID(), organisationId: org, geraetId: geraet.id, token: neuerToken(), aktiv: true, erstelltAm: jetzt, deaktiviertAm: null },
     ereignis: {
       id: randomUUID(),
       organisationId: org,

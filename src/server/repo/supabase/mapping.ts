@@ -8,12 +8,15 @@ import type {
   GbuDokument,
   Geraet,
   GeraetPruefart,
+  GeraetToken,
   KatalogEintrag,
   Mangel,
   Mitgliedschaft,
   Nachweis,
   Organisation,
+  Uebernahme,
 } from '@/domain/types';
+import type { KurzRohdaten, StatusRohdaten, TokenRohdaten, UebernahmeVerlaufEintrag } from '../types';
 
 // ---------- Zeilentypen (Spalten wie in den Migrationen) ----------
 
@@ -64,6 +67,7 @@ export interface GeraetZeile {
   einsatzort: Geraet['einsatzort'];
   betriebsstatus: Geraet['betriebsstatus'];
   angelegt_am: string;
+  zugeordnet_an: string | null;
 }
 export interface FristSpalten {
   frist_monate: number | null;
@@ -161,6 +165,69 @@ export interface MangelZeile {
   behebung_erfasst_am: string | null;
 }
 
+// I3M
+export interface GeraetTokenZeile {
+  id: string;
+  organisation_id: string;
+  geraet_id: string;
+  token: string;
+  aktiv: boolean;
+  erstellt_am: string;
+  deaktiviert_am: string | null;
+}
+export interface UebernahmeZeile {
+  id: string;
+  organisation_id: string;
+  geraet_id: string;
+  benutzer_id: string | null;
+  benutzer_name: string | null;
+  von: string;
+  bis: string | null;
+  ende_art: Uebernahme['endeArt'];
+  beendet_von: string | null;
+}
+/** JSON aus app.geraet_status_json (geraet_oeffentlich, ma_kurzansichten), snake_case, ohne interne IDs (F-24). */
+export interface StatusRohJson {
+  geraet: {
+    bezeichnung: string;
+    inventarnummer: string | null;
+    hersteller: string | null;
+    typ: string | null;
+    kategorie: Geraet['kategorie'];
+    betriebsstatus: Geraet['betriebsstatus'];
+  };
+  pruefarten: {
+    nr: number;
+    bezeichnung: string;
+    letzte_pruefung: string | null;
+    letzte_pruefung_herkunft: GeraetPruefart['letztePruefungHerkunft'];
+    frist: { monate: number; quelle: FestgelegteFrist['quelle']; stufe: FestgelegteFrist['stufe']; fundstelle: string } | null;
+  }[];
+  nachweise: {
+    pruefart_nr: number;
+    pruefdatum: string;
+    ergebnis: Nachweis['ergebnis'];
+    erfasst_am: string;
+    pruefer_name: string | null;
+  }[];
+  anlaesse: { pruefart_nr: number; datum: string; erfasst_am: string; aufgehoben_am: string | null }[];
+  offene_maengel: { schwere: Mangel['schwere'] }[];
+}
+export interface KurzRohJson extends StatusRohJson {
+  geraet_id: string;
+  bereich_name: string;
+  zugeordnet_mir: boolean;
+  offene_uebernahme: { von_mir: boolean; seit: string | null } | null;
+}
+/** geraet_id/gleiche_organisation nur für aktive Mitglieder der Geräte-Organisation. */
+export interface TokenRohJson extends StatusRohJson {
+  organisation_name: string;
+  geraet_id?: string;
+  gleiche_organisation?: boolean;
+}
+/** Zeile aus RPC uebernahmen_verlauf (ohne beendet_von). */
+export type UebernahmeVerlaufZeile = Omit<UebernahmeZeile, 'beendet_von'>;
+
 /** Spaltenlisten für select() – nur benötigte Spalten. */
 export const SPALTEN = {
   organisation: 'id, name, bg',
@@ -169,7 +236,7 @@ export const SPALTEN = {
   katalog:
     'id, schluessel, version, geraetegruppe, geraetegruppe_label, pruefart, einsatzort, intervall_monate, stufe, fundstelle, quelle_url, pruefer_typen, hinweis, freigabestatus, freigegeben_von, freigegeben_am',
   geraet:
-    'id, organisation_id, bereich_id, bezeichnung, inventarnummer, geraetegruppe, kategorie, hersteller, typ, seriennummer, baujahr, einsatzort, betriebsstatus, angelegt_am',
+    'id, organisation_id, bereich_id, bezeichnung, inventarnummer, geraetegruppe, kategorie, hersteller, typ, seriennummer, baujahr, einsatzort, betriebsstatus, angelegt_am, zugeordnet_an',
   pruefart:
     'id, organisation_id, geraet_id, katalog_schluessel, bezeichnung, herstellerfrist_monate, herstellerfrist_quelle, frist_monate, frist_quelle, frist_stufe, frist_fundstelle, frist_quelle_url, frist_katalog_eintrag_id, frist_katalog_version, frist_begruendung, frist_freigegeben_von, frist_freigegeben_von_name, frist_freigegeben_am, letzte_pruefung, letzte_pruefung_herkunft, zugewiesener_pruefer_id, gbu_dokument_titel, gbu_dokument_url',
   nachweis:
@@ -179,6 +246,8 @@ export const SPALTEN = {
     'id, organisation_id, geraet_id, geraet_pruefart_id, art, datum, beschreibung, erfasst_von, erfasst_von_name, erfasst_am, aufgehoben_von, aufgehoben_von_name, aufgehoben_am, aufhebungsgrund',
   mangel:
     'id, organisation_id, geraet_id, geraet_pruefart_id, nachweis_id, beschreibung, schwere, termin, status, verantwortlich_id, erfasst_von, erfasst_von_name, erfasst_am, kenntnis_von, kenntnis_von_name, kenntnis_am, behoben_am, behoben_durch, behebung, behebung_erfasst_von, behebung_erfasst_von_name, behebung_erfasst_am',
+  token: 'id, organisation_id, geraet_id, token, aktiv, erstellt_am, deaktiviert_am',
+  uebernahme: 'id, organisation_id, geraet_id, benutzer_id, benutzer_name, von, bis, ende_art, beendet_von',
 } as const;
 
 // ---------- Hilfen ----------
@@ -287,6 +356,7 @@ export const zuGeraet = (z: GeraetZeile): Geraet => ({
   einsatzort: z.einsatzort,
   betriebsstatus: z.betriebsstatus,
   angelegtAm: isoZeit(z.angelegt_am),
+  zugeordnetAn: z.zugeordnet_an ?? null,
 });
 export const vonGeraet = (g: Geraet): GeraetZeile => ({
   id: g.id,
@@ -303,6 +373,7 @@ export const vonGeraet = (g: Geraet): GeraetZeile => ({
   einsatzort: g.einsatzort,
   betriebsstatus: g.betriebsstatus,
   angelegt_am: g.angelegtAm,
+  zugeordnet_an: g.zugeordnetAn,
 });
 
 /** Frist-Snapshot aus den Spalten; null, solange nicht freigegeben. */
@@ -506,6 +577,150 @@ export const vonMangel = (m: Mangel): MangelZeile => ({
   behebung_erfasst_von: m.behebungErfasstVon,
   behebung_erfasst_von_name: m.behebungErfasstVonName,
   behebung_erfasst_am: m.behebungErfasstAm,
+});
+
+// ---------- I3M: Token, Übernahme, Rohdaten der Kurz-/öffentlichen Ansicht ----------
+
+export const zuGeraetToken = (z: GeraetTokenZeile): GeraetToken => ({
+  id: z.id,
+  organisationId: z.organisation_id,
+  geraetId: z.geraet_id,
+  token: z.token,
+  aktiv: z.aktiv,
+  erstelltAm: isoZeit(z.erstellt_am),
+  deaktiviertAm: isoZeitOderNull(z.deaktiviert_am),
+});
+export const vonGeraetToken = (t: GeraetToken): GeraetTokenZeile => ({
+  id: t.id,
+  organisation_id: t.organisationId,
+  geraet_id: t.geraetId,
+  token: t.token,
+  aktiv: t.aktiv,
+  erstellt_am: t.erstelltAm,
+  deaktiviert_am: t.deaktiviertAm,
+});
+
+export const zuUebernahme = (z: UebernahmeZeile): Uebernahme => ({
+  id: z.id,
+  organisationId: z.organisation_id,
+  geraetId: z.geraet_id,
+  benutzerId: z.benutzer_id,
+  benutzerName: z.benutzer_name,
+  von: isoZeit(z.von),
+  bis: isoZeitOderNull(z.bis),
+  endeArt: z.ende_art,
+  beendetVon: z.beendet_von,
+});
+export const vonUebernahme = (u: Uebernahme): UebernahmeZeile => ({
+  id: u.id,
+  organisation_id: u.organisationId,
+  geraet_id: u.geraetId,
+  benutzer_id: u.benutzerId,
+  benutzer_name: u.benutzerName,
+  von: u.von,
+  bis: u.bis,
+  ende_art: u.endeArt,
+  beendet_von: u.beendetVon,
+});
+
+export const zuUebernahmeVerlauf = (z: UebernahmeVerlaufZeile): UebernahmeVerlaufEintrag => ({
+  ...zuUebernahme({ ...z, beendet_von: null }),
+  beendetVon: null,
+});
+
+function zuStatusRoh(j: StatusRohJson): StatusRohdaten {
+  return {
+    geraet: {
+      bezeichnung: j.geraet.bezeichnung,
+      inventarnummer: j.geraet.inventarnummer,
+      hersteller: j.geraet.hersteller,
+      typ: j.geraet.typ,
+      kategorie: j.geraet.kategorie,
+      betriebsstatus: j.geraet.betriebsstatus,
+    },
+    pruefarten: (j.pruefarten ?? []).map((p) => ({
+      nr: p.nr,
+      bezeichnung: p.bezeichnung,
+      letztePruefung: datumOderNull(p.letzte_pruefung),
+      letztePruefungHerkunft: p.letzte_pruefung_herkunft,
+      frist: p.frist ? { monate: p.frist.monate, quelle: p.frist.quelle, stufe: p.frist.stufe, fundstelle: p.frist.fundstelle } : null,
+    })),
+    nachweise: (j.nachweise ?? []).map((n) => ({
+      pruefartNr: n.pruefart_nr,
+      pruefdatum: datum(n.pruefdatum),
+      ergebnis: n.ergebnis,
+      erfasstAm: isoZeit(n.erfasst_am),
+      prueferName: n.pruefer_name,
+    })),
+    anlaesse: (j.anlaesse ?? []).map((a) => ({
+      pruefartNr: a.pruefart_nr,
+      datum: datum(a.datum),
+      erfasstAm: isoZeit(a.erfasst_am),
+      aufgehobenAm: isoZeitOderNull(a.aufgehoben_am),
+    })),
+    offeneMaengel: (j.offene_maengel ?? []).map((m) => ({ schwere: m.schwere })),
+  };
+}
+function vonStatusRoh(r: StatusRohdaten): StatusRohJson {
+  return {
+    geraet: {
+      bezeichnung: r.geraet.bezeichnung,
+      inventarnummer: r.geraet.inventarnummer,
+      hersteller: r.geraet.hersteller,
+      typ: r.geraet.typ,
+      kategorie: r.geraet.kategorie,
+      betriebsstatus: r.geraet.betriebsstatus,
+    },
+    pruefarten: r.pruefarten.map((p) => ({
+      nr: p.nr,
+      bezeichnung: p.bezeichnung,
+      letzte_pruefung: p.letztePruefung,
+      letzte_pruefung_herkunft: p.letztePruefungHerkunft,
+      frist: p.frist ? { ...p.frist } : null,
+    })),
+    nachweise: r.nachweise.map((n) => ({
+      pruefart_nr: n.pruefartNr,
+      pruefdatum: n.pruefdatum,
+      ergebnis: n.ergebnis,
+      erfasst_am: n.erfasstAm,
+      pruefer_name: n.prueferName,
+    })),
+    anlaesse: r.anlaesse.map((a) => ({
+      pruefart_nr: a.pruefartNr,
+      datum: a.datum,
+      erfasst_am: a.erfasstAm,
+      aufgehoben_am: a.aufgehobenAm,
+    })),
+    offene_maengel: r.offeneMaengel.map((m) => ({ schwere: m.schwere })),
+  };
+}
+
+export const zuKurzRohdaten = (j: KurzRohJson): KurzRohdaten => ({
+  ...zuStatusRoh(j),
+  geraetId: j.geraet_id,
+  bereichName: j.bereich_name,
+  zugeordnetMir: j.zugeordnet_mir === true,
+  offeneUebernahme: j.offene_uebernahme
+    ? { vonMir: j.offene_uebernahme.von_mir === true, seit: j.offene_uebernahme.von_mir ? isoZeitOderNull(j.offene_uebernahme.seit) : null }
+    : null,
+});
+export const vonKurzRohdaten = (r: KurzRohdaten): KurzRohJson => ({
+  ...vonStatusRoh(r),
+  geraet_id: r.geraetId,
+  bereich_name: r.bereichName,
+  zugeordnet_mir: r.zugeordnetMir,
+  offene_uebernahme: r.offeneUebernahme ? { von_mir: r.offeneUebernahme.vonMir, seit: r.offeneUebernahme.seit } : null,
+});
+
+export const zuTokenRohdaten = (j: TokenRohJson): TokenRohdaten => ({
+  ...zuStatusRoh(j),
+  organisationName: j.organisation_name,
+  eigeneOrganisation: j.gleiche_organisation === true && typeof j.geraet_id === 'string' ? { geraetId: j.geraet_id } : null,
+});
+export const vonTokenRohdaten = (r: TokenRohdaten): TokenRohJson => ({
+  ...vonStatusRoh(r),
+  organisation_name: r.organisationName,
+  ...(r.eigeneOrganisation ? { geraet_id: r.eigeneOrganisation.geraetId, gleiche_organisation: true } : {}),
 });
 
 // ---------- Fehler ----------

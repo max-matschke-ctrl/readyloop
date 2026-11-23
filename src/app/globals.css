@@ -162,6 +162,52 @@ h3 {
     @apply bg-brick text-white hover:bg-brick-800;
   }
 
+  /* Halle-Modus (§6.3, §6.18, I3M): Mitarbeiter-Seiten und QR-Seite, auf jeder Bildschirmbreite.
+     Hauptaktion 56 px, alle anderen Ziele 48 px, Text 16 px. */
+  .btn-haupt {
+    @apply min-h-14 px-5 text-base;
+  }
+  .btn-halle {
+    @apply min-h-12 px-4 text-base;
+  }
+  /* Aktionen untereinander in voller Breite, ab sm nebeneinander (mindestens 12 rem), Abstand 12 px. */
+  .aktionen-halle {
+    @apply flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start;
+  }
+  .aktionen-halle > .btn,
+  .aktionen-halle > form > .btn {
+    @apply w-full sm:w-auto sm:min-w-48;
+  }
+
+  /* Nutzungsband (§6.17): Titel groß 24/30, kompakt 20/28 (h2-Stil). */
+  .text-nutzung {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    line-height: 1.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .text-nutzung-kompakt {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  /* Einzige volle Statusfläche der App (§2.4, E-4): weißer Text auf brick, 6,0:1. Fokus darin weiß. */
+  .band-nicht-verwenden {
+    @apply bg-brick text-white;
+  }
+  .band-nicht-verwenden :focus-visible {
+    outline-color: white;
+  }
+  .band-unklar {
+    @apply border-2 border-ochre-600 bg-ochre-50 text-ink;
+  }
+  .band-verwendbar {
+    @apply border border-moss bg-moss-50 text-ink;
+  }
+
   .karte {
     @apply rounded-flaeche border border-steel-200 bg-white;
   }

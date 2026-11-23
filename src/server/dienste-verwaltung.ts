@@ -1,7 +1,12 @@
 // Verwaltung (BE-10, F-17): Bereiche und Mitglieder. Nur admin (bereich.verwalten, mitglied.verwalten).
 import { randomUUID } from 'node:crypto';
-import { can } from '@/domain/rechte';
-import type { BereichSpeichernEingabe, MitgliedAendernEingabe, MitgliedEinladenEingabe } from '@/domain/schemas';
+import { can, darfEinladen } from '@/domain/rechte';
+import type {
+  BereichSpeichernEingabe,
+  MitarbeiterEinladenEingabe,
+  MitgliedAendernEingabe,
+  MitgliedEinladenEingabe,
+} from '@/domain/schemas';
 import type { Bereich, BereichAnsicht, Benutzer, Id, Mitgliedschaft, MitgliedAnsicht, PrueferTyp, Sitzung } from '@/domain/types';
 import { fehler, neuesEreignis, type DienstErgebnis } from './dienste-basis';
 import type { Repository } from './repo/types';
@@ -146,6 +151,30 @@ export async function mitgliedEinladen(
   jetzt: Date,
 ): Promise<DienstErgebnis<{ id: Id; neu: boolean; meldung: string }>> {
   if (!can(sitzung.rolle, 'mitglied.verwalten')) return fehler('Keine Berechtigung, Mitglieder zu verwalten.');
+  if (!darfEinladen(sitzung.rolle, eingabe.rolle)) return fehler('Diese Rolle darf nicht eingeladen werden.', 'rolle');
+  return einladen(sitzung, repo, eingabe, jetzt);
+}
+
+/** F-20: ADM und VER laden Mitarbeiter ein (Rolle fest 'mitarbeiter', keine Bereiche, keine Prüfertypen). */
+export async function mitarbeiterEinladen(
+  sitzung: Sitzung,
+  repo: Repository,
+  eingabe: MitarbeiterEinladenEingabe,
+  jetzt: Date,
+): Promise<DienstErgebnis<{ id: Id; neu: boolean; meldung: string }>> {
+  if (!can(sitzung.rolle, 'mitarbeiter.einladen') || !darfEinladen(sitzung.rolle, 'mitarbeiter')) {
+    return fehler('Keine Berechtigung, Mitarbeiter einzuladen.');
+  }
+  return einladen(sitzung, repo, { email: eingabe.email, name: eingabe.name, rolle: 'mitarbeiter', bereichIds: [], prueferTypen: [] }, jetzt);
+}
+
+/** Gemeinsamer Ablauf der Einladung; Rechte prüft der Aufrufer. */
+async function einladen(
+  sitzung: Sitzung,
+  repo: Repository,
+  eingabe: MitgliedEinladenEingabe,
+  jetzt: Date,
+): Promise<DienstErgebnis<{ id: Id; neu: boolean; meldung: string }>> {
   const email = eingabe.email.trim().toLowerCase();
   const org = sitzung.organisation.id;
   const [mitglieder, benutzer] = await Promise.all([repo.listeMitgliedschaften(org), repo.listeBenutzer(org)]);
@@ -191,6 +220,16 @@ export async function mitgliedEinladen(
   };
 }
 
+/** mitarbeiter.einladen: Mitglieder mit Rolle mitarbeiter, aktive zuerst, dann alphabetisch. Sonst []. */
+export async function listeMitarbeiter(sitzung: Sitzung, repo: Repository): Promise<MitgliedAnsicht[]> {
+  if (!can(sitzung.rolle, 'mitarbeiter.einladen')) return [];
+  const { mitglieder, benutzer, bereiche } = await ladeMitglieder(sitzung, repo);
+  return mitglieder
+    .filter((m) => m.rolle === 'mitarbeiter')
+    .map((m) => mitgliedAnsicht(sitzung, m, benutzer, bereiche))
+    .sort((a, b) => Number(b.aktiv) - Number(a.aktiv) || a.benutzer.name.localeCompare(b.benutzer.name, 'de'));
+}
+
 /** F-17: Name, Rolle, Bereiche, Prüfertypen, aktiv. Letzter aktiver Admin und eigene Mitgliedschaft geschützt. */
 export async function mitgliedAendern(
   sitzung: Sitzung,
@@ -228,5 +267,10 @@ export async function mitgliedAendern(
     neu: false,
     ereignis: mitgliedEreignis(sitzung, mitgliedschaft, eingabe.name, false, jetzt),
   });
+  // F-20/R-45 Austritt: Deaktivierung oder Rollenwechsel weg von 'mitarbeiter' löst Zuordnungen und beendet offene
+  // Übernahmen ('austritt'). Supabase: derselbe Trigger in der Transaktion von mitglied_speichern (No-op hier).
+  if (alt.rolle === 'mitarbeiter' && alt.aktiv && (!mitgliedschaft.aktiv || mitgliedschaft.rolle !== 'mitarbeiter')) {
+    await repo.loeseNutzungen({ organisationId: org, benutzerId: alt.benutzerId, jetzt: jetzt.toISOString() });
+  }
   return { ok: true, id: alt.id };
 }

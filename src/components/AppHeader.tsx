@@ -5,7 +5,15 @@ import { ROLLE_LABEL, type Sitzung } from '@/domain/types';
 import { abmelden } from '@/server/actions';
 import { PlaketteGlyph } from './PlaketteGlyph';
 
-export type NavSchluessel = 'geraete' | 'pruefer' | 'maengel' | 'verwaltung';
+export type NavSchluessel =
+  | 'geraete'
+  | 'pruefer'
+  | 'maengel'
+  | 'verwaltung'
+  | 'meine_geraete'
+  | 'suchen'
+  | 'etiketten'
+  | 'mitarbeiter';
 
 interface Props {
   sitzung: Sitzung;
@@ -16,6 +24,8 @@ interface Props {
  * Kopfleiste (§6.1): 56 px steel, Wortmarke (Glyph + „Readyloop“), Textnavigation, Menü als <details>.
  * Unter 640 px liegt die Navigation in einer zweiten, horizontal scrollbaren Zeile.
  * Navigation nach Rechten ist nur Anzeige – die Seiten prüfen die Rechte serverseitig selbst.
+ * I3M: Mitarbeiter „Meine Geräte“, „Gerät suchen“; „Etiketten“ bei etikett.verwalten; „Mitarbeiter“ bei
+ * mitarbeiter.einladen ohne mitglied.verwalten (Admin lädt über die Verwaltung ein). Ziele mobil 48 px (§6.1).
  */
 export function AppHeader({ sitzung, aktiv }: Props) {
   const nav: { href: string; label: string; key: NavSchluessel }[] = [];
@@ -27,6 +37,18 @@ export function AppHeader({ sitzung, aktiv }: Props) {
   }
   if (can(sitzung.rolle, 'mangel.lesen')) {
     nav.push({ href: '/maengel', label: 'Mängel', key: 'maengel' });
+  }
+  if (can(sitzung.rolle, 'meine_geraete.lesen')) {
+    nav.push({ href: '/meine-geraete', label: 'Meine Geräte', key: 'meine_geraete' });
+  }
+  if (can(sitzung.rolle, 'geraet.suchen')) {
+    nav.push({ href: '/meine-geraete/suchen', label: 'Gerät suchen', key: 'suchen' });
+  }
+  if (can(sitzung.rolle, 'etikett.verwalten')) {
+    nav.push({ href: '/etiketten', label: 'Etiketten', key: 'etiketten' });
+  }
+  if (can(sitzung.rolle, 'mitarbeiter.einladen') && !can(sitzung.rolle, 'mitglied.verwalten')) {
+    nav.push({ href: '/mitarbeiter', label: 'Mitarbeiter', key: 'mitarbeiter' });
   }
   if (can(sitzung.rolle, 'bereich.verwalten')) {
     nav.push({ href: '/admin/mitglieder', label: 'Verwaltung', key: 'verwaltung' });
@@ -55,7 +77,7 @@ export function AppHeader({ sitzung, aktiv }: Props) {
                   <Link
                     href={n.href}
                     aria-current={aktiv === n.key ? 'page' : undefined}
-                    className={`flex h-11 items-center border-b-[3px] pt-[3px] sm:h-14 ${
+                    className={`flex h-12 items-center border-b-[3px] pt-[3px] sm:h-14 ${
                       aktiv === n.key
                         ? 'border-white font-semibold text-white'
                         : 'border-transparent text-white/80 hover:text-white'
@@ -72,7 +94,7 @@ export function AppHeader({ sitzung, aktiv }: Props) {
         <div className="order-2 ml-auto flex h-14 items-center gap-4 text-sm sm:order-3">
           <span className="hidden max-w-56 truncate text-white/80 md:inline">{sitzung.organisation.name}</span>
           <details className="group relative">
-            <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1.5 rounded-feld px-2 hover:bg-steel-800 [&::-webkit-details-marker]:hidden">
+            <summary className="flex min-h-12 min-w-12 cursor-pointer list-none items-center gap-1.5 rounded-feld px-2 hover:bg-steel-800 [&::-webkit-details-marker]:hidden">
               <span className="hidden max-w-40 truncate sm:inline">{sitzung.benutzer.name}</span>
               <span className="sm:hidden">Menü</span>
               <ChevronDown
@@ -90,14 +112,14 @@ export function AppHeader({ sitzung, aktiv }: Props) {
               </div>
               <hr className="my-1 border-steel-200" />
               {mehrereOrganisationen && (
-                <Link href="/organisation" className="flex min-h-10 items-center rounded-feld px-3 hover:bg-steel-50">
+                <Link href="/organisation" className="flex min-h-12 items-center rounded-feld px-3 hover:bg-steel-50">
                   Betrieb wechseln
                 </Link>
               )}
               <form action={abmelden}>
                 <button
                   type="submit"
-                  className="flex min-h-10 w-full items-center gap-2 rounded-feld px-3 text-left hover:bg-steel-50"
+                  className="flex min-h-12 w-full items-center gap-2 rounded-feld px-3 text-left hover:bg-steel-50"
                 >
                   <LogOut aria-hidden="true" size={16} strokeWidth={1.75} />
                   Abmelden

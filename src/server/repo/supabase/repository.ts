@@ -26,17 +26,27 @@ import {
   zuMitgliedschaft,
   zuNachweis,
   zuOrganisation,
+  zuGeraetToken,
+  zuKurzRohdaten,
   zuPruefart,
+  zuTokenRohdaten,
+  zuUebernahme,
+  zuUebernahmeVerlauf,
   type AnlassZeile,
   type BereichZeile,
   type EreignisZeile,
+  type GeraetTokenZeile,
   type GeraetZeile,
   type KatalogZeile,
+  type KurzRohJson,
   type MangelZeile,
   type MitgliedschaftLeseZeile,
   type NachweisZeile,
   type OrganisationZeile,
   type PruefartZeile,
+  type TokenRohJson,
+  type UebernahmeZeile,
+  type UebernahmeVerlaufZeile,
 } from './mapping';
 
 export const NACHWEIS_BUCKET = 'nachweise';
@@ -195,7 +205,7 @@ export function supabaseRepository(
     },
 
     // ------------------------------------------------------------ Schreiben I1
-    /** RPC geraet_anlegen: Gerät + Prüfarten ohne Frist in einer Transaktion; Ereignis per Trigger. */
+    /** RPC geraet_anlegen: Gerät + Prüfarten ohne Frist in einer Transaktion; Ereignis und Token (F-24) per Trigger. */
     async legeGeraetAn({ geraet, pruefarten }) {
       const g = vonGeraet(geraet);
       pruefe(
@@ -312,6 +322,7 @@ export function supabaseRepository(
     async hebeAnlassAuf({ anlass }) {
       await aendere('anlass', anlass.id, { aufhebungsgrund: anlass.aufhebungsgrund });
     },
+    /** Ohne .select() nach dem Insert: Mitarbeiter haben keine SELECT-Policy auf mangel (F-26). */
     async erfasseMangel({ mangel }) {
       const z = vonMangel(mangel);
       pruefe(
@@ -345,5 +356,64 @@ export function supabaseRepository(
         throw new RepositoryFehler('Statusübergang nicht erlaubt.', '23514');
       }
     },
+
+    // ------------------------------------------------------------ I3M (BE-20)
+    async listeTokens(org) {
+      return (await liste<GeraetTokenZeile>('geraet_token', SPALTEN.token, [['organisation_id', org]])).map(zuGeraetToken);
+    },
+    /** Nur offene Zeilen (Filter bis is null); RLS (F-27): MA eigene; admin/sifa alle; VER Bereich; Prüfer keine. */
+    async listeOffeneUebernahmen(org, geraetId) {
+      let q = client.from('uebernahme').select(SPALTEN.uebernahme).eq('organisation_id', org);
+      if (geraetId !== undefined) q = q.eq('geraet_id', geraetId);
+      const zeilen = (pruefe(await q.is('bis', null), 'uebernahme lesen') ?? []) as unknown as UebernahmeZeile[];
+      return zeilen.map(zuUebernahme);
+    },
+    /** RPC uebernahmen_verlauf (security definer): ein Gerät, nur admin, ≤ 90 Tage; jetzt rechnet die DB selbst. */
+    async listeUebernahmeVerlauf(geraetId) {
+      const daten = pruefe(await client.rpc('uebernahmen_verlauf', { p_geraet: geraetId }), 'uebernahmen_verlauf');
+      return ((daten ?? []) as UebernahmeVerlaufZeile[]).map(zuUebernahmeVerlauf);
+    },
+    /** RPC ma_kurzansichten (security definer, nur öffentliche Felder); der Benutzer ergibt sich aus der Sitzung. */
+    async listeKurzRohdaten(org, auswahl) {
+      const daten = pruefe(
+        await client.rpc('ma_kurzansichten', {
+          p_org: org,
+          p_art: auswahl.art,
+          p_suche: auswahl.art === 'suche' ? auswahl.suche : null,
+          p_ids: auswahl.art === 'ids' ? auswahl.geraetIds : null,
+        }),
+        'ma_kurzansichten',
+      );
+      return ((daten ?? []) as KurzRohJson[]).map(zuKurzRohdaten);
+    },
+    /** RPC geraet_oeffentlich – auch ohne Sitzung (anon). null bei falschem Format, unbekanntem oder inaktivem Token.
+     *  Der Benutzer ergibt sich aus dem JWT; geraet_id nur, wenn p_organisation die Geräte-Organisation und er dort Mitglied ist. */
+    async holeTokenRohdaten(token, fuer) {
+      const daten = pruefe(
+        await client.rpc('geraet_oeffentlich', { p_token: token, p_organisation: fuer?.organisationId ?? null }),
+        'geraet_oeffentlich',
+      );
+      return daten ? zuTokenRohdaten(daten as TokenRohJson) : null;
+    },
+    /** RPC uebernahme_starten: beendet eine fremde offene Übernahme selbst ('uebergabe'); `vorherige` wird ignoriert. */
+    async starteUebernahme({ uebernahme }) {
+      pruefe(await client.rpc('uebernahme_starten', { p_geraet: uebernahme.geraetId }), 'uebernahme_starten');
+    },
+    /** RPC uebernahme_beenden: Ende-Art aus der Rolle (MA eigene → rueckgabe, admin/VER → beendet_verwaltung). */
+    async beendeUebernahme({ uebernahme }) {
+      pruefe(await client.rpc('uebernahme_beenden', { p_geraet: uebernahme.geraetId }), 'uebernahme_beenden');
+    },
+    /** Spalten-Grant zugeordnet_an; Trigger prüft Rolle/Ziel und schreibt zuordnung_geaendert ohne Person. */
+    async setzeZuordnung({ geraetId, benutzerId }) {
+      await aendere('geraet', geraetId, { zugeordnet_an: benutzerId });
+    },
+    /** RPC etikett_erneuern (invoker, RLS): Token entsteht in der DB; Rückgabe = neuer Token. */
+    async erneuereToken({ geraetId }) {
+      const token = pruefe(await client.rpc('etikett_erneuern', { p_geraet: geraetId }), 'etikett_erneuern');
+      if (typeof token !== 'string') throw new RepositoryFehler('Der Aufkleber konnte nicht erneuert werden.');
+      return token;
+    },
+    /** No-op: Trigger app.mitarbeiter_austritt in derselben Transaktion wie mitglied_speichern. */
+    async loeseNutzungen() {},
   };
 }

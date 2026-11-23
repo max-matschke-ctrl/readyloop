@@ -1,4 +1,4 @@
-// Vertrag Inkrement 1 + 2 – siehe docs/backlog.md §3.1 und §5.1
+// Vertrag Inkrement 1 + 2 + I3M – siehe docs/backlog.md §3.1, §5.1 und §7.1
 
 export type Id = string; // UUID
 export type IsoDate = string; // 'YYYY-MM-DD'
@@ -9,7 +9,8 @@ export type IsoDateTime = string; // ISO 8601 UTC, z. B. '2026-11-19T08:30:00.00
 export const ROLLEN = ['admin', 'sifa', 'verantwortlicher', 'pruefer', 'mitarbeiter'] as const;
 export type Rolle = (typeof ROLLEN)[number];
 
-export const DEMO_ROLLEN = ['admin', 'sifa', 'verantwortlicher', 'pruefer'] as const;
+// Mitarbeiter in der Demo-Rollenwahl (F-20)
+export const DEMO_ROLLEN = ['admin', 'sifa', 'verantwortlicher', 'pruefer', 'mitarbeiter'] as const;
 export type DemoRolle = (typeof DEMO_ROLLEN)[number];
 
 export const ROLLE_LABEL: Record<Rolle, string> = {
@@ -137,8 +138,8 @@ export const BETRIEBSSTATUS_LABEL: Record<Betriebsstatus, string> = {
 export const WAEHLBARER_BETRIEBSSTATUS = ['in_betrieb', 'ausser_betrieb'] as const;
 export type WaehlbarerBetriebsstatus = (typeof WAEHLBARER_BETRIEBSSTATUS)[number];
 
-/** 'mitarbeiter' ab I5. */
-export const EINLADBARE_ROLLEN = ['admin', 'sifa', 'verantwortlicher', 'pruefer'] as const;
+/** 'mitarbeiter' einladbar (F-20). Verantwortliche dürfen nur 'mitarbeiter' einladen (darfEinladen). */
+export const EINLADBARE_ROLLEN = ['admin', 'sifa', 'verantwortlicher', 'pruefer', 'mitarbeiter'] as const;
 export type EinladbareRolle = (typeof EINLADBARE_ROLLEN)[number];
 
 export type Betriebsmodus = 'demo' | 'supabase' | 'unkonfiguriert';
@@ -206,6 +207,8 @@ export const EREIGNIS_TYPEN = [
   'mangel_behoben',
   'bereich_gespeichert',
   'mitglied_gespeichert',
+  'zuordnung_geaendert',
+  'etikett_erneuert',
 ] as const;
 export type EreignisTyp = (typeof EREIGNIS_TYPEN)[number];
 
@@ -224,6 +227,8 @@ export const EREIGNIS_LABEL: Record<EreignisTyp, string> = {
   mangel_behoben: 'Mangel behoben',
   bereich_gespeichert: 'Bereich gespeichert',
   mitglied_gespeichert: 'Mitglied gespeichert',
+  zuordnung_geaendert: 'Zuordnung geändert',
+  etikett_erneuert: 'Aufkleber erneuert',
 };
 
 export const AKTIONEN = [
@@ -237,13 +242,20 @@ export const AKTIONEN = [
   'pruefer.zuweisen',
   'anlass.erfassen', // inkl. aufheben
   'mangel.lesen',
-  'mangel.erfassen',
+  'mangel.erfassen', // MA: nur über mangelMelden (F-26)
   'mangel.bearbeiten', // Kenntnisnahme, Behebung
   'verlauf.lesen',
   'katalog.lesen',
   'katalog.freigeben',
   'bereich.verwalten',
   'mitglied.verwalten',
+  'meine_geraete.lesen', // I3M
+  'geraet.suchen', // I3M: Kurzansicht für MA
+  'geraet.uebernehmen', // I3M: inkl. zurückgeben
+  'geraet.zuordnen', // I3M: personenbezogen zuordnen/lösen, fremde Übernahme beenden
+  'uebernahmen.lesen', // I3M: abgeschlossene Übernahmen, 90 Tage
+  'etikett.verwalten', // I3M: drucken, erneuern
+  'mitarbeiter.einladen', // I3M
 ] as const;
 export type Aktion = (typeof AKTIONEN)[number];
 
@@ -339,6 +351,7 @@ export interface Geraet {
   einsatzort: Einsatzort | null; // Override; null = Einsatzort des Bereichs
   betriebsstatus: Betriebsstatus;
   angelegtAm: IsoDateTime;
+  zugeordnetAn: Id | null; // Benutzer-ID eines Mitarbeiters; nur kategorie 'personenbezogen' (F-22)
 }
 
 /** Snapshot einer freigegebenen Frist (R-04). */
@@ -585,6 +598,7 @@ export interface GeraetDetail {
   maengel: MangelAnsicht[]; // offene zuerst, dann nach termin; leer ohne 'mangel.lesen'
   anlaesse: AnlassAnsicht[]; // absteigend nach datum
   verlauf: Ereignis[]; // absteigend nach zeitpunkt; leer ohne 'verlauf.lesen'
+  nutzung: GeraetNutzung | null; // null für Rolle pruefer (F-27)
 }
 
 export interface PrueferAufgabe {
@@ -610,6 +624,179 @@ export interface GeraeteFilter {
   bereichId?: Id;
   status?: FristStatus;
   suche?: string; // Bezeichnung, Inventarnummer, Hersteller, Seriennummer; case-insensitiv
+}
+
+// ---------- Nutzbarkeit (F-21) ----------
+
+export const NUTZUNG = ['nicht_verwenden', 'unklar', 'verwendbar'] as const;
+export type Nutzung = (typeof NUTZUNG)[number];
+
+export const NUTZUNG_LABEL: Record<Nutzung, string> = {
+  nicht_verwenden: 'Nicht verwenden',
+  unklar: 'Prüfstatus unklar – vor Nutzung Verantwortlichen fragen',
+  verwendbar: 'Verwendbar',
+};
+
+// ---------- Übernahme (F-23, F-27) ----------
+
+export const UEBERNAHME_ENDE_ARTEN = ['rueckgabe', 'uebergabe', 'beendet_verwaltung', 'austritt'] as const;
+export type UebernahmeEndeArt = (typeof UEBERNAHME_ENDE_ARTEN)[number];
+
+export const UEBERNAHME_ENDE_LABEL: Record<UebernahmeEndeArt, string> = {
+  rueckgabe: 'Zurückgegeben',
+  uebergabe: 'Von anderer Person übernommen',
+  beendet_verwaltung: 'Durch Verantwortlichen beendet',
+  austritt: 'Zugang beendet',
+};
+
+/** Gründe, warum „Gerät übernehmen“ nicht angeboten wird; Prüfreihenfolge wie im Array. */
+export const UEBERNAHME_HINWEISE = ['nicht_wechselnd', 'ausser_betrieb', 'nicht_verwenden'] as const;
+export type UebernahmeHinweis = (typeof UEBERNAHME_HINWEISE)[number];
+
+export const UEBERNAHME_HINWEIS_LABEL: Record<UebernahmeHinweis, string> = {
+  nicht_wechselnd: 'Nur Geräte mit wechselndem Einsatzort werden übernommen.',
+  ausser_betrieb: 'Gerät ist außer Betrieb – nicht verwenden.',
+  nicht_verwenden: 'Prüfung überfällig oder vor Nutzung zu prüfen – nicht verwenden. Bitte Verantwortlichen informieren.',
+};
+
+export const UEBERNAHME_ZUSTAENDE = ['frei', 'von_mir', 'von_anderen'] as const;
+export type UebernahmeZustand = (typeof UEBERNAHME_ZUSTAENDE)[number];
+
+/** F-27: abgeschlossene Übernahmen mit Person nur so lange (ADM), danach pseudonymisiert. */
+export const UEBERNAHME_AUFBEWAHRUNG_TAGE = 90;
+
+export interface Uebernahme {
+  id: Id;
+  organisationId: Id;
+  geraetId: Id;
+  benutzerId: Id | null; // null nach Pseudonymisierung
+  benutzerName: string | null; // null nach Pseudonymisierung
+  von: IsoDateTime;
+  bis: IsoDateTime | null; // null = offen
+  endeArt: UebernahmeEndeArt | null; // null ⇔ bis === null
+  beendetVon: Id | null; // Benutzer-ID der beendenden Person; null bei offen oder nach Pseudonymisierung
+}
+
+// ---------- Token und Etikett (F-24, F-25) ----------
+
+export interface GeraetToken {
+  id: Id;
+  organisationId: Id;
+  geraetId: Id;
+  token: string; // 22 Zeichen base64url (16 Zufallsbytes)
+  aktiv: boolean;
+  erstelltAm: IsoDateTime;
+  deaktiviertAm: IsoDateTime | null;
+}
+
+/** QR-Code als Modulraster, zeilenweise, groesse × groesse Einträge, true = dunkel; ohne Ruhezone. */
+export interface QrMatrix {
+  groesse: number;
+  module: boolean[];
+}
+
+export const ETIKETTEN_MAX = 120;
+
+export interface EtikettenFilter {
+  geraetIds?: Id[]; // hat Vorrang vor bereichId/kategorie
+  bereichId?: Id;
+  kategorie?: GeraeteKategorie; // fehlt = alle Kategorien (Abnahme FE-15: „leer bzw. alle → alle Geräte“)
+}
+
+/**
+ * Rückgabe von holeEtiketten (Vertrag geändert in I3M-Befunden, vorher Etikett[]).
+ * etiketten: höchstens ETIKETTEN_MAX, sortiert; gesamt: Anzahl aller passenden Geräte vor der Kappung;
+ * gekappt: gesamt > ETIKETTEN_MAX (UI zeigt „nur die ersten 120“).
+ */
+export interface EtikettenErgebnis {
+  etiketten: Etikett[];
+  gesamt: number;
+  gekappt: boolean;
+}
+
+export interface Etikett {
+  geraetId: Id;
+  bezeichnung: string;
+  inventarnummer: string | null;
+  organisationName: string;
+  url: string; // absolute Token-URL
+  kurzUrl: string; // ohne Schema, z. B. 'app.readyloop.de/g/AbC…'
+  qr: QrMatrix;
+  status: FristStatus; // Gesamtstatus (F-9) zum Druckzeitpunkt, für die Plakette
+  faelligAm: IsoDate | null; // nächste Fälligkeit zum Druckzeitpunkt
+  stand: IsoDate; // Druckdatum
+}
+
+// ---------- Öffentliche Ansicht und Kurzansicht (F-21, F-24) ----------
+
+export interface OeffentlicheFrist {
+  monate: number;
+  quelle: FristQuelle;
+  stufe: Stufe;
+  fundstelle: string;
+}
+
+export interface OeffentlichePruefart {
+  bezeichnung: string;
+  status: StatusErgebnis; // F-9
+  frist: OeffentlicheFrist | null; // null = keine freigegebene Frist → „Frist über GBU festlegen“
+  letztePruefung: IsoDate | null;
+  letztePruefungHerkunft: Datumsherkunft;
+  letzterNachweis: { pruefdatum: IsoDate; ergebnis: PruefErgebnis; prueferName: string } | null;
+}
+
+/** Gemeinsamer Kern der öffentlichen Ansicht und der Kurzansicht; enthält keine Personennamen außer Prüfernamen. */
+export interface GeraetStatusKern {
+  bezeichnung: string;
+  inventarnummer: string | null;
+  hersteller: string | null;
+  typ: string | null;
+  kategorie: GeraeteKategorie;
+  betriebsstatus: Betriebsstatus;
+  gesamtStatus: FristStatus; // über alle Prüfarten und alle offenen Mängel (F-21)
+  gesamtStatusGrund: VorNutzungGrund | null;
+  naechsteFaelligkeit: IsoDate | null;
+  nutzung: Nutzung;
+  pruefarten: OeffentlichePruefart[]; // nach Status-Schwere (FRIST_STATUS), dann Bezeichnung
+}
+
+export interface OeffentlicheGeraeteansicht extends GeraetStatusKern {
+  organisationName: string;
+  stand: IsoDateTime; // Zeitpunkt der Berechnung
+}
+
+export interface GeraetKurzansicht extends GeraetStatusKern {
+  geraetId: Id;
+  bereichName: string;
+  offeneMaengel: number; // Anzahl offen + in_bearbeitung, ohne Details
+  zugeordnetMir: boolean;
+  uebernahme: UebernahmeZustand | null; // null = nicht kategorie 'wechselnd'
+  /** null = Übernahme möglich. FE zeigt „Gerät übernehmen“ nur bei uebernahme ∈ {frei, von_anderen} und uebernahmeHinweis === null. */
+  uebernahmeHinweis: UebernahmeHinweis | null;
+}
+
+export interface MeinGeraet extends GeraetKurzansicht {
+  bezug: 'zugeordnet' | 'uebernommen';
+  uebernommenSeit: IsoDateTime | null; // nur bei bezug 'uebernommen'
+}
+
+export interface TokenSeite {
+  token: string;
+  ansicht: OeffentlicheGeraeteansicht;
+  angemeldet: boolean;
+  andereOrganisation: boolean; // angemeldet, Gerät gehört nicht zur aktuellen Organisation → nur öffentliche Ansicht
+  kurz: GeraetKurzansicht | null; // nur Rolle mitarbeiter derselben Organisation (Aktionen)
+  akteUrl: string | null; // '/geraete/{id}' bei geraet.lesen + Geltungsbereich
+}
+
+// ---------- Geräteakte (F-22, F-27) ----------
+
+export interface GeraetNutzung {
+  zugeordnet: PersonOption | null; // nur kategorie 'personenbezogen'
+  uebernahme: { benutzerName: string; seit: IsoDateTime } | null; // offene Übernahme
+  verlauf: Uebernahme[]; // nur uebernahmen.lesen: abgeschlossen, Person vorhanden, ≤ 90 Tage nach Ende, neueste zuerst; sonst []
+  darfZuordnen: boolean; // geraet.zuordnen + Geltungsbereich
+  etikett: { token: string; url: string } | null; // nur etikett.verwalten + Geltungsbereich
 }
 
 // ---------- Server Actions ----------

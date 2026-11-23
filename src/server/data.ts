@@ -1,6 +1,7 @@
 // Vertrag §3.5/§5.4 – Datenzugriffsschicht (BE-6, BE-11).
 // Nur aus Server Components, Server Actions und Route Handlern importieren.
 import { notFound, redirect } from 'next/navigation';
+import { istTokenFormat } from '@/domain/nutzung';
 import { can } from '@/domain/rechte';
 import type {
   Aktion,
@@ -8,6 +9,9 @@ import type {
   Bereich,
   BereichAnsicht,
   Betriebsmodus,
+  EtikettenErgebnis,
+  EtikettenFilter,
+  GeraetKurzansicht,
   GeraetDetail,
   GeraeteFilter,
   GeraetegruppeOption,
@@ -17,15 +21,19 @@ import type {
   MangelAnsicht,
   MangelFilter,
   MangelFormularKontext,
+  MeinGeraet,
   MitgliedAnsicht,
   OrganisationOption,
   PersonOption,
   PrueferAufgabe,
   PrueferOption,
   Sitzung,
+  TokenSeite,
 } from '@/domain/types';
 import * as dienste from './dienste';
+import * as etiketten from './dienste-etiketten';
 import * as maengel from './dienste-maengel';
+import * as mitarbeiter from './dienste-mitarbeiter';
 import * as verwaltung from './dienste-verwaltung';
 import {
   betriebsmodus as betriebsmodusIntern,
@@ -99,7 +107,8 @@ export async function listeGeraete(filter?: GeraeteFilter): Promise<GeraetListen
   return dienste.listeGeraete(sitzung, repo, heute(), filter);
 }
 
-/** null, wenn nicht vorhanden oder außerhalb des Geltungsbereichs. Prüfer sehen nur zugewiesene Prüfarten. */
+/** null, wenn nicht vorhanden oder außerhalb des Geltungsbereichs. Prüfer sehen nur zugewiesene Prüfarten.
+ *  I3M: liefert nutzung (F-22, F-27; null für Prüfer). */
 export async function holeGeraetDetail(geraetId: Id): Promise<GeraetDetail | null> {
   const { sitzung, repo } = await mitRepo();
   return dienste.holeGeraetDetail(sitzung, repo, heute(), geraetId);
@@ -185,4 +194,56 @@ export async function listeMitglieder(): Promise<MitgliedAnsicht[]> {
 export async function holeMitglied(mitgliedschaftId: Id): Promise<MitgliedAnsicht | null> {
   const sitzung = await erfordereSitzung('mitglied.verwalten');
   return verwaltung.holeMitglied(sitzung, await holeRepository(sitzung), mitgliedschaftId);
+}
+
+// --- Inkrement I3M (§7.5) ---
+
+/** F-24. Ohne Sitzung aufrufbar, nie Redirect. null bei falschem Format (ohne Datenzugriff), unbekanntem oder
+ *  deaktiviertem Token. kurz nur für Rolle mitarbeiter derselben Organisation; akteUrl bei geraet.lesen + Geltungsbereich. */
+export async function holeTokenSeite(token: string): Promise<TokenSeite | null> {
+  if (!istTokenFormat(token)) return null;
+  const sitzung = await leseSitzung(); // bewusst nicht erfordereSitzung: kein Redirect auf /login
+  if (betriebsmodusIntern() === 'unkonfiguriert') return null;
+  const repo = await holeRepository(sitzung);
+  return mitarbeiter.holeTokenSeite(sitzung, repo, { heute: heute(), jetzt: new Date() }, token);
+}
+
+/** meine_geraete.lesen (sonst notFound()). Sortierung: nutzung (nicht_verwenden, unklar, verwendbar),
+ *  dann naechsteFaelligkeit aufsteigend (null zuerst), dann Bezeichnung. */
+export async function listeMeineGeraete(): Promise<MeinGeraet[]> {
+  const sitzung = await erfordereSitzung('meine_geraete.lesen');
+  return mitarbeiter.listeMeineGeraete(sitzung, await holeRepository(sitzung), heute());
+}
+
+/** geraet.suchen (sonst notFound()). suche < 2 Zeichen → []. Höchstens 50 Treffer, nach Bezeichnung. */
+export async function sucheGeraete(suche: string): Promise<GeraetKurzansicht[]> {
+  const sitzung = await erfordereSitzung('geraet.suchen');
+  const q = typeof suche === 'string' ? suche.trim() : '';
+  if (q.length < 2) return [];
+  return mitarbeiter.sucheGeraete(sitzung, await holeRepository(sitzung), heute(), q.slice(0, 80));
+}
+
+/** Kontext für /mangel-melden/[geraetId]: nur Rolle mitarbeiter, Gerät der eigenen Organisation; sonst null. */
+export async function holeMangelMeldung(geraetId: Id): Promise<GeraetKurzansicht | null> {
+  const { sitzung, repo } = await mitRepo();
+  return mitarbeiter.holeMangelMeldung(sitzung, repo, heute(), geraetId);
+}
+
+/** geraet.zuordnen: aktive Mitglieder mit Rolle mitarbeiter, alphabetisch. Sonst []. */
+export async function listeMitarbeiterOptionen(): Promise<PersonOption[]> {
+  const { sitzung, repo } = await mitRepo();
+  return mitarbeiter.listeMitarbeiterOptionen(sitzung, repo);
+}
+
+/** mitarbeiter.einladen (sonst notFound()): Mitglieder mit Rolle mitarbeiter, aktive zuerst, dann alphabetisch. */
+export async function listeMitarbeiter(): Promise<MitgliedAnsicht[]> {
+  const sitzung = await erfordereSitzung('mitarbeiter.einladen');
+  return verwaltung.listeMitarbeiter(sitzung, await holeRepository(sitzung));
+}
+
+/** etikett.verwalten (sonst notFound()). F-25: nur Geräte im Geltungsbereich, höchstens ETIKETTEN_MAX;
+ *  ohne kategorie alle Kategorien. Sortierung Bereich, Inventarnummer, Bezeichnung. gesamt/gekappt zeigen die Kappung. */
+export async function holeEtiketten(filter: EtikettenFilter): Promise<EtikettenErgebnis> {
+  const sitzung = await erfordereSitzung('etikett.verwalten');
+  return etiketten.holeEtiketten(sitzung, await holeRepository(sitzung), { heute: heute(), jetzt: new Date() }, filter);
 }
