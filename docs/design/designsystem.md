@@ -1,7 +1,7 @@
-# Readyloop – Designsystem (Stand 20.11.2026, ergänzt um I3M Mitarbeiter)
+# Readyloop – Designsystem (Stand 23.11.2026, ergänzt um I3M Mitarbeiter und I3 E-Mail-Erinnerungen)
 
 Erweitert `corporate-design.md` und ersetzt es nicht. Grundwerte (Farben, Schriften, Plakette) bleiben, hier kommen Abstufungen, Skalen und Regeln dazu. Änderungen an Grundwerten stehen nur in §9 „Vorschlag an Max“. Entscheidungen zu Rückfragen aus der Umsetzung stehen in §10.
-Recherche dazu: `recherche-business-apps.md`, für I3M §11. Umsetzung: `umsetzung.md`.
+Recherche dazu: `recherche-business-apps.md`, für I3M §11, für I3 §13. Mail-Vorlagen im Detail: `mail-vorlagen.md`. Umsetzung: `umsetzung.md`.
 
 ---
 
@@ -21,6 +21,10 @@ Ergänzung für Mitarbeiter-Seiten und die QR-Seite (I3M):
 6. **Erst die Antwort, dann die Begründung.** Mitarbeiter fragen „Darf ich das Gerät benutzen?“. Die Antwort (Nutzungsband, §6.17) steht vor allem anderen, die Prüfdaten folgen darunter.
 7. **Halle vor Schreibtisch.** Jede Mitarbeiter-Ansicht muss mit Handschuhen, einer Hand und schlechtem Licht funktionieren (§6.18). Der Büro-PC bekommt dieselben Inhalte, nur breiter gesetzt.
 8. **Aufkleber und Bildschirm zeigen dieselbe Plakette.** Das Etikett trägt die Plakette als festes Datum, die QR-Seite zeigt sie als aktuellen Status (§5.5).
+
+Ergänzung für E-Mails (I3):
+
+9. **Die Mail ist Wegweiser, die App ist die Akte.** Eine Mail zeigt so viel, dass man weiß, was zu tun ist (Gerät, Status, Frist mit Quelle und Stufe), und führt dann in die App. Jede Mail nennt ihren Stand, denn ab dem Versand kann sie veralten (§12).
 
 ---
 
@@ -76,9 +80,9 @@ Die Namen sind Tailwind-4-Tokens in `@theme`. Bestehende Tokens behalten ihren N
 ### 2.4 Regeln
 - Statusfarben (moss, ochre, brick) nur für Status, Meldungen derselben Bedeutung und Mängel. Nie für Navigation, Deko oder Diagramme ohne Statusbezug.
 - Text auf Statusflächen ist **ink** (oder die -800/-dunkel-Stufe), nie die Statusfarbe selbst in Normalgröße.
-- **Einzige Ausnahme:** Das Nutzungsband „Nicht verwenden“ (§6.17) ist eine volle brick-Fläche mit weißem Text. Nirgends sonst gibt es eine volle Statusfläche. Dadurch bleibt diese Aussage einmalig und im Hallenlicht sofort erkennbar.
+- **Einzige Ausnahme:** Das Nutzungsband „Nicht verwenden“ (§6.17) ist eine volle brick-Fläche mit weißem Text. Nirgends sonst gibt es eine volle Statusfläche. Dadurch bleibt diese Aussage einmalig und im Hallenlicht sofort erkennbar. Das gilt auch für die Mail an Mitarbeiter (§12).
 - Tönungen als feste Tokens (-50), nicht über `color-mix` in Komponenten verstreut. `color-mix` ist nur in der Plakette erlaubt.
-- Kein Hex außerhalb `globals.css` und `Pruefplakette.tsx`. Für den Druck ist das Schlüsselwort `black` erlaubt (QR-Code, Druckplakette, §5.5).
+- Kein Hex außerhalb `globals.css` und `Pruefplakette.tsx`. Für den Druck ist das Schlüsselwort `black` erlaubt (QR-Code, Druckplakette, §5.5). **I3:** Mails können keine CSS-Variablen nutzen, deshalb stehen die Hex-Werte aus §2.2 dort inline, nur in `src/server/mail/vorlagen.ts` (§12).
 
 ---
 
@@ -93,6 +97,7 @@ Die Namen sind Tailwind-4-Tokens in `@theme`. Bestehende Tokens behalten ihren N
 
 Mono steht nur für **Werte**, nie für Beschriftungen, Labels oder Überschriften.
 Die Plakette nutzt laut CD **Space Grotesk** und nicht Mono wie heute. Wird in P1 korrigiert.
+**Mails** nutzen keine dieser Schriften, sondern Systemschriften (§12).
 
 ### 3.2 Skala (Grundgröße 16 px, Verhältnis ≈1,25)
 | Stufe | Größe / Zeilenhöhe | Schrift, Gewicht | Einsatz |
@@ -168,18 +173,20 @@ Ring mit 12 Monatssegmenten (1 oben, im Uhrzeigersinn), Fälligkeitsmonat gefül
 | **Zeile** | 40 | Geräteliste, Prüfartkarte, Mängelliste (Gerätespalte), Prüfungen in `PruefartKurzliste` | Status + Monat/Jahr |
 | **Karte mobil** | 56 | Prüferaufgaben, **Meine Geräte, Suchtreffer, Mangel melden (Kopf)** | wie Zeile |
 | **Akte** | 96 | Kopf der Geräteakte, **Kopf der QR-Seite** | wie Zeile, darunter Fälligkeitsdatum als Text |
-| **Leer** | 64 / 96 | Leerzustände, **ungültiger Aufkleber** (Mitte „!“) | Ring `steel-400` gestrichelt, keine Füllung, Mitte „–“ |
+| **Leer** | 64 / 96 | Leerzustände, **ungültiger Aufkleber** (Mitte „!“), **ungültiger Abmeldelink** (I3) | Ring `steel-400` gestrichelt, keine Füllung, Mitte „–“ |
 | **Live** | 160 | Login | Steel-Ring, Segmente bis zum aktuellen Monat in moss gefüllt, Mitte aktuelles Jahr; einmalige Füllanimation |
 | **Jahresring** (§9.3, §10 E-3) | 112 | Kopf `/geraete` | 12 Segmente = die 12 Kalendermonate ab dem aktuellen Monat (heute bis Ende des 11. Folgemonats), jedes Segment genau ein Monat. Füllstärke in Steel-Stufen nach Anzahl Fälligkeiten (0 / 1–2 / 3–5 / ≥6), aktueller Monat mit Rahmen ink 1,5 markiert (Fensteranfang), Mitte = Summe, Text daneben mit Zeitraum („fällig Nov. 2026 – Okt. 2027“); gleichwertige Liste mit denselben 12 Monaten für Screenreader |
 | **Bestätigung** | 24 | Erfolgsmeldung nach „Nachweis speichern“ | Plakette mit neuem Monat/Jahr in moss |
 | **Druck** (I3M, §5.5, §9.7) | 13 mm | QR-Etikett | einfarbig schwarz auf weiß: Ring und Segmentrahmen schwarz, Fälligkeitsmonat schwarz gefüllt, übrige Segmente weiß, Jahr in der Mitte; GBU gestrichelt mit „GBU“, unbekannt „?“ |
+| **Text-Plakette** (I3, §12, §10 E-7) | 44 px | Postenzeile in Mails | runde HTML-Fläche ohne Segmente: Rand 2 px und Fläche in Statusfarbe (-50), Mitte Monat und vierstelliges Jahr als Text („03“ / „2027“); „!“, „?“, „GBU“ wie oben. Kein SVG, kein Bild. Im Classic Outlook eckig |
 
 ### 5.4 Do / Don't
 - **Do:** Immer `role="img"` und eine sprechende `aria-label` (wie heute). Daneben steht der Status als Text.
-- **Do:** Die Plakette steht immer links vom Objekt, das sie beschreibt.
+- **Do:** Die Plakette steht immer links vom Objekt, das sie beschreibt. Das gilt auch in der Mail.
 - **Don't:** Segmente nie als Prozent- oder Fortschrittsanzeige zweckentfremden. Ein Segment ist immer **ein** Monat, auch im Jahresring (keine zwei Monate in einem Segment).
 - **Don't:** Keine Plakette als reines Schmuckbild ohne Datenbezug. Ausnahmen: Glyph in der Wortmarke und Live-Plakette auf dem Login.
 - **Don't:** Plaketten nicht in Statusfarbe hinterlegen oder mit Schatten versehen. Das gilt auch innerhalb des Nutzungsbands: Die Plakette steht nie **auf** der brick-Fläche, sondern daneben auf Weiß.
+- **Don't (I3):** Keine Plakette auf den Einstellungsseiten der Erinnerungen und im Versandprotokoll. Dort gibt es keinen Fälligkeitsmonat, den sie zeigen könnte (Ausnahme: Leerzustände).
 
 ### 5.5 Plakette auf Papier: das Etikett als Brücke (I3M)
 Das Etikett ist die physische Hälfte der Plakette. Es hängt 12 Monate oder länger am Gerät. Eine dort gedruckte Statusfarbe wäre nach kurzer Zeit falsch: Ein grün gedrucktes Etikett an einem inzwischen überfälligen Gerät wäre gefährlicher als gar keine Farbe.
@@ -203,6 +210,9 @@ Das Etikett ist die physische Hälfte der Plakette. Es hängt 12 Monate oder lä
 - **Don't:** keine Seitenleiste (3–4 Ziele), keine Icons ohne Text in der Navigation.
 - **Öffentliche Kopfleiste (I3M, QR-Seite ohne Sitzung):** gleiche Fläche und Höhe, nur Glyph und Wortmarke, rechts der Textlink „Anmelden“ (`/login?next=/g/{token}`). Kein Betriebsname, kein Menü. Die Wortmarke ist hier kein Link.
 - **Mitarbeiter:** Navigation „Meine Geräte“, „Gerät suchen“. Mobil liegen beide Punkte in der zweiten Zeile, je mindestens 48 px hoch.
+- **Erinnerungen (I3, §10 E-8):** **ein** Hauptpunkt „Erinnerungen“ für ADM und SIF, rechts nach „Etiketten“ und vor „Verwaltung“. Ziel: ADM → `/admin/erinnerungen`, SIF → `/erinnerungen/protokoll`. Aktiv (`aria-current`) auf allen drei Unterseiten. Die Unterseiten erreicht man über Untertabs (§6.26).
+- **Menü (I3):** für alle Rollen ein Eintrag „Benachrichtigungen“ → `/einstellungen/benachrichtigungen`, Icon `Bell` 16 px mit Text, über „Abmelden“, 48 px hoch.
+- **Öffentliche Kopfleiste auf `/abmelden` (I3):** nur Glyph und Wortmarke, **ohne** „Anmelden“-Link (die Seite braucht keine Anmeldung, ein Login-Link würde vom einzigen Zweck ablenken).
 
 ### 6.2 Seitenkopf
 Pfad (Breadcrumb, `klein`, steel) → h1 → optional eine Zeile Kontext → Hauptaktion rechtsbündig (mobil darunter, volle Breite).
@@ -218,6 +228,7 @@ Der Pfad ersetzt die heutigen „← Geräteliste“-Links.
 
 Höhe 40 px Desktop, 48 px in Prüferansichten (Hauptaktion dort 56 px).
 **Mitarbeiter-Seiten und QR-Seite:** Hauptaktion 56 px, alle anderen Buttons 48 px, auf jeder Bildschirmbreite (auch am Büro-PC, Leitsatz 7). Mobil volle Breite und untereinander, ab `sm` nebeneinander in natürlicher Breite (mindestens 12 rem).
+**I3:** Auf `/einstellungen/benachrichtigungen` und `/abmelden` sind alle Buttons 48 px hoch (Mitarbeiter und Prüfer nutzen die Seiten am Handy, oft aus der Mail heraus).
 Bei laufender Aktion: Text bleibt, davor eine kleine drehende Glyph-Plakette, `aria-busy`.
 Beschriftung als Verb plus Objekt. Keine Pfeile im Text, keine Versalien.
 
@@ -234,6 +245,7 @@ Quadrat 20 px, Radius 4, steel-50, Rahmen steel-400, Buchstabe in Space Grotesk 
 In der Akte immer mit Text („Stufe B · Richtwert DGUV“), in Tabellen allein mit `title`/`abbr`.
 **Pflicht:** Neben jeder Frist stehen Stufe und Quelle. Das gilt auch für einen noch nicht freigegebenen Vorschlag.
 Auf Mitarbeiter-Seiten und der QR-Seite **immer mit Text**, nie allein.
+Im Versandprotokoll steht die Stufe der **Erinnerung** (`stufeLabel`, z. B. „Eskaliert an Sifa“), nicht die Stufe A–D der Frist. Deshalb dort keine Stufe-Marke, sondern Text.
 
 ### 6.6 Weitere Marken
 - Betriebsstatus: neutrale Marke (steel-50, Rahmen steel-200). Nur „außer Betrieb“ bekommt brick-50, Rahmen brick und Symbol ✕. „Ausgemustert“ bleibt neutral (§10 E-2). Einen Status „gesperrt“ gibt es im Datenmodell nicht.
@@ -241,6 +253,8 @@ Auf Mitarbeiter-Seiten und der QR-Seite **immer mit Text**, nie allein.
 - Rolle (Verwaltung): Text in `klein`, keine Marke.
 - **Offene Mängel (Mitarbeiter, I3M):** keine Marke, sondern eine Textzeile mit ⚠ im Symbolkreis brick-50: „1 offener Mangel gemeldet“ bzw. „3 offene Mängel gemeldet“. Ohne Beschreibung, ohne Melder. Bei 0 entfällt die Zeile.
 - **Übernahme (Mitarbeiter, I3M):** keine Marke, sondern eine Textzeile in `klein` ink: „Von Ihnen übernommen seit 18.11.2026, 07:12 Uhr“, „Ihnen zugeordnet“, „Wird von einer anderen Person genutzt“, „Frei“. Nie mit Namen anderer Personen.
+- **Versandstatus (I3):** eigene Marke, §6.23.
+- **„Standard“ / „Angepasst“ (I3, Erinnerungseinstellungen):** keine Marke, Text in `klein` (kein Status im Sinne von §4.2).
 
 ### 6.7 Tabellen
 - Container: weiß, Rahmen steel-200, Radius 6, `overflow-x-auto`.
@@ -264,6 +278,7 @@ Auf Mitarbeiter-Seiten und der QR-Seite **immer mit Text**, nie allein.
 - Das Status-Select entfällt, die Zählerleiste ist der Statusfilter.
 - Aktive Filter als **Chips** unter der Leiste: „Bereich: Werkstatt ✕“, „Suche: Leiter ✕“. Rechteckig (Radius 4), weiß, Rahmen steel-400. Der ✕-Teil ist ein Link mit `aria-label="Filter Bereich entfernen"`. Chips sind eckig, damit sie nicht mit runden Statusmarken verwechselt werden.
 - Ergebniszeile: „12 von 148 Geräten“ (`klein`, steel, `aria-live`).
+- **Versandprotokoll (I3):** hier gibt es kein Zählerfeld; Status, Art und Bereich sind Selects in der Filterleiste (§8.22).
 
 ### 6.10 Formulare
 - Einspaltig, max. 40 rem breit. Label über dem Feld (`klein` 500), darunter Hilfetext (`fein`, steel), dann das Feld.
@@ -277,6 +292,7 @@ Auf Mitarbeiter-Seiten und der QR-Seite **immer mit Text**, nie allein.
 - Aktionen unten links: Primär, daneben „Abbrechen“ als stiller Link. Mobil: Primär volle Breite in einer festen Leiste unten (weiß, `--shadow-pop`).
 - Inline-Formulare in der Akte (Frist freigeben, Prüfer zuweisen, Betriebsstatus): in einer Disclosure „Frist festlegen“ bzw. „Prüfer zuweisen“. Geschlossen zeigt sie den aktuellen Wert.
 - **Mitarbeiter-Formulare:** Felder 48 px hoch, Label in `text` 500 (16 px) statt `klein`, Hilfetext in `klein`. Mehrzeiliges Textfeld mindestens 4 Zeilen.
+- **Tage-Felder (I3):** `type="number"`, `inputmode="numeric"`, `min`/`max` aus dem Vertrag (Staffel 1–365, Eskalation 0–90), Breite 9 rem, Einheit rechts im Feld („Tage vorher“ bzw. „Tage nach Fälligkeit“). Feldfehler einer Gruppe (z. B. `staffel`) stehen unter der `legend`.
 
 ### 6.11 Meldungen
 | Art | Fläche / Linie | Symbol | Rolle |
@@ -289,6 +305,15 @@ Aufbau: Symbol, fetter Satz (was passiert ist), optional ein zweiter Satz (was j
 **Keine schwebenden Toasts** im MVP: Meldungen stehen an der Stelle der Aktion bzw. oben auf der Zielseite und bleiben stehen.
 Fehlertexte entschuldigen sich nicht und nennen die Ursache: „PDF ist größer als 10 MB. Bitte kleinere Datei wählen.“
 
+Feste Texte I3 (D-I3):
+| Situation | Art | Text |
+|---|---|---|
+| `mailModus() === 'aus'` | Warnung | „Mailversand ist nicht eingerichtet.“ + „Readyloop versendet derzeit keine Erinnerungen.“ |
+| `mailModus() === 'vorschau'` (Protokoll, Mail-Vorschau) | Hinweis | „Nur Vorschau – nichts wird versendet.“ + „Mails liegen nur im Speicher des Servers und gehen beim Neustart verloren.“ |
+| Bereich ohne aktiven VER (`warnungen`) | Warnung | Text aus `warnungen` wörtlich, z. B. „Kein aktiver Verantwortlicher – Erinnerungen gehen an die Sifa.“ |
+| Pflichtmail | Hinweis in der Karte (§8.20) | `PFLICHTMAIL_BEGRUENDUNG` wörtlich |
+| Abmeldung per Link erfolgreich | Erfolg | „Sie erhalten die {Art} von {Betrieb} nicht mehr.“ bzw. „Sie erhalten die {Art} von {Betrieb} wieder.“ |
+
 ### 6.12 Leerzustände
 Aufbau: Leer-Plakette (64), Titel (h3), ein Satz, eine Aktion. Linksbündig in der Fläche, die sonst die Tabelle einnimmt.
 | Art | Beispiel `/geraete` |
@@ -298,19 +323,24 @@ Aufbau: Leer-Plakette (64), Titel (h3), ein Satz, eine Aktion. Linksbündig in d
 | Alles erledigt (Prüfer, Mängel) | Plakette in moss mit ✓ statt Leer-Plakette: „Keine offenen Prüfungen.“ · „Neue Aufgaben erscheinen hier, sobald ein Betrieb Sie zuweist.“ |
 | Kein Zugriff / Fehler | Leer-Plakette mit „!“ · Ursache und Weg: „Ihr Konto ist keinem Betrieb zugeordnet. Bitten Sie den Admin um eine Einladung.“ |
 
+I3-Leerzustände stehen bei den Seitenmustern §8.18–§8.23.
+
 ### 6.13 Definitionslisten (Stammdaten)
 Zweispaltig `dt` (`klein`, steel) und `dd` (`text`). Leerwert „–“ mit `aria-label="keine Angabe"`. Werte wie Inventarnummer, Seriennummer und Baujahr in Mono.
 
 ### 6.14 Verlauf
 Senkrechte Linie steel-200, je Eintrag ein 8-px-Punkt (Statusfarbe, wenn das Ereignis einen Status hat, sonst steel-400). Links das Datum (Mono, `klein`), rechts Ereignis und Person. Neueste oben. Ab 10 Einträgen „Ältere anzeigen“.
+I3: Das Ereignis `erinnerung_einstellung_gespeichert` hat keinen Geräte- und keinen Statusbezug. Es erscheint nicht im Geräteverlauf, nur als „Angepasst am … von …“ auf den Erinnerungsseiten.
 
 ### 6.15 Icons
 Status- und Meldungssymbole (✓ ! ✕ ? § ⚠ i) bleiben als eigene Glyphen im Symbolkreis. Für UI-Icons (Suche, Menü, Datei, Herunterladen) wird `lucide-react` empfohlen (Vorschlag §9.5), 16 px, Strich 1,75, immer mit Text.
 Mitarbeiter-Seiten: UI-Icons 20 px. Drucker-Icon (`Printer`) nur am Button „Drucken“, Such-Icon (`Search`) nur im Suchbutton, jeweils mit Text.
+I3: `Bell` im Menü („Benachrichtigungen“), `Lock` in der Pflichtzeile der Benachrichtigungskarte, `Mail` nur im Button „Erinnerungslauf jetzt ausführen“; jeweils mit Text. Keine Icons in Mails.
 
 ### 6.16 Dialoge
 Natives `<dialog>`, Radius 6, `--shadow-pop`, Breite max. 28 rem. Nur für Bestätigungen gefährlicher Aktionen. Titel als Frage („Mitglied deaktivieren?“), Buttons „Deaktivieren“ (gefährlich) und „Abbrechen“.
 Ausnahme „Aufkleber erneuern“: siehe §10 E-5 (Disclosure mit Bestätigungs-Checkbox statt Dialog).
+I3: Keine Dialoge. „Auf Standard zurücksetzen“ und „Abbestellen“ sind umkehrbar und brauchen keine Rückfrage.
 
 ### 6.17 Nutzungsband (`NutzungsHinweis`, I3M)
 Beantwortet die Frage „Darf ich das Gerät benutzen?“. Steht auf jeder Mitarbeiter-Ansicht und auf der QR-Seite **vor** allen anderen Inhalten zum Gerät (Leitsatz 6, F-21).
@@ -331,6 +361,7 @@ Regeln:
 - **Do:** Symbol, Titel und Grund immer gemeinsam. Bei schlechtem Licht trägt die Form (Kreis mit ✕) die Aussage, nicht die Farbe.
 - **Don't:** Keine Plakette auf der brick-Fläche (§5.4). Keine Buttons in der brick-Fläche; Aktionen stehen darunter. Kein Ausblenden, Wegklicken oder Einklappen des Bands.
 - **Don't:** Die Wörter „gesperrt“ oder „blockiert“ nicht verwenden. Readyloop sperrt das Gerät nicht technisch (MVP-Ausschluss); „Nicht verwenden“ ist eine Anweisung an den Menschen.
+- **I3:** Die Mail an Mitarbeiter (`ma_hinweis`) übernimmt das Band als HTML-Tabelle (`mail-vorlagen.md` §7).
 
 ### 6.18 Halle-Modus: Regeln für Mitarbeiter-Seiten und die QR-Seite (I3M)
 Gilt für `/g/[token]`, `/meine-geraete`, `/meine-geraete/suchen`, `/mangel-melden/[geraetId]`, auf jeder Bildschirmbreite.
@@ -451,6 +482,60 @@ Format 70 × 37 mm, Bogen A4 3 × 8 (F-25, Q-39). Alle Maße in mm bzw. pt, nur 
 - Unter 2 Zeichen: Hinweis „Bitte mindestens 2 Zeichen eingeben.“ (keine Fehlermeldung, kein Rahmen in brick).
 - Unter dem Feld ein Hinweis in `klein` steel: „Am Handy schneller: QR-Code am Gerät mit der Kamera scannen.“
 
+### 6.23 Versandstatus-Marke (`VersandStatusBadge`, I3)
+Form wie die Statusmarke §6.4 (runde Pille, Symbolkreis, Text ink, nicht klickbar). Text = `VERSAND_STATUS_LABEL[status]` wörtlich. Die Farben folgen der Bedeutung (§2.4: Meldungen derselben Bedeutung), nicht der Fristlogik.
+
+| Status | Fläche / Rahmen | Symbol | Bedeutung für den Leser |
+|---|---|---|---|
+| `vorbereitet` | steel-50 / steel-200 | i | läuft gerade |
+| `versendet` | steel-50 / steel-400 | ✓ | an den Versanddienst übergeben, Zustellung noch nicht bestätigt |
+| `zugestellt` | moss-50 / moss | ✓ | angekommen |
+| `fehler` | ochre-50 / ochre-600 | ! | wird am nächsten Werktag erneut versucht |
+| `bounce` | brick-50 / brick | ✕ | Adresse prüfen, sonst kommt nichts an |
+| `beschwerde` | brick-50 / brick | ⚠ | Empfänger hat die Mail als Spam markiert |
+| `vorschau` | white / steel-400 gestrichelt | i | nur in der Vorschau |
+
+- Bei `fehler` steht darunter in `klein` steel der Text aus `MAIL_FEHLER_LABEL[fehlerCode]`; bei `versuche > 1` zusätzlich „{n} Versuche“.
+- **Don't:** keine Marke „Zugestellt“ ohne Text, kein Tooltip als einzige Erklärung.
+
+### 6.24 Vorlauf-Staffel und Eskalationskette (`ErinnerungEinstellungForm`, `EskalationsKette`, I3)
+
+**Staffel** (`fieldset`, legend „Vorlauf vor der Fälligkeit“):
+- Hilfetext: „Mails an die Verantwortlichen des Bereichs, bevor eine Prüfung fällig wird. Leere Felder werden ignoriert.“
+- Drei Tage-Felder (§6.10) mit `name="staffel"`, ab `sm` nebeneinander, mobil untereinander: „Erste Erinnerung“, „Zweite Erinnerung (optional)“, „Dritte Erinnerung (optional)“, Einheit „Tage vorher“.
+- Der Server sortiert absteigend; die Felder zeigen gespeicherte Werte in dieser Reihenfolge. Fehler zu `staffel` unter der legend.
+
+**Eskalationskette** (`fieldset`, legend „Eskalation ab Fälligkeit“):
+```
+0 = am Fälligkeitstag. Jede Stufe frühestens am Tag der vorherigen.
+
+1. Verantwortliche     →   2. Sifa              →   3. Admin/Geschäftsführung
+   des Bereichs
+   ab Tag [  0 ]           ab Tag [  7 ]            ab Tag [ 14 ]
+   nach Fälligkeit         nach Fälligkeit          nach Fälligkeit
+   Sifa in Kopie,          Verantwortliche          Sifa und Verantwortliche
+   wenn eingestellt        in Kopie                 in Kopie
+```
+- Semantik: `<ol>` mit drei `<li>`. Titel je Schritt aus `ESKALATIONS_EBENE_LABEL` (h3-Stil), Nummer als Text („1.“), **kein** Kreis (rund = Status, §4.2).
+- Ab `md` drei Spalten im Grid, dazwischen ein „→“ in steel-400 (`aria-hidden`, 24 px Spalte). Darunter: senkrecht, verbunden durch eine Linie steel-200 links (wie Verlauf §6.14).
+- Felder `eskalationVerantwortlicher`, `eskalationSifa`, `eskalationAdmin` (min 0, max 90), Label sichtbar „ab Tag“ + Einheit „nach Fälligkeit“; für Screenreader vollständig: „Verantwortliche des Bereichs: ab Tag … nach Fälligkeit“.
+- Die Kopie-Zeile in `klein` steel beschreibt die Regel aus F-32. Sie ändert sich nicht mit den Eingaben (kein JavaScript nötig).
+- **Don't:** keine Schieberegler, kein Ziehen, keine im Browser berechneten Beispieldaten.
+
+### 6.25 Empfängerwahl (I3)
+- **Verantwortliche des Bereichs:** nur lesend als Liste der Namen (`klein`), darunter „Verantwortliche des Bereichs erhalten Erinnerungen immer.“ Keine Checkboxen. Fehlt ein aktiver VER: Warnung aus `warnungen`.
+- **Sifa in Kopie:** eine Checkbox `sifaInKopie`, Label „Sifa beim Vorlauf und bei der ersten Eskalationsstufe in Kopie“, Hilfe „Ab der Stufe Sifa erhält die Sifa die Erinnerung immer.“
+- **Sifa** und **Admin/Geschäftsführung** je eine Radiogruppe (`sifaAuswahl` / `adminAuswahl`): „Alle aktiven ({n})“ und „Auswahl“. Unter „Auswahl“ eingerückt (24 px) die Checkboxen `sifaEmpfaenger` / `adminEmpfaenger`, Zeilenhöhe 40 px, Namen alphabetisch.
+- Die Checkboxliste ist ohne JavaScript immer sichtbar. Mit `:has()` wird sie ausgeblendet, solange „Alle aktiven“ gewählt ist. Die Auswahl bleibt dabei erhalten.
+- Keine Optionen: statt der Radiogruppe der Satz „Keine aktive Sifa im Betrieb.“ bzw. „Kein aktiver Admin im Betrieb.“, Feld `sifaAuswahl` als `hidden` mit `alle`.
+- Feldfehler (`sifaEmpfaenger`, `adminEmpfaenger`) unter der jeweiligen Radiogruppe.
+
+### 6.26 Untertabs Erinnerungen (`ErinnerungenNav`, I3)
+- Gleiche Optik wie `VerwaltungNav` (§8.10): Unterstrich-Tabs steel auf paper, unter dem h1.
+- Tabs: „Einstellungen je Bereich“ (`/admin/erinnerungen`, nur ADM) · „Versandprotokoll“ (`/erinnerungen/protokoll`, ADM und SIF) · „Mail-Vorschau“ (`/admin/mails`, nur ADM und nur im Modus `vorschau`).
+- Props: `aktiv: 'einstellungen' | 'protokoll' | 'vorschau'`, `zeigeEinstellungen: boolean`, `zeigeVorschau: boolean`. Die Seite ermittelt beides serverseitig (`can(...)`, `mailModus()`).
+- Ist nur ein Tab sichtbar (SIF), entfällt die Tab-Zeile ganz.
+
 ---
 
 ## 7. Layout-Raster
@@ -463,6 +548,10 @@ Format 70 × 37 mm, Bogen A4 3 × 8 (F-25, Q-39). Alle Maße in mm bzw. pt, nur 
 | **QR-Seite `/g/[token]`, Mangel melden** (I3M) | max. 40 rem | einspaltig, auf jeder Breite |
 | **Meine Geräte, Gerät suchen** (I3M) | max. 40 rem bis `lg`, ab `lg` max. 64 rem | Karten einspaltig; ab `lg` Zeilenkarten (§6.19) |
 | **Etiketten** (I3M) | Bedienteil max. 72 rem; Vorschau 210 mm je Bogen | Vorschau mit eigenem `overflow-x-auto`, nicht die Seite |
+| **Erinnerungen Übersicht, Versandprotokoll** (I3) | max. 72 rem | einspaltig |
+| **Erinnerungen je Bereich** (I3) | max. 48 rem | einspaltig; Eskalationskette ab `md` dreispaltig |
+| **Benachrichtigungen, Abmelden** (I3) | max. 40 rem | einspaltig |
+| **Mail-Vorschau** (I3) | max. 80 rem | ab `xl`: Liste 22 rem und Vorschau `1fr`; darunter untereinander |
 
 Alles linksbündig. Zentriert sind nur Login und `/auth/bestaetigen`.
 
@@ -615,6 +704,7 @@ Diese Seite zeigt den Prüfstatus zum Zeitpunkt des Aufrufs.
 | `andereOrganisation` | – | – | Hinweis (i): „Dieses Gerät gehört zu einem anderen Betrieb. Sie sehen die öffentliche Ansicht.“ |
 
   Ohne Sitzung sind beide Anmelde-Aktionen Sekundär: Die Seite dient zuerst Kontrolleuren und Prüfern, die nur lesen.
+  **I3 (US-43, FE-17):** „Anmelden und übernehmen“ erscheint nur, wenn das Gerät übernehmbar ist (`uebernahmeHinweis(...) === null`). Bei „Nicht verwenden“ bleibt nur „Anmelden und Mangel melden“. Kein Zusatztext, das Nutzungsband erklärt es.
 - Nach „Gerät übernehmen“ / „Zurückgeben“: Erfolgsmeldung (§6.11) **zwischen Kennung und Aktionen**, `role="status"`, Fokus auf die Meldung; die Aktionen wechseln (Zurückgeben ↔ Übernehmen).
 - Prüfungen immer ausgeklappt (Leitsatz 3), weil Kontrolleure hier den Nachweis vor Ort suchen (R-03).
 - **Nicht** auf der Seite: Halter, Zuordnung, Melder, Mängelbeschreibungen, PDF-Links, Bereich, Verlauf (F-24). Offene Mängel erscheinen nur als Grund im Nutzungsband („Gefährlicher Mangel offen“).
@@ -765,6 +855,176 @@ Vorschau
 - Bögen bildet die Seite selbst (je 24 Etiketten ein `.bogen`), statt sich auf automatische Seitenumbrüche zu verlassen.
 - Am Bildschirm hat `.bogen` dieselben mm-Maße, weißen Grund und Rahmen steel-200; der Vorschaucontainer scrollt horizontal, die Seite nicht.
 
+### 8.18 `/admin/erinnerungen` – Übersicht je Bereich (I3, FE-18)
+```
+Erinnerungen (h1)
+[Einstellungen je Bereich | Versandprotokoll | Mail-Vorschau]        (§6.26)
+Fristen-Erinnerungen gehen werktags morgens an die Verantwortlichen der Bereiche.
+Je Bereich legen Sie Vorlauf, Eskalation und Empfänger fest.          (text, max-w-prose)
+! Mailversand ist nicht eingerichtet. …                              (nur Modus „aus“)
+┌Bereich─────┬Vorlauf─────────────┬Eskalation (Tage nach Fälligkeit)───────┬Sifa in Kopie┬Stand───────────────────────┐
+│ Lager      │ 90 · 60 · 30 Tage  │ Verantwortliche 0 · Sifa 7 · Admin 14   │ ja          │ Standard                    │
+│ Produktion │ 60 · 30 · 14 Tage  │ Verantwortliche 0 · Sifa 3 · Admin 10   │ nein        │ Angepasst am 18.11.2026     │
+│            │                    │                                         │             │ von {Name}                  │
+│ ! Kein aktiver Verantwortlicher – Erinnerungen gehen an die Sifa.  (Warnzeile, volle Breite, ochre-50)        │
+└────────────┴────────────────────┴─────────────────────────────────────────┴─────────────┴─────────────────────────────┘
+i Prüfungen ohne freigegebene Frist oder ohne bekanntes Prüfdatum lösen keine Fristerinnerung aus.
+  Sie stehen weiter in der Geräteliste und in der Wochenübersicht der Prüfer.          (Hinweis)
+```
+- Tabelle nach §6.7 ohne Plakettenspalte. Der Bereichsname ist der gestreckte Zeilenlink (`aria-label` „Erinnerungen für {Bereich} bearbeiten“), Ziel `/admin/erinnerungen/{bereichId}`.
+- Zahlen in `tabular-nums`, „Standard“ / „Angepasst am {Datum} von {Name}“ in `klein` steel (Datum Mono).
+- Warnungen aus `warnungen` je Bereich als eigene Zeile direkt unter der Bereichszeile (`<td colspan>`), Stil Warnung §6.11.
+- < 640 px: Liste je Bereich (h3 Bereich als Link, darunter drei `dl`-Zeilen Vorlauf, Eskalation, Sifa in Kopie, dann Stand, dann Warnungen).
+- Der Hinweis unten ist Pflicht (F-30: nichts wird geschätzt). Er verhindert die falsche Annahme, alles werde erinnert.
+- Leerzustand (keine Bereiche): Leer-Plakette 64 · „Noch keine Bereiche angelegt.“ · „Erinnerungen werden je Bereich eingestellt.“ · [Bereiche verwalten] → `/admin/bereiche`.
+
+### 8.19 `/admin/erinnerungen/[bereichId]` – Einstellungen (I3, FE-18)
+```
+Erinnerungen / Lager (Pfad)
+Erinnerungen für Lager (h1)
+Standard  bzw.  Angepasst am 18.11.2026 von {Name}            (klein, steel)
+[Warnungen]   [Erfolg: Erinnerungen gespeichert]
+┌ Vorlauf vor der Fälligkeit ───────────────────── (fieldset, §6.24) ┐
+│ [ 90 ] Tage vorher  [ 60 ] Tage vorher  [ 30 ] Tage vorher        │
+└────────────────────────────────────────────────────────────────────┘
+┌ Eskalation ab Fälligkeit ─────────────────────── (fieldset, §6.24) ┐
+│ 1. Verantwortliche → 2. Sifa → 3. Admin/Geschäftsführung           │
+└────────────────────────────────────────────────────────────────────┘
+┌ Empfänger ────────────────────────────────────── (fieldset, §6.25) ┐
+│ Verantwortliche des Bereichs: {Namen} · erhalten Erinnerungen immer│
+│ [x] Sifa beim Vorlauf und bei der ersten Eskalationsstufe in Kopie │
+│ Sifa:  (•) Alle aktiven (2)  ( ) Auswahl  [ ] … [ ] …              │
+│ Admin/Geschäftsführung: (•) Alle aktiven (1)  ( ) Auswahl          │
+└────────────────────────────────────────────────────────────────────┘
+[Erinnerungen speichern]   Abbrechen
+Änderungen gelten ab dem nächsten Erinnerungslauf (werktags morgens).   (fein)
+──────────────────────────────────────────────
+Auf Standard zurücksetzen (h2)                              ← nur wenn !standard
+Vorlauf 90/60/30 Tage, Eskalation 0/7/14 Tage, Sifa in Kopie, alle aktiven Sifa und Admins.
+[Auf Standard zurücksetzen] (Sekundär)
+```
+- Zwei getrennte Formulare: Speichern (`erinnerungEinstellungSpeichern`) und Zurücksetzen (`erinnerungEinstellungZuruecksetzen`). Das zweite steht **unter** dem ersten, getrennt durch eine Linie steel-200 und eigene h2, damit es nicht als Abbrechen missverstanden wird. Keine Rückfrage (§6.16).
+- Fehlerübersicht ab 2 Feldfehlern (§6.10). Feldnamen exakt wie im Vertrag.
+- Erfolg: Meldung oben, Fokus darauf, Stand-Zeile aktualisiert („Angepasst am …“ bzw. „Standard“).
+- „Abbrechen“ führt zur Übersicht.
+
+### 8.20 `/einstellungen/benachrichtigungen` (I3, FE-19)
+```
+Benachrichtigungen (h1)
+bei Elbtal Fördertechnik GmbH
+E-Mail-Adresse   name@firma.de (Mono)
+                 Adresse ändern: über den Admin.          (klein, steel)
+! Mailversand ist nicht eingerichtet. …                   (nur Modus „aus“)
+┌ Karte ─────────────────────────────────────────────────────┐
+│ Fristen-Erinnerung (h2)                                     │
+│ Vorlauf vor Fälligkeiten und Eskalation überfälliger …      │
+│ 🔒 Pflicht – kann nicht abbestellt werden    (Lock 16, 500) │
+│ Diese Erinnerung gehört zur Fristenüberwachung …  (klein)   │
+└─────────────────────────────────────────────────────────────┘
+   oder (abbestellbar):
+┌ Karte ─────────────────────────────────────────────────────┐
+│ Wochenübersicht für Prüfer (h2)                             │
+│ Montags eine Übersicht der Ihnen zugewiesenen …             │
+│ ✓ Sie erhalten diese Mails.  |  Sie erhalten diese Mails nicht. │
+│ [Abbestellen] (Sekundär 48)  |  [Wieder erhalten] (Primär 48)   │
+└─────────────────────────────────────────────────────────────┘
+Regeln in Ihren Bereichen (h2)                 ← nur wenn bereichsRegeln nicht leer
+Tabelle: Bereich | Vorlauf | Eskalation | Sifa in Kopie | Standard/angepasst
+Ändern kann der Admin unter „Erinnerungen“.     (klein, steel)
+```
+- Genau eine Karte (eine Mailart je Rolle, Vertrag). Fläche weiß, Rahmen steel-200, Radius 6, Innenabstand 16.
+- Status der abbestellbaren Mail als Textzeile (`text` 500) mit Symbol, **keine** runde Marke und **kein** Schalter (§10 E-9). Der Button ist ein Formular (`benachrichtigungSetzen`), funktioniert ohne JavaScript.
+- Nach dem Speichern: Erfolgsmeldung in der Karte über dem Button mit dem Text aus der Action („Abbestellt“ / „Wieder bestellt“), Fokus darauf.
+- Bereichsregeln wie die Übersicht §8.18 (gleiche Zellformate), aber nur lesend, ohne Links und ohne Warnungen.
+- MA und PRF sehen die Seite am Handy: Buttons 48 px (§6.3), Seite 40 rem.
+
+### 8.21 `/abmelden?t=` – öffentlich (I3, FE-19)
+Muster wie die QR-Seite: öffentliche Kopfleiste nur mit Glyph und Wortmarke (§6.1), 40 rem, linksbündig, ein Satz, ein Button.
+```
+[Kopfleiste: Glyph Readyloop]
+Wochenübersicht für Prüfer abbestellen (h1)
+Sie erhalten derzeit die Wochenübersicht für Prüfer von Elbtal Fördertechnik GmbH.
+[Abbestellen] (Primär 48)
+Andere Mails, etwa Hinweise zu Ihren Geräten, sind davon nicht betroffen.  (klein, steel)
+```
+| Zustand | h1 | Text | Aktion |
+|---|---|---|---|
+| angemeldet (`abgemeldet = false`) | „{artLabel} abbestellen“ | „Sie erhalten derzeit die {artLabel} von {Betrieb}.“ | Primär „Abbestellen“ (`aktion=abmelden`) |
+| abgemeldet | „{artLabel}“ | „Sie haben die {artLabel} von {Betrieb} abbestellt.“ | Primär „Wieder erhalten“ (`aktion=anmelden`) |
+| nach Abbestellen | unverändert | Erfolg (§6.11, Fokus): „Sie erhalten die {artLabel} von {Betrieb} nicht mehr.“ + „Das gilt ab dem nächsten Versand.“ | Sekundär „Wieder erhalten“ |
+| nach Wieder erhalten | unverändert | Erfolg: „Sie erhalten die {artLabel} von {Betrieb} wieder.“ | Sekundär „Abbestellen“ |
+| ungültig (`null`, HTTP 404) | – | Leerzustand mit Leer-Plakette 64 und „!“: „Dieser Link ist nicht gültig.“ · „Der Link ist unvollständig oder veraltet. Nach der Anmeldung ändern Sie Ihre Mails unter „Benachrichtigungen“.“ | Sekundär „Anmelden“ → `/login?next=/einstellungen/benachrichtigungen` |
+| Action-Fehler | unverändert | Fehler: Text der Action wörtlich | – |
+
+- Der Seitenaufruf (GET) ändert nichts (F-40). Kein Auto-Submit, kein JavaScript nötig.
+- Keine E-Mail-Adresse, kein Name auf der Seite (Token enthält beides nicht).
+- `<title>`: „{artLabel} abbestellen – Readyloop“.
+
+### 8.22 `/erinnerungen/protokoll` – Versandprotokoll (I3, FE-20)
+```
+Versandprotokoll (h1)
+[Einstellungen je Bereich | Versandprotokoll | Mail-Vorschau]         (nur ADM)
+Letzter Erinnerungslauf: 30.11.2026, fertig um 06:01 Uhr             (klein)
+i Nur Vorschau – nichts wird versendet.                               (nur Modus „vorschau“)
+┌ Filter (GET) ────────────────────────────────────────────────────────────┐
+│ Von [23.10.2026] Bis [22.11.2026] Status [Alle ▾] Art [Alle ▾] Bereich [Alle ▾] [Filter anwenden] │
+└──────────────────────────────────────────────────────────────────────────┘
+Chips: Status: Probleme ✕   Bereich: Lager ✕          Filter zurücksetzen
+37 Mails vom 23.10.2026 bis 22.11.2026 (aria-live)
+┌Datum──────┬Art────────────────────┬Empfänger─────────────┬Status──────────────────────────┬Posten┐
+│30.11.2026 │ Fristen-Erinnerung     │ {Name}               │ (✓ Zugestellt)                 │    2 │
+│           │                        │ Verantwortlicher     │                                │      │
+│ ▸ Posten anzeigen (2)                                                              (Zeile 2) │
+│23.11.2026 │ Wochenübersicht Prüfer │ {Name} · Prüfer      │ (✕ Nicht zustellbar – E-Mail-Adresse prüfen) │ 4 │
+│ ▸ Posten anzeigen (4)                                                                        │
+│20.11.2026 │ Hinweis „Nicht verw.“  │ Mitarbeiter/in       │ (✓ Versendet)                  │    – │
+│           │                        │ Name nur bei Zustellproblemen (fein)                    │      │
+└───────────┴────────────────────────┴──────────────────────┴────────────────────────────────┴──────┘
+Seite 1 von 1
+```
+- **Letzter Lauf:** `fertig` → „Letzter Erinnerungslauf: {Datum}, fertig um {HH:MM} Uhr“ (Text). `fehler` → Fehler-Meldung „Der letzte Erinnerungslauf am {Datum} ist mit Fehler beendet.“ + „Nicht versendete Erinnerungen folgen am nächsten Werktag.“ `laeuft` → Hinweis „Erinnerungslauf läuft seit …“. `null` → „Noch kein Erinnerungslauf.“ Modus `aus` → Warnung §6.11.
+- **Filter:** GET-Formular, alle Werte in der URL. Status-Select: „Alle“, „Probleme (Fehler, nicht zustellbar, Spam)“, dann jeder Status mit `VERSAND_STATUS_LABEL`. Art-Select: „Alle“ + `MAIL_ART_LABEL`. Bereich aus `listeBereiche()`. Datumsfelder nativ. Button Sekundär „Filter anwenden“. Chips nur für Abweichungen vom Default (§6.9). **Kein** Filter, keine Sortierung, keine Suche nach Person.
+- **Tabelle** ab `lg` nach §6.7 (ohne Plakettenspalte, ohne gestreckten Link). Je Mail ein `<tbody>` mit zwei Zeilen: Datenzeile und, wenn `posten.length > 0`, eine Zeile über alle Spalten mit `<details>`: `summary` „Posten anzeigen ({n})“ (`klein` 500, 40 px hoch, Linkstil steel). Kein Trenner zwischen den beiden Zeilen, Trenner steel-200 nach jedem `<tbody>`.
+- **Posten** (aufgeklappt): kleine Tabelle Gerät (Bezeichnung, darunter Inventarnummer Mono) · Bereich · Prüfung · Erinnerung (`stufeLabel`) · Fällig am (Mono) · Rolle (`POSTEN_ROLLE_LABEL`). Eingerückt 16 px, Fläche steel-50.
+- **Empfänger:** Name (500) und darunter Rolle (`klein`, steel). `ma_hinweis` ohne Name: „Mitarbeiter/in“ und darunter `fein` „Name nur bei Zustellproblemen sichtbar“; Posten-Spalte „–“, keine Details. `empfaenger = null` bei anderen Arten: „–“ mit `aria-label` „nicht mehr zuzuordnen“.
+- **Status:** `VersandStatusBadge` (§6.23), darunter Fehlertext und Versuche.
+- **Datum:** `laufDatum` in Mono, darunter `fein` steel „Stand {HH:MM} Uhr“ aus `statusAm`.
+- < `lg`: je Mail eine Karte (Datum und Art in der ersten Zeile, Empfänger, Marke, dann `<details>`).
+- **Paginierung** nur bei > 1 Seite: „Seite {n} von {m}“, Sekundär-Links „Vorherige Seite“ / „Nächste Seite“ (40 px), Filter bleiben erhalten.
+- **Leerzustände:** Filter „Probleme“ ohne Treffer → „Alles erledigt“-Art (moss-Plakette mit ✓): „Keine Zustellprobleme.“ · „Alle Mails im Zeitraum wurden versendet oder zugestellt.“ Sonst: Leer-Plakette 64 · „Keine Mails in diesem Zeitraum.“ · „Erinnerungen gehen werktags morgens raus. Ändern Sie den Zeitraum oder die Filter.“ · [Filter zurücksetzen].
+
+### 8.23 `/admin/mails` – Mail-Vorschau (I3, FE-21)
+```
+Mail-Vorschau (h1)
+[Einstellungen je Bereich | Versandprotokoll | Mail-Vorschau]
+i Nur Vorschau – nichts wird versendet. Mails liegen nur im Speicher des Servers …
+┌ Erinnerungslauf ──────────────────────────────────────────────┐
+│ Datum des Laufs [30.11.2026]                  (nur Demo-Modus) │
+│ [✉ Erinnerungslauf jetzt ausführen] (Primär)                   │
+│ Erzeugt die Mails dieses Tages. Bereits erinnerte Prüfungen    │
+│ werden übersprungen.                               (fein)      │
+└────────────────────────────────────────────────────────────────┘
+┌ Liste (22 rem) ─────────────┐ ┌ Vorschau ──────────────────────────────────┐
+│▌Readyloop · Elbtal …: 2 üb… │ │ An        lager@… (Mono)                   │
+│ lager@… · Fristen-Erinn.    │ │ Betreff   Readyloop · Elbtal …: 2 überfäll… │
+│ 06:01 Uhr                   │ │ Art       Fristen-Erinnerung               │
+│ Readyloop · Elbtal …: 4 Pr… │ │ List-Unsubscribe  keine (Pflichtmail)      │
+│ pruefer@… · Wochenübersicht │ │ [HTML | Text]                               │
+│ …                           │ │ ┌ iframe 600 px, paper ─────────────────┐  │
+└─────────────────────────────┘ │ │                                        │  │
+                                │ └────────────────────────────────────────┘  │
+                                └─────────────────────────────────────────────┘
+```
+- Hinweis-Meldung oben ist immer sichtbar (der Modus ist Voraussetzung der Seite).
+- Formular: Feld `heute` (Datum) nur bei `datumWaehlbar`, Default `heute`. Erfolg/Fehler am Formular mit dem Text der Action wörtlich.
+- **Liste:** je Mail eine Zeile (mindestens 56 px) als Link `?mail={id}`: Betreff (`klein` 500, höchstens 2 Zeilen, Rest „…“), darunter An (Mono, `fein`) · Art, darunter Uhrzeit aus `erstelltAm`. Ausgewählt: steel-50, 3 px Linie steel links, `aria-current="true"`. Ohne Auswahl ist die neueste Mail gewählt.
+- **Kopfzeilen** als `dl` (§6.13): An, Betreff, Art, List-Unsubscribe (Text, kein Link; `null` → „keine (Pflichtmail)“).
+- **Umschalter HTML/Text:** zwei Unterstrich-Tabs als Links (`&ansicht=text`), ohne JavaScript.
+- **HTML:** `<iframe sandbox="" srcDoc=…>` mit `title` „Vorschau: {Betreff}“, Breite 100 % bis max. 640 px, Höhe 75vh, Rahmen steel-200, Radius 6. Die Mail bringt ihren paper-Hintergrund selbst mit.
+- **Text:** `<pre>` in Plex Mono 13/18, weiß, Rahmen steel-200, `overflow-x-auto`, Breite 76ch, damit die 72-Zeichen-Zeilen der Mail ohne Umbruch erscheinen.
+- < `xl`: Liste über der Vorschau; die Vorschau zeigt die gewählte Mail.
+- Leerzustand Liste: Leer-Plakette 64 · „Noch keine Mails in der Vorschau.“ · „Führen Sie einen Erinnerungslauf aus. Die Mails erscheinen dann hier.“ (keine eigene Aktion, das Formular steht darüber).
+
 ---
 
 ## 9. Vorschlag an Max (braucht deine Freigabe)
@@ -780,6 +1040,8 @@ Alle sechs Punkte am 20.11.2026 von Max freigegeben (siehe `umsetzung.md`).
 
 7. **(neu, I3M, offen) Plakette auf dem Etikett einfarbig, nur mit Termin (§5.5).** Das CD beschreibt die Plakette mit Statusfarbe. Auf dem gedruckten Etikett schlage ich eine schwarze Variante ohne Statusfarbe vor: Ring, gefüllter Fälligkeitsmonat, Jahr. Gründe: (a) Das Etikett hängt ein Jahr oder länger; eine gedruckte Farbe „in Ordnung“ würde an einem später überfälligen Gerät eine falsche Sicherheit geben. (b) Echte Prüfplaketten zeigen den Termin, nicht den Zustand, und genau daran knüpft die Marke an. (c) Schwarzweiß-Laserdrucker sind im Mittelstand Standard. Den Zustand liefert die QR-Seite in Farbe.
    **Ersatzweg ohne Freigabe:** FE-15 druckt die heutige Plakette in Statusfarbe mit `print-color-adjust: exact`, und unter der Plakette steht zusätzlich „Stand {Datum}“. Paket FE-15a entfällt dann.
+
+8. **(neu, I3, nur zur Kenntnis) Text-Plakette in Mails ohne Monatssegmente (§5.3, §10 E-7).** In Mails kann die Plakette nicht als Grafik erscheinen (SVG und Bilder werden in verbreiteten Clients nicht oder nicht zuverlässig angezeigt). Sie erscheint dort als runde Fläche in Statusfarbe mit Monat und Jahr als Text, ohne die 12 Segmente. Form, Farbe, Position und Inhalt (Monat, Jahr) bleiben; nur die Segmente fehlen. Das erweitert die Plakette um eine Ausgabeform und ändert sie nicht. Einwand bitte bis zur Abnahme von BE-24.
 
 ---
 
@@ -816,6 +1078,20 @@ Rückfragen aus der Umsetzung, entschieden vom Design-Lead. Code-Folgen stehen a
 ### E-6 Keine Rückfrage bei Übernehmen und Zurückgeben (20.11.2026, I3M)
 **Entscheidung:** Ein Tipp genügt (§6.18). Beide Aktionen sind umkehrbar, und Rückfragen kosten mit Handschuhen Zeit und führen zu Fehltipps. Der Fall „wird von anderer Person genutzt“ steht **vor** dem Button als Hinweis, nicht danach in einem Dialog. Die Regel „Übernahme nie durch den Scan allein“ (F-23) bleibt gewahrt, weil der Tipp ausdrücklich ist.
 
+### E-7 Prüfplakette in Mails als Text-Plakette, nicht als SVG (23.11.2026, I3)
+**Frage (Auftrag D-I3a):** SVG, Inline-SVG oder Text?
+**Entscheidung: Text-Plakette** (runde HTML-Fläche, Monat und Jahr als Text, §5.3). SVG als Bild wird von Gmail am Desktop gerastert und in den Gmail-Apps für Google-Konten nicht angezeigt; Inline-SVG ist nur bei etwa 40 % der Clients belegt und seit 2020 nicht neu getestet; Bilder werden außerdem häufig geblockt. Im Classic Outlook wird die Fläche eckig; das wird hingenommen, weil Text und Statuszeile die Aussage tragen und VML je Posten das Größenbudget sprengen würde. Details und Quellen: `mail-vorlagen.md` M-1, M-2, M-5.
+
+### E-8 Ein Navigationspunkt „Erinnerungen“ statt drei (23.11.2026, I3)
+**Frage:** Backlog FE-18 sieht „Erinnerungen“, „Versandprotokoll“ und „Mail-Vorschau“ als eigene Hauptpunkte vor.
+**Entscheidung: ein Hauptpunkt, Unterseiten als Tabs (§6.1, §6.26).** Der Admin hätte sonst sieben Hauptpunkte (Geräte, Mängel, Etiketten, drei Erinnerungsseiten, Verwaltung). Am Handy liegt die Navigation in einer scrollbaren Zeile, dort wären die hinteren Punkte unsichtbar. Alle drei Seiten gehören zu einer Aufgabe. Die Sifa landet direkt im Protokoll, sie hat nur diesen einen Tab. `AppHeader` braucht dadurch keinen `mailModus()`.
+
+### E-9 Abbestellen als Button, nicht als Schalter (23.11.2026, I3)
+**Entscheidung:** Ein Schalter (Toggle) suggeriert sofortige Wirkung ohne Absenden und braucht JavaScript. Ein Formular-Button mit Zustandszeile darüber funktioniert ohne JavaScript, ist mit 48 px am Handy treffsicher und hat eine eindeutige Beschriftung („Abbestellen“ / „Wieder erhalten“). Pflichtmails bekommen gar kein Bedienelement, nur die Begründung mit Schloss-Symbol.
+
+### E-10 Postenliste im Protokoll als zweite Tabellenzeile (23.11.2026, I3)
+**Entscheidung:** Ein `<details>` in der letzten Spalte würde die Postenliste in eine schmale Zelle zwingen. Deshalb hat jede Mail ein eigenes `<tbody>` mit einer zweiten Zeile über alle Spalten, die nur die Disclosure trägt. Das bleibt semantisch eine Tabelle, funktioniert ohne JavaScript, und die Posten bekommen die volle Breite.
+
 ---
 
 ## 11. Recherche I3M (Kurzfassung, 20.11.2026)
@@ -828,3 +1104,39 @@ Rückfragen aus der Umsetzung, entschieden vom Design-Lead. Code-Folgen stehen a
 | `@page { size: A4 }` = 210 × 297 mm; Baseline seit Dezember 2024, Druckdialog kann Papiergröße übersteuern | https://developer.mozilla.org/docs/Web/CSS/@page/size, https://bugzilla.mozilla.org/show_bug.cgi?id=851937 | `@page` mit `size` und `margin: 0`, Drucktipps im Bedienteil (100 %, Ränder keine), Testdruck auf Normalpapier | – |
 | QR: Modul mindestens 0,25 mm, Ruhezone 4 Module, Verhältnis Scanabstand zu Größe etwa 10 : 1, hoher Kontrast schwarz auf weiß | https://scanova.io/blog/minimum-qr-code-size/ | QR 21 mm inkl. Ruhezone (≈ 0,5 mm Modul, Scan aus etwa 20 cm), nur schwarz auf weiß | Farbige oder gestaltete QR-Codes, Logo im QR |
 | Etikettenformat 70 × 37 mm, 24 je A4-Bogen (z. B. Avery Zweckform 3474, Herma 4464) | https://www.inkolor.ch/en/products/inkolor-etiketten-70-37mm | Raster 3 × 8, Sicherheitsrand innen | Herstellerspezifische Vorlagen |
+
+---
+
+## 12. E-Mails (I3, Kurzfassung)
+
+Verbindliche Einzelheiten mit Gerüst, Bausteinen, Texten und Inline-Werten: **`mail-vorlagen.md`**. Hier nur die Regeln, die für alle Mails von Readyloop gelten, auch für spätere Mailarten.
+
+1. **Aufbau:** Kopf (steel, Wortmarke als Text, Betrieb, Art und Datum) → Anrede „Guten Tag,“ ohne Namen → ein Satz Einleitung → Zusammenfassung (Anzahl je Dringlichkeit, farbige Linie links und Text) → **ein** Hauptbutton → Gruppen nach Dringlichkeit → Fuß mit Grund des Empfangs, Pflicht oder Abmeldelink und Stand.
+2. **Technik:** Tabellenlayout, nur Inline-Styles (Ausnahmen: MSO-Block und Mono-Klasse im Kopf), max. 600 px, einspaltig, keine Media Queries, keine Bilder, kein SVG, keine Webfonts, keine externen Ressourcen, HTML minifiziert, ≤ 95 KB bei 100 Posten.
+3. **Schrift:** Systemschriften (`-apple-system, Segoe UI, Roboto, Helvetica, Arial`), Fließtext 16/24, Posten 14/20, Untergrenze 13 px.
+4. **Plakette:** Text-Plakette 44 px links in jeder Postenzeile (§5.3). Nicht in der MA-Mail.
+5. **Status:** immer Symbol und Text (`STATUS_LABEL`), Farbe nur zusätzlich. Gruppen: Linie links in Statusfarbe (ochre-600, nie ochre).
+6. **Frist:** nie ohne Quelle und Stufe; ohne freigegebene Frist „Frist über GBU festlegen“.
+7. **Keine Personennamen**, auch nicht in Betreff oder Vorschauzeile.
+8. **MA-Mail:** Nutzungsband als volle brick-Fläche wie §6.17, Schrift 16 px, keine Fristwerte.
+9. **Dunkler Modus:** keine eigenen Regeln; `color-scheme: light`; die Farben bleiben bei Invertierung lesbar, weil Text und Symbol die Aussage tragen.
+10. **Textteil:** gleicher Inhalt, 72 Zeichen je Zeile, Text-Plakette als `[03/2027]`.
+11. **Betreff:** „Readyloop · {Betrieb}: {Zählung}“, Zählung nach Dringlichkeit; „Eskalation – “ vorn, wenn die Mail eine Eskalation an den Empfänger enthält.
+12. **Hex-Werte:** nur die Werte aus §2.2, nur in `src/server/mail/vorlagen.ts` (§2.4).
+
+---
+
+## 13. Recherche I3 (Kurzfassung, 23.11.2026)
+
+| Thema | Quelle | Befund | Folge für Readyloop |
+|---|---|---|---|
+| SVG als Bild in Mails | https://caniemail.com/features/image-svg | ≈ 98 % Unterstützung laut Tabelle, aber Gmail Desktop rastert zu PNG, Gmail-Apps zeigen SVG nur für Nicht-Google-Konten; Stand 16.09.2026 | Kein SVG; Text-Plakette (E-7) |
+| Inline-`<svg>` in Mails | https://www.caniemail.com/features/html-svg/ | ≈ 40 %, zuletzt 2020 getestet, Seite widersprüchlich | Kein Inline-SVG |
+| Gmail kürzt große Mails | https://www.emailonacid.com/blog/article/email-development/gmail-email-clipping/ | Ab etwa 102 KB HTML „[Nachricht gekürzt]“, Abmeldelink kann verschwinden; Empfehlung < 80 KB, minifizieren | Budget ≤ 95 KB bei 100 Posten, Zusammenfassung und Button oben, Textlink statt Button je Posten |
+| Dunkler Modus in Mail-Clients | https://www.litmus.com/blog/the-ultimate-guide-to-dark-mode-for-email-marketers | Drei Verhalten: keine Änderung (Apple Mail, Gmail Desktop), teilweise (Outlook.com, Gmail Android), vollständig (Gmail iOS, Outlook Windows) | Keine eigenen Dunkel-Regeln; Status über Text und Symbol |
+| Classic vs. neues Outlook | https://reallygoodemails.com/school/blog/classic-vs-new-outlook-rendering-changes | Classic (Word) ohne `border-radius`, Div-Breiten, Webfont-Fallback; zweigleisig bis mindestens 2027 | Tabellen, MSO-Schriftblock, Ghost-Table, keine VML |
+| Buttons im Classic Outlook | https://www.nobledesktop.com/learn/html-email/bulletproof-buttons-in-outlook | Rahmen-Technik voll klickbar, VML nur für Rundungen | Rahmen-Technik, ohne VML |
+| Vorschauzeile | https://docs.customer.io/messaging/channels/email/headers/custom-preheader-text/ | Clients zeigen bis etwa 140 Zeichen, oft weniger; Füllzeichen verhindern, dass Fließtext nachrutscht | ≤ 110 Zeichen, Wichtigstes vorn, Füllzeichen |
+| Digest-Muster | https://knock.app/template-library/workflows/alert-digest | Zählung in den Betreff, Direktlink je Posten, kein Digest ohne Inhalt, Versand zu Beginn des Arbeitstags | Übernommen (F-36 morgens, F-38) |
+
+**Nicht übernommen:** Tracking-Pixel und Klick-Tracking (F-37 aus), Bilder- oder Logo-Header, farbige Vollflächen für Status (außer MA-Band), Kartenraster mit mehreren Spalten, Emojis als Statussymbole.

@@ -1,9 +1,9 @@
-# Umsetzung des Designsystems – Pakete für frontend-dev (Stand 20.11.2026, ergänzt um I3M)
+# Umsetzung des Designsystems – Pakete für frontend-dev (Stand 23.11.2026, ergänzt um I3M und I3)
 
 Grundlage: `designsystem.md` (Paragrafen in Klammern), `skills-empfehlung.md`.
 Jedes Paket ist für **einen** Lauf geschnitten. Reihenfolge: P1 → P2 → P3a → (P3b) → P4a → P4b → P4c → P5a → P5b → P5c → P6 → P7a/P7b/P7c.
 P7a, P7b und P7c haben keine gemeinsamen Dateien und dürfen parallel laufen. Alle anderen Pakete laufen nacheinander.
-Pakete für I3M (Mitarbeiter) stehen im Abschnitt „I3M“ am Ende.
+Pakete für I3M (Mitarbeiter) stehen im Abschnitt „I3M“, Pakete für I3 (E-Mail-Erinnerungen) im Abschnitt „I3“ am Ende.
 
 ## 0. Gilt für jedes Paket (Definition of Done)
 1. Skill `frontend-design` geladen. Vor dem Bau die genannten Abschnitte im Designsystem lesen und in 3–5 Zeilen planen, nach dem Bau gegen §1 (Leitsätze) prüfen.
@@ -325,3 +325,123 @@ FE-11 (Backlog, vorher) ── FE-12 ──┬── FE-13
 - **Max:** Freigabe §9.7 (einfarbige Plakette auf dem Etikett). Ohne Freigabe entfällt FE-15a, FE-15 nutzt den Ersatzweg.
 - **backend-dev:** keine neuen Anforderungen. Genutzt werden nur Felder aus dem Vertrag §7. Für „Überfällig seit …“ im Nutzungsband reicht `naechsteFaelligkeit`; die Uhrzeit für „Stand“ kommt aus `ansicht.stand`.
 - **requirements-engineer:** Backlog FE-14 nennt einen Bestätigungsdialog für „Aufkleber erneuern“; gestaltet ist eine Disclosure mit Pflicht-Checkbox (§10 E-5). Bitte im Backlog nachziehen. FE-15a als neues Paket aufnehmen (abhängig von §9.7).
+
+---
+
+## I3 – E-Mail-Erinnerungen (Stand 23.11.2026)
+
+Gestaltet das Paket D-I3 aus `docs/backlog.md` §8 („Designer zuerst“). Paketnamen, Dateien und Vertrag aus dem Backlog bleiben; hier kommen Gestaltung, zusätzliche Dateien und Abnahmekriterien dazu. Bei Widersprüchen gilt für **Aussehen und Verhalten** dieses Dokument bzw. `mail-vorlagen.md`, für **Daten, Rechte und Texte aus dem Vertrag** der Backlog.
+
+Neue Designsystem-Abschnitte: Leitsatz 9 (§1), §2.4 (Hex in Mails), §5.3 Text-Plakette, §6.1 (Navigation, Menü, `/abmelden`), §6.11 (feste Texte I3), §6.23–§6.26, §7, §8.18–§8.23, §9.8, §10 E-7 bis E-10, §12, §13.
+
+### Reihenfolge und Parallelität
+```
+D-I3a (erledigt: mail-vorlagen.md) ──► BE-24 (backend-dev)
+FE-17 (Bugfix, sofort, ohne Design)
+BE-21 ── FE-18a ── FE-18b ──┬── FE-19
+                            └── FE-20 ── FE-21
+```
+- FE-19 und FE-20 haben keine gemeinsamen Dateien und dürfen parallel laufen.
+- `ErinnerungenNav.tsx` schreibt nur FE-18a; FE-20 und FE-21 importieren es. `VersandStatusBadge.tsx` schreibt nur FE-20; FE-21 importiert es.
+- `AppHeader.tsx` ändert nur FE-18a (Backlog: erst starten, wenn dort keine Designsystem-Arbeit offen ist).
+- **Kein I3-Paket ändert `src/app/globals.css`** (Backlog §8 Dateibesitz). Es reichen die vorhandenen Tokens und Klassen; `.btn-halle` (48 px) aus FE-12 für die 48-px-Buttons.
+- FE-Seiten kompilieren gegen die Stubs aus BE-21 und zeigen Daten ab BE-26.
+
+### I3-0 Gilt zusätzlich für jedes I3-Paket
+1. Alle Punkte aus §0.
+2. Texte aus dem Vertrag (`MAIL_ART_LABEL`, `MAIL_ART_BESCHREIBUNG`, `PFLICHTMAIL_BEGRUENDUNG`, `VERSAND_STATUS_LABEL`, `MAIL_FEHLER_LABEL`, `ESKALATIONS_EBENE_LABEL`, `warnungen`, Meldungen der Actions) wörtlich. Zusätzliche UI-Sätze genau wie im Designsystem.
+3. Alle Formulare funktionieren ohne JavaScript (Server Action bzw. GET). Feldnamen exakt wie im Vertrag §9.8.
+4. Keine Spalte, Sortierung, Suche, Filter oder Zählung nach Person (R-45, F-41).
+5. Prüfung bei 360 px und 1280 px ohne seitenweites horizontales Scrollen; Tastatur vollständig.
+6. Keine Plakette außer in Leerzuständen und der Glyph in den Kopfleisten (§5.4 I3).
+
+---
+
+### D-I3a Mail-Vorlagen (designer, erledigt) → Übergabe an BE-24
+**Liefergegenstand:** `docs/design/mail-vorlagen.md` (Entscheidungen M-1 bis M-9, Inline-Werte, Gerüst, Bausteine, Texte, Textteil, Abnahme §10, Abweichungen §11, Anhang Einladung/Reset).
+**Abnahme durch den designer nach BE-24:**
+- Snapshot-HTML je Mailart in einem Browser bei 600 px und 360 px angesehen: Kopf, Zusammenfassung, Button, Gruppen, Text-Plakette, Fuß wie spezifiziert.
+- Spätestens in FE-21 die drei Mailarten in `/admin/mails` geprüft (HTML und Text).
+- Ergebnis als kurze Notiz an backend-dev; Abweichungen nur als neue Entscheidung in `designsystem.md` §10.
+
+### FE-17 Bugfix QR-Seite (ohne Design)
+Unverändert nach Backlog. Gestaltung: §8.12 Hinweis I3 (kein Zusatztext).
+
+### FE-18a Navigation, Untertabs und Übersicht `/admin/erinnerungen`
+**Designsystem:** §6.1 (Erinnerungen, Menü), §6.7, §6.11 (feste Texte), §6.26, §8.18, §10 E-8
+**Dateien:**
+- `src/components/AppHeader.tsx`: `NavSchluessel` um `'erinnerungen'` ergänzen; Hauptpunkt „Erinnerungen“ für `erinnerung.protokoll` (ADM und SIF), Ziel ADM (`erinnerung.einstellen`) `/admin/erinnerungen`, sonst `/erinnerungen/protokoll`, Position nach „Etiketten“, vor „Verwaltung“; Menüeintrag „Benachrichtigungen“ (Icon `Bell`, für alle Rollen mit `benachrichtigung.eigene`) über „Abmelden“, 48 px.
+- neu `src/components/ErinnerungenNav.tsx` (§6.26; Props `aktiv`, `zeigeEinstellungen`, `zeigeVorschau`; eine Tab-Zeile nur bei ≥ 2 Tabs)
+- `src/app/admin/erinnerungen/page.tsx`
+- neu `src/components/ErinnerungUebersicht.tsx` (Tabelle ab `sm`, Liste darunter; Warnzeilen; Hinweis unten; Leerzustand)
+
+**Abnahme:**
+- Demo je Rolle: ADM sieht „Erinnerungen“ → `/admin/erinnerungen` mit Tabs „Einstellungen je Bereich“, „Versandprotokoll“, „Mail-Vorschau“ (letzter nur im Modus `vorschau`). SIF sieht „Erinnerungen“ → `/erinnerungen/protokoll` (Seite folgt in FE-20). VER, PRF, MA sehen den Punkt nicht. Alle Rollen sehen im Menü „Benachrichtigungen“.
+- `aria-current="page"` am Hauptpunkt auf allen drei Unterseiten (Seiten übergeben `aktiv="erinnerungen"`).
+- Bei 360 px liegt „Erinnerungen“ in der scrollbaren zweiten Zeile; ADM hat höchstens 5 Hauptpunkte.
+- US-39 Teil Übersicht: Lager „Standard“, Produktion „60 · 30 · 14 Tage“, „Verantwortliche 0 · Sifa 3 · Admin 10“, „Sifa in Kopie: nein“, „Angepasst am … von …“ (Demo-Daten BE-25). Ein Bereich ohne aktiven VER zeigt die Warnzeile wörtlich aus `warnungen`.
+- Der Hinweis „Prüfungen ohne freigegebene Frist …“ steht unter der Tabelle. Im Modus `aus` steht oben die Warnung „Mailversand ist nicht eingerichtet.“
+- Klick auf den Bereichsnamen (oder irgendwo in der Zeile) öffnet `/admin/erinnerungen/{bereichId}`; Tab springt je Zeile einmal.
+
+### FE-18b Einstellungen je Bereich `/admin/erinnerungen/[bereichId]`
+**Designsystem:** §6.10 (Tage-Felder, Fehlerübersicht), §6.24, §6.25, §8.19
+**Dateien:**
+- `src/app/admin/erinnerungen/[bereichId]/page.tsx`
+- neu `src/components/ErinnerungEinstellungForm.tsx` (beide Formulare: Speichern und Zurücksetzen)
+- neu `src/components/EskalationsKette.tsx`
+- neu `src/components/EmpfaengerWahl.tsx` (Radiogruppe + Checkboxliste, für Sifa und Admin wiederverwendet)
+
+**Abnahme:**
+- US-39 vollständig in der Demo: Produktion öffnen → Werte vorbelegt (Staffel in absteigender Reihenfolge, Eskalation, Checkbox, Radio „Auswahl“ mit dem Demo-Admin angehakt) → Werte ändern → „Erinnerungen speichern“ → Erfolgsmeldung mit Fokus, Stand-Zeile „Angepasst am {heute} …“.
+- Feldfehler: Staffel `30, 30` → „Jeder Wert nur einmal.“ unter der legend „Vorlauf vor der Fälligkeit“; Sifa 2 bei Verantwortliche 3 → Fehler am Feld Sifa; „Auswahl“ ohne Häkchen → Fehler unter der Radiogruppe. Bei 2 Fehlern erscheint die Fehlerübersicht mit Fokus.
+- Ohne JavaScript: Speichern und Zurücksetzen funktionieren, die Checkboxlisten sind sichtbar. Mit `:has()`-Unterstützung ist die Liste bei „Alle aktiven“ ausgeblendet und erscheint bei „Auswahl“.
+- Eskalationskette ab 768 px dreispaltig mit „→“ dazwischen (für Screenreader ausgeblendet), darunter senkrecht mit Linie. Jedes Feld hat ein vollständiges zugängliches Label („Sifa: ab Tag … nach Fälligkeit“).
+- „Auf Standard zurücksetzen“ erscheint nur bei angepasster Einstellung, steht unter einer Linie mit eigener h2 und ist Sekundär; nach dem Klick Meldung „Auf Standard zurückgesetzt“ und Stand „Standard“.
+- Unbekannte `bereichId` → 404. VER/SIF/PRF/MA → 404.
+
+### FE-19 Benachrichtigungen und Abmeldeseite
+**Designsystem:** §6.1 (öffentliche Kopfleiste `/abmelden`), §6.3 (48 px), §6.11, §8.20, §8.21, §10 E-9
+**Dateien:**
+- `src/app/einstellungen/benachrichtigungen/page.tsx`, `src/app/abmelden/page.tsx`
+- neu `src/app/abmelden/not-found.tsx` (ungültiger Link, §8.21; öffentliche Kopfleiste ohne „Anmelden“)
+- neu `src/components/BenachrichtigungKarte.tsx`, `AbmeldenForm.tsx`, `BereichsRegelnListe.tsx`
+- `src/components/OeffentlicheKopfleiste.tsx`: optionale Prop, die den Link „Anmelden“ ausblendet (z. B. `anmeldenHref?: string | null`, `null` = kein Link). QR-Seite unverändert.
+
+**Abnahme:**
+- `/einstellungen/benachrichtigungen` je Demo-Rolle: VER/SIF/ADM sehen „Fristen-Erinnerung“ mit Schloss und `PFLICHTMAIL_BEGRUENDUNG`, ohne Button; PRF sieht „Wochenübersicht für Prüfer“, MA „Hinweis „Nicht verwenden““ jeweils mit Zustandszeile und Button. Abbestellen → Meldung „Abbestellt“ in der Karte, Fokus, Button wird „Wieder erhalten“ (Primär); zurück → „Wieder bestellt“.
+- E-Mail-Adresse in Mono mit „Adresse ändern: über den Admin.“; Regeln der Bereiche nur bei VER (eigene Bereiche), SIF, ADM; PRF und MA ohne diesen Abschnitt.
+- US-40: Abmeldelink aus der Mail-Vorschau öffnen (ohne Sitzung, privates Fenster) → Seite nach §8.21 mit „{artLabel} abbestellen“, Betrieb im Satz; **das Öffnen allein ändert nichts** (Einstellungsseite zeigt weiter „Sie erhalten diese Mails.“). „Abbestellen“ → Erfolg „Sie erhalten die {artLabel} von {Betrieb} nicht mehr.“ mit Fokus und Sekundär „Wieder erhalten“.
+- Manipulierter Token → 404-Seite „Dieser Link ist nicht gültig.“ mit Leer-Plakette „!“ und „Anmelden“ → `/login?next=/einstellungen/benachrichtigungen`.
+- `/abmelden` enthält keinen Namen und keine E-Mail-Adresse (HTML-Quelltext prüfen), Kopfleiste ohne „Anmelden“, `noindex`.
+- Alle Buttons auf beiden Seiten 48 px; ohne JavaScript nutzbar.
+
+### FE-20 Versandprotokoll `/erinnerungen/protokoll`
+**Designsystem:** §6.7, §6.9, §6.12, §6.23, §8.22, §10 E-10
+**Dateien:** `src/app/erinnerungen/protokoll/page.tsx`, neu `src/components/ProtokollFilterLeiste.tsx`, `ProtokollTabelle.tsx`, `VersandStatusBadge.tsx`
+**Abnahme:**
+- US-41 in der Demo (Seed BE-25): Zeile `frist_digest` an VER Lager „✓ Zugestellt“ mit „Posten anzeigen (2)“; Zeile `pruefer_woche` an den Prüfer „✕ Nicht zustellbar – E-Mail-Adresse prüfen“ **mit** Namen; Zeile `ma_hinweis` „Mitarbeiter/in“ ohne Namen, ohne Posten, Spalte Posten „–“.
+- `VersandStatusBadge` für alle sieben Status mit Symbol und Text nach §6.23 (Test oder Demo-Seite in der Entwicklung); `fehler` zeigt darunter den Text aus `MAIL_FEHLER_LABEL` und „{n} Versuche“ bei mehr als einem Versuch.
+- Filter „Probleme“ → nur die Bounce-Zeile; Chip „Status: Probleme ✕“ entfernt genau diesen Parameter. Ungültige URL-Werte → Defaults ohne Fehlerseite.
+- Ab 1024 px Tabelle mit `<tbody>` je Mail und Disclosure-Zeile über alle Spalten; Posten als Untertabelle mit Gerät/Inventarnummer, Bereich, Prüfung, Erinnerung (`stufeLabel`), Fällig am, Rolle. Darunter Karten. Disclosure ohne JavaScript bedienbar.
+- „Letzter Erinnerungslauf …“ für `fertig`, `fehler`, `laeuft` und `null` nach §8.22.
+- Leerzustände: „Keine Zustellprobleme.“ (moss-Plakette mit ✓) bzw. „Keine Mails in diesem Zeitraum.“ mit „Filter zurücksetzen“.
+- Paginierung erscheint nur bei > 50 Mails und behält die Filter.
+- VER, PRF, MA → 404. Für SIF keine Tab-Zeile (§6.26).
+
+### FE-21 Mail-Vorschau `/admin/mails`
+**Designsystem:** §6.11 (Hinweis Vorschau), §6.13, §6.26, §7, §8.23
+**Dateien:** `src/app/admin/mails/page.tsx`, neu `src/components/MailVorschauListe.tsx`, `MailVorschauRahmen.tsx`, `ErinnerungslaufForm.tsx` (importiert `ErinnerungenNav`, `VersandStatusBadge` nur falls benötigt)
+**Abnahme:**
+- US-42 (Vorschau-Teil): Lauf mit Datum Mo 30.11.2026 → Erfolgsmeldung mit dem Text der Action; Liste zeigt Mails für VER, SIF, ADM (falls eskaliert), Prüfer und Jonas, neueste oben; erneuter Lauf → „Keine neuen Mails (bereits erinnert).“
+- Auswahl per `?mail=` setzt `aria-current` in der Liste; Kopfzeilen-`dl` zeigt An, Betreff, Art, List-Unsubscribe als Text bzw. „keine (Pflichtmail)“.
+- HTML im `<iframe sandbox="">` (ohne `allow-scripts`, ohne `allow-same-origin`) mit `title`; Text in `<pre>` bei 76ch ohne Zeilenumbruch der 72-Zeichen-Zeilen. Umschalter HTML/Text funktioniert ohne JavaScript.
+- Hinweis „Nur Vorschau – nichts wird versendet.“ steht immer oben; Datumsfeld nur im Demo-Modus.
+- Ab 1280 px Liste (22 rem) links und Vorschau rechts, darunter untereinander; bei 360 px kein seitenweites horizontales Scrollen (die Iframe-Fläche scrollt selbst).
+- Leerzustand „Noch keine Mails in der Vorschau.“
+- Gemeinsam mit dem designer: Abnahme D-I3a an den echten Vorschau-Mails (siehe oben).
+
+### Offene Abhängigkeiten I3
+- **backend-dev:** BE-24 nach `mail-vorlagen.md`, inklusive Abnahme §10 dort. Fragen zur Gestaltung an den designer, nicht still abweichen.
+- **requirements-engineer:** im Backlog nachziehen: (1) `mail-vorlagen.md` §11 (Textlink statt Link-Button je Posten, Betreff mit „nicht verwenden“ und „Eskalation – “, „Prüfart/Prüfarten“, Betriebsname kürzen); (2) FE-18 mit einem Navigationspunkt und `ErinnerungenNav` statt drei Hauptpunkten (§10 E-8), Aufteilung FE-18a/FE-18b, neue Datei `EmpfaengerWahl.tsx`; (3) FE-19 zusätzlich `src/app/abmelden/not-found.tsx` und die Prop an `OeffentlicheKopfleiste.tsx`; (4) Anhang A in `mail-vorlagen.md` (deutsche Vorlagen für Einladung und Passwort-Reset in Supabase Auth) als eigenes kleines Paket nach I3 entscheiden.
+- **Max:** §9.8 zur Kenntnis (Text-Plakette in Mails ohne Monatssegmente). §9.7 (Etikett) bleibt offen.
+- **Gate G-6:** manuelle Mail-Client-Prüfung nach `mail-vorlagen.md` §10 (Classic und neues Outlook, Outlook.com, Gmail Web/Android/iOS, Apple Mail iOS, GMX, WEB.DE, Thunderbird; hell und dunkel).
