@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { uebernahmeHinweis } from '@/domain/nutzung';
 import type { TokenSeite } from '@/domain/types';
 import { MaAktionen } from './MaAktionen';
 import { Meldung } from './Meldung';
@@ -13,9 +14,11 @@ export function TokenAktionen({ seite }: { seite: TokenSeite }) {
 
   if (!seite.angemeldet) {
     const login = `/login?next=${encodeURIComponent(rueck)}`;
+    // FE-17: Übernahme nur anbieten, wenn sie möglich wäre (wechselnd, in Betrieb, nicht „nicht verwenden“).
+    const uebernehmbar = uebernahmeHinweis(seite.ansicht, seite.ansicht.nutzung) === null;
     return (
       <div className="aktionen-halle">
-        {seite.ansicht.kategorie === 'wechselnd' && (
+        {uebernehmbar && (
           <Link href={login} className="btn btn-sekundaer btn-halle">
             Anmelden und übernehmen
           </Link>
