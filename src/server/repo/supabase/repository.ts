@@ -415,5 +415,22 @@ export function supabaseRepository(
     },
     /** No-op: Trigger app.mitarbeiter_austritt in derselben Transaktion wie mitglied_speichern. */
     async loeseNutzungen() {},
+
+    // ------------------------------------------------------------ I3 (BE-28)
+    async listeErinnerungEinstellungen() {
+      throw new Error('nicht implementiert (BE-28)');
+    },
+    async speichereErinnerungEinstellung() {
+      throw new Error('nicht implementiert (BE-28)');
+    },
+    async listeEigeneAbmeldungen() {
+      throw new Error('nicht implementiert (BE-28)');
+    },
+    async setzeEigeneAbmeldung() {
+      throw new Error('nicht implementiert (BE-28)');
+    },
+    async listeMailProtokoll() {
+      throw new Error('nicht implementiert (BE-28)');
+    },
   };
 }

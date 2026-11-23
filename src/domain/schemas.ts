@@ -1,16 +1,22 @@
-// Vertrag Inkrement 1 + 2 + I3M – siehe docs/backlog.md §3.2, §5.2 und §7.2
+// Vertrag Inkrement 1 + 2 + I3M + I3 – siehe docs/backlog.md §3.2, §5.2, §7.2 und §9.2
 import { z } from 'zod';
 import {
+  ABBESTELLBARE_MAIL_ARTEN,
   ANLASS_ARTEN,
   DEMO_ROLLEN,
   EINLADBARE_ROLLEN,
   EINSATZORTE,
   ERSTERFASSUNG_HERKUNFT,
+  ESKALATION_MAX_TAGE,
   ETIKETTEN_MAX,
   GERAETE_KATEGORIEN,
+  MAIL_ARTEN,
   MANGEL_SCHWEREN,
   PRUEF_ERGEBNISSE,
   PRUEFER_TYPEN,
+  STAFFEL_MAX_TAGE,
+  STAFFEL_MAX_WERTE,
+  VERSAND_STATUS,
   WAEHLBARER_BETRIEBSSTATUS,
 } from './types';
 
@@ -254,4 +260,73 @@ export const etikettenFilterSchema = z.object({
   geraetIds: z.array(pflichtId).max(ETIKETTEN_MAX).default([]),
   bereichId: optId,
   kategorie: z.preprocess(leerZuNull, z.enum(GERAETE_KATEGORIEN).nullable()),
+});
+
+// ---------- Inkrement I3 (§9.2) ----------
+
+const tage = (min: number, max: number) =>
+  z.coerce.number({ error: 'Bitte eine ganze Zahl angeben.' }).int().min(min, `Mindestens ${min}.`).max(max, `Höchstens ${max}.`);
+const idListe = z.array(z.string().min(1)).default([]);
+
+/** Action liest staffel/sifaEmpfaenger/adminEmpfaenger mit formData.getAll() und entfernt leere Werte vorher. */
+export const erinnerungEinstellungSchema = z
+  .object({
+    bereichId: z.string().min(1),
+    staffel: z
+      .array(tage(1, STAFFEL_MAX_TAGE))
+      .min(1, 'Mindestens ein Vorlauf.')
+      .max(STAFFEL_MAX_WERTE, `Höchstens ${STAFFEL_MAX_WERTE} Werte.`)
+      .refine((a) => new Set(a).size === a.length, 'Jeder Wert nur einmal.')
+      .transform((a) => [...a].sort((x, y) => y - x)),
+    eskalationVerantwortlicher: tage(0, ESKALATION_MAX_TAGE),
+    eskalationSifa: tage(0, ESKALATION_MAX_TAGE),
+    eskalationAdmin: tage(0, ESKALATION_MAX_TAGE),
+    sifaInKopie: z.preprocess((v) => v === 'on', z.boolean()),
+    sifaAuswahl: z.enum(['alle', 'auswahl']),
+    sifaEmpfaenger: idListe,
+    adminAuswahl: z.enum(['alle', 'auswahl']),
+    adminEmpfaenger: idListe,
+  })
+  .refine((v) => v.eskalationVerantwortlicher <= v.eskalationSifa, {
+    message: 'Sifa frühestens am Tag der Verantwortlichen.',
+    path: ['eskalationSifa'],
+  })
+  .refine((v) => v.eskalationSifa <= v.eskalationAdmin, {
+    message: 'Admin frühestens am Tag der Sifa.',
+    path: ['eskalationAdmin'],
+  })
+  .refine((v) => v.sifaAuswahl === 'alle' || v.sifaEmpfaenger.length > 0, {
+    message: 'Mindestens eine Sifa auswählen oder „alle“ wählen.',
+    path: ['sifaEmpfaenger'],
+  })
+  .refine((v) => v.adminAuswahl === 'alle' || v.adminEmpfaenger.length > 0, {
+    message: 'Mindestens einen Admin auswählen oder „alle“ wählen.',
+    path: ['adminEmpfaenger'],
+  });
+export type ErinnerungEinstellungEingabe = z.infer<typeof erinnerungEinstellungSchema>;
+
+export const bereichIdSchema = z.object({ bereichId: z.string().min(1) });
+
+export const benachrichtigungSchema = z.object({
+  art: z.enum(ABBESTELLBARE_MAIL_ARTEN),
+  abgemeldet: z.enum(['ja', 'nein']).transform((v) => v === 'ja'),
+});
+
+export const abmeldenTokenSchema = z.object({
+  t: z.string().min(20).max(500),
+  aktion: z.enum(['abmelden', 'anmelden']),
+});
+
+export const erinnerungslaufSchema = z.object({
+  heute: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.iso.date().nullable()).default(null),
+});
+
+/** Für searchParams von /erinnerungen/protokoll; ungültige Werte → safeParse-Fehler → Defaults. */
+export const protokollFilterSchema = z.object({
+  von: z.iso.date().optional(),
+  bis: z.iso.date().optional(),
+  status: z.enum([...VERSAND_STATUS, 'probleme']).optional(),
+  art: z.enum(MAIL_ARTEN).optional(),
+  bereich: z.string().min(1).optional(), // → ProtokollFilter.bereichId
+  seite: z.coerce.number().int().min(1).max(1000).optional(),
 });

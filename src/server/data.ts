@@ -4,11 +4,14 @@ import { notFound, redirect } from 'next/navigation';
 import { istTokenFormat } from '@/domain/nutzung';
 import { can } from '@/domain/rechte';
 import type {
+  AbmeldeSeite,
   Aktion,
   Anmeldestatus,
   Bereich,
   BereichAnsicht,
   Betriebsmodus,
+  EigeneBenachrichtigungen,
+  ErinnerungEinstellungAnsicht,
   EtikettenErgebnis,
   EtikettenFilter,
   GeraetKurzansicht,
@@ -18,6 +21,8 @@ import type {
   GeraetListenEintrag,
   Id,
   IsoDate,
+  MailModus,
+  MailVorschauSeite,
   MangelAnsicht,
   MangelFilter,
   MangelFormularKontext,
@@ -27,6 +32,8 @@ import type {
   PersonOption,
   PrueferAufgabe,
   PrueferOption,
+  ProtokollFilter,
+  ProtokollSeite,
   Sitzung,
   TokenSeite,
 } from '@/domain/types';
@@ -246,4 +253,46 @@ export async function listeMitarbeiter(): Promise<MitgliedAnsicht[]> {
 export async function holeEtiketten(filter: EtikettenFilter): Promise<EtikettenErgebnis> {
   const sitzung = await erfordereSitzung('etikett.verwalten');
   return etiketten.holeEtiketten(sitzung, await holeRepository(sitzung), { heute: heute(), jetzt: new Date() }, filter);
+}
+
+// ---------- I3 Erinnerungen (§9.7) – Rümpfe folgen in BE-26 ----------
+
+const NICHT_IMPLEMENTIERT_BE26 = 'nicht implementiert (BE-26)';
+
+/** F-37. */
+export function mailModus(): MailModus {
+  throw new Error(NICHT_IMPLEMENTIERT_BE26);
+}
+
+/** erinnerung.einstellen (sonst notFound()). Je Bereich der Organisation, alphabetisch. */
+export async function listeErinnerungEinstellungen(): Promise<ErinnerungEinstellungAnsicht[]> {
+  throw new Error(NICHT_IMPLEMENTIERT_BE26);
+}
+
+/** erinnerung.einstellen (sonst notFound()); null, wenn der Bereich nicht zur Organisation gehört. */
+export async function holeErinnerungEinstellung(bereichId: Id): Promise<ErinnerungEinstellungAnsicht | null> {
+  void bereichId;
+  throw new Error(NICHT_IMPLEMENTIERT_BE26);
+}
+
+/** benachrichtigung.eigene. */
+export async function holeEigeneBenachrichtigungen(): Promise<EigeneBenachrichtigungen> {
+  throw new Error(NICHT_IMPLEMENTIERT_BE26);
+}
+
+/** erinnerung.protokoll (sonst notFound()). Defaults: von = heute − 30, bis = heute, seite = 1. Maskierung F-41. */
+export async function listeMailProtokoll(filter: ProtokollFilter): Promise<ProtokollSeite> {
+  void filter;
+  throw new Error(NICHT_IMPLEMENTIERT_BE26);
+}
+
+/** mail.vorschau und mailModus() === 'vorschau' (sonst notFound()). Nur Mails der aktuellen Organisation. */
+export async function holeMailVorschau(): Promise<MailVorschauSeite> {
+  throw new Error(NICHT_IMPLEMENTIERT_BE26);
+}
+
+/** Ohne Sitzung, nie Redirect. null bei ungültigem Token oder wenn die Person kein aktives Mitglied mit passender Rolle ist. */
+export async function holeAbmeldeSeite(token: string): Promise<AbmeldeSeite | null> {
+  void token;
+  throw new Error(NICHT_IMPLEMENTIERT_BE26);
 }

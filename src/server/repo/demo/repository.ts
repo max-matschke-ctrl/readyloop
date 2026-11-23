@@ -3,11 +3,22 @@ import { randomUUID } from 'node:crypto';
 import { anlassErledigtDurch } from '@/domain/anlass';
 import { mangelUebergangErlaubt } from '@/domain/maengel';
 import { imUebernahmeVerlauf } from '@/domain/nutzung';
-import type { Anlass, Geraet, GeraetToken, Id, Mangel, Nachweis, Uebernahme } from '@/domain/types';
+import type {
+  AbbestellbareMailArt,
+  Anlass,
+  ErinnerungEinstellung,
+  Geraet,
+  GeraetToken,
+  Id,
+  Mangel,
+  Nachweis,
+  Uebernahme,
+} from '@/domain/types';
 import {
   SUCHE_MAX,
   type KurzAuswahl,
   type KurzRohdaten,
+  type ProtokollRohdaten,
   type Repository,
   type StatusRohdaten,
   type TokenRohdaten,
@@ -402,6 +413,23 @@ export class DemoRepository implements Repository {
     this.stand.pruefarten.push(...kopie(pruefarten));
     this.stand.tokens.push(kopie(token));
     this.stand.ereignisse.push(kopie(ereignis));
+  }
+
+  // ------------------------------------------------------------ I3 (BE-25)
+  async listeErinnerungEinstellungen(): Promise<ErinnerungEinstellung[]> {
+    throw new Error('nicht implementiert (BE-25)');
+  }
+  async speichereErinnerungEinstellung(): Promise<void> {
+    throw new Error('nicht implementiert (BE-25)');
+  }
+  async listeEigeneAbmeldungen(): Promise<AbbestellbareMailArt[]> {
+    throw new Error('nicht implementiert (BE-25)');
+  }
+  async setzeEigeneAbmeldung(): Promise<void> {
+    throw new Error('nicht implementiert (BE-25)');
+  }
+  async listeMailProtokoll(): Promise<ProtokollRohdaten> {
+    throw new Error('nicht implementiert (BE-25)');
   }
 }
 

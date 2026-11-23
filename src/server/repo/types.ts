@@ -2,10 +2,15 @@
 // Nachweise und Ereignisse sind append-only: es gibt bewusst keine Methoden zum Ändern oder Löschen.
 // Supabase: Ereignisse entstehen per Trigger; der Parameter `ereignis` wird dort ignoriert und dient der Demo.
 // Gleiche Ereignisdaten in beiden Implementierungen (F-19).
+import type { BisherigerPosten } from '@/domain/erinnerungen';
 import type {
+  AbbestellbareMailArt,
   Anlass,
   Bereich,
   Benutzer,
+  ErinnerungEinstellung,
+  ErinnerungLauf,
+  ErinnerungPosten,
   Ereignis,
   FestgelegteFrist,
   GbuDokument,
@@ -16,13 +21,20 @@ import type {
   IsoDate,
   IsoDateTime,
   KatalogEintrag,
+  LaufAusloeser,
+  LaufStatus,
+  MailFehlerCode,
+  MailVersand,
   Mangel,
   MangelSchwere,
   Mitgliedschaft,
   Nachweis,
   OeffentlicheFrist,
   Organisation,
+  ProtokollFilter,
+  Rolle,
   Uebernahme,
+  VersandStatus,
   WaehlbarerBetriebsstatus,
 } from '@/domain/types';
 
@@ -63,6 +75,66 @@ export interface TokenRohdaten extends StatusRohdaten {
   /** Nur wenn die aktuelle Organisation des Aufrufers die Geräte-Organisation ist und er dort aktives Mitglied ist;
    *  sonst null (anon, fremde Organisation). */
   eigeneOrganisation: { geraetId: Id } | null;
+}
+
+// ---------- I3 (§9.6) ----------
+
+/** Wirksamer Protokollfilter (von/bis gesetzt). */
+export type WirksamerProtokollFilter = Required<Pick<ProtokollFilter, 'von' | 'bis'>> & Omit<ProtokollFilter, 'von' | 'bis'>;
+
+/** Rohdaten des Protokolls. Supabase: RPC mail_protokoll (maskiert bereits); Demo: ungefiltert, der Dienst maskiert. */
+export interface ProtokollRohdaten {
+  versand: (MailVersand & { empfaengerName: string | null; empfaengerRolle: Rolle | null })[];
+  posten: ErinnerungPosten[]; // nur zu den gelieferten Versänden, ohne ma_hinweis
+  gesamt: number;
+  letzterLauf: { laufDatum: IsoDate; status: LaufStatus; beendetAm: IsoDateTime | null } | null;
+}
+
+/** Alles, was der Lauf für eine Organisation braucht (ein Lesevorgang je Organisation). */
+export interface LaufDaten {
+  organisation: Organisation;
+  bereiche: Bereich[];
+  einstellungen: ErinnerungEinstellung[]; // nur gespeicherte
+  mitgliedschaften: Mitgliedschaft[]; // alle; der Dienst filtert aktive
+  benutzer: Benutzer[];
+  katalog: KatalogEintrag[];
+  geraete: Geraet[];
+  pruefarten: GeraetPruefart[];
+  nachweise: Nachweis[];
+  anlaesse: Anlass[];
+  maengel: Mangel[];
+  offeneUebernahmen: Uebernahme[];
+  betriebsstatusEreignisse: Pick<Ereignis, 'id' | 'geraetId' | 'zeitpunkt'>[]; // nur typ betriebsstatus_geaendert
+  abmeldungen: { benutzerId: Id; art: AbbestellbareMailArt }[]; // nur abgemeldet = true
+  bisherigePosten: BisherigerPosten[]; // VERSAND_ERFOLGREICH; frist: bezugDatum ≥ heute − 730; pruefer_woche: ab Montag der Woche; ma_hinweis: alle mit Empfänger
+}
+
+export type LaufStartErgebnis = { ergebnis: 'gestartet'; lauf: ErinnerungLauf } | { ergebnis: 'bereits_gelaufen' } | { ergebnis: 'laeuft' };
+
+/** Ohne Benutzersitzung (F-43). Demo: In-Memory über alle Organisationen. Supabase: Service-Role-Client (system.ts). */
+export interface ErinnerungsSystemRepository {
+  /** Organisationen mit mindestens einer aktiven Mitgliedschaft, nach ID sortiert. */
+  listeOrganisationIds(): Promise<Id[]>;
+  holeLaufDaten(organisationId: Id, heute: IsoDate): Promise<LaufDaten>;
+  starteLauf(daten: { laufDatum: IsoDate; ausloeser: LaufAusloeser; erzwingen: boolean; jetzt: IsoDateTime }): Promise<LaufStartErgebnis>;
+  beendeLauf(daten: { laufId: Id; status: 'fertig' | 'fehler'; jetzt: IsoDateTime }): Promise<void>;
+  /** Atomar Versand + Posten. false bei Konflikt (Organisation, Empfänger, Datum) – dann nichts geschrieben. */
+  reserviereVersand(daten: { versand: MailVersand; posten: ErinnerungPosten[] }): Promise<boolean>;
+  setzeVersandStatus(daten: {
+    versandId: Id;
+    status: VersandStatus;
+    versuche: number;
+    anbieterId: string | null;
+    fehlerCode: MailFehlerCode | null;
+    jetzt: IsoDateTime;
+  }): Promise<void>;
+  /** Webhook. false bei unbekannter Anbieter-ID oder unzulässigem Übergang. */
+  setzeStatusPerAnbieterId(daten: { anbieterId: string; status: 'zugestellt' | 'bounce' | 'beschwerde'; jetzt: IsoDateTime }): Promise<boolean>;
+  /** Token-Abmeldung ohne Sitzung. null, wenn die Person kein aktives Mitglied mit passender Rolle ist. */
+  holeAbmeldeKontext(d: { organisationId: Id; benutzerId: Id; art: AbbestellbareMailArt }): Promise<{ organisationName: string; abgemeldet: boolean } | null>;
+  setzeAbmeldungSystem(d: { organisationId: Id; benutzerId: Id; art: AbbestellbareMailArt; abgemeldet: boolean; jetzt: IsoDateTime }): Promise<boolean>;
+  /** Demo: Empfänger von ma_hinweis älter als 90 Tage entfernen. Supabase: No-op (pg_cron). */
+  pseudonymisiereMaHinweise(jetzt: Date): Promise<void>;
 }
 
 /** Abgeschlossene Übernahme im Verlauf (F-27): ohne beendetVon. */
@@ -154,4 +226,15 @@ export interface Repository {
   erneuereToken(daten: { geraetId: Id; neu: GeraetToken; ereignis: Ereignis }): Promise<string>;
   /** F-20 Austritt. Demo: Zuordnungen lösen, offene Übernahmen 'austritt'. Supabase: No-op (Trigger). */
   loeseNutzungen(daten: { organisationId: Id; benutzerId: Id; jetzt: IsoDateTime }): Promise<void>;
+
+  // I3 (§9.6)
+  /** Nur gespeicherte Einstellungen. RLS: ADM/SIF alle, VER eigene Bereiche. */
+  listeErinnerungEinstellungen(organisationId: Id): Promise<ErinnerungEinstellung[]>;
+  /** Upsert je Bereich. Supabase: Trigger stempelt geaendert_* und schreibt das Ereignis (Parameter ereignis ignoriert). */
+  speichereErinnerungEinstellung(daten: { einstellung: ErinnerungEinstellung; ereignis: Ereignis }): Promise<void>;
+  /** Nur abgemeldete Arten der Person. RLS: nur eigene Zeilen. */
+  listeEigeneAbmeldungen(organisationId: Id, benutzerId: Id): Promise<AbbestellbareMailArt[]>;
+  setzeEigeneAbmeldung(daten: { organisationId: Id; benutzerId: Id; art: AbbestellbareMailArt; abgemeldet: boolean; jetzt: IsoDateTime }): Promise<void>;
+  /** Supabase: RPC mail_protokoll; 42501 für Nicht-ADM/SIF → RepositoryFehler. */
+  listeMailProtokoll(organisationId: Id, filter: WirksamerProtokollFilter): Promise<ProtokollRohdaten>;
 }

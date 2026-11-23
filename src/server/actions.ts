@@ -587,3 +587,41 @@ export async function mitarbeiterEinladen(prev: ActionState, formData: FormData)
   revalidatePath('/admin/mitglieder');
   return { status: 'ok', meldung: r.ergebnis.meldung, id: r.ergebnis.id };
 }
+
+// ---------- I3 Erinnerungen (§9.8) – Rümpfe folgen in BE-26 ----------
+
+/** erinnerung.einstellen. Felder: bereichId, staffel (mehrfach), eskalationVerantwortlicher, eskalationSifa, eskalationAdmin,
+ *  sifaInKopie, sifaAuswahl, sifaEmpfaenger (mehrfach), adminAuswahl, adminEmpfaenger (mehrfach). */
+export async function erinnerungEinstellungSpeichern(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-26)');
+}
+
+/** erinnerung.einstellen. Feld bereichId. */
+export async function erinnerungEinstellungZuruecksetzen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-26)');
+}
+
+/** benachrichtigung.eigene + darfAbbestellen. Felder art, abgemeldet ('ja' | 'nein'). */
+export async function benachrichtigungSetzen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-26)');
+}
+
+/** Ohne Sitzung. Felder t, aktion ('abmelden' | 'anmelden'). */
+export async function mailAbmeldenPerToken(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-26)');
+}
+
+/** mail.vorschau + mailModus() === 'vorschau'. Feld heute (nur Demo-Modus). */
+export async function erinnerungslaufStarten(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  void formData;
+  throw new Error('nicht implementiert (BE-26)');
+}
