@@ -623,7 +623,7 @@ Rollen: ADM Admin · SIF Sifa · VER Verantwortlicher · PRF Prüfer · MA Mitar
 - G: Demo-Modus, ADM, `/admin/mails`. W: „Erinnerungslauf jetzt ausführen“ mit Datum 30.11.2026. T: gerenderte Mails aller Empfänger erscheinen (Betreff, Empfängeradresse, HTML in Sandbox, Textteil, `List-Unsubscribe` falls vorhanden); nichts verlässt den Server; Protokoll zeigt `vorschau`.
 - G: Produktion mit Supabase ohne Resend-Variablen. T: Modus `aus`, Lauf 503 `nicht_konfiguriert`, `/admin/mails` 404, Einstellungsseiten zeigen „Mailversand ist nicht eingerichtet“.
 - G: `CRON_SECRET` mit 31 Zeichen. T: 503. G: Produktion mit Supabase und Resend, ohne `NEXT_PUBLIC_SITE_URL`. W: Aufruf mit gültigem Bearer. T: 503 `nicht_konfiguriert`, nichts geschrieben.
-- G: Zeitbudget (45 s) erschöpft. T: Lauf endet `teilweise` (HTTP 200), kein Versand bleibt `vorbereitet`; der Auslöser um 05:20 UTC setzt fort, kein Empfänger erhält eine zweite Mail; Protokoll zeigt „Teilweise – wird fortgesetzt.“
+- G: Zeitbudget (20 s) erschöpft. T: Lauf endet `teilweise` (HTTP 200), kein Versand bleibt `vorbereitet`; der Auslöser um 05:20 UTC setzt fort, kein Empfänger erhält eine zweite Mail; Protokoll zeigt „Teilweise – wird fortgesetzt.“
 - G: Supabase-Modus mit Vorschau-Adapter (Entwicklung). W: „Erinnerungslauf jetzt ausführen“ zweimal. T: beide Male dieselben Mails in der Vorschau, nur für die eigene Organisation; Protokoll unverändert (Trockenlauf, F-33).
 
 **US-43 Bugfix QR-Seite (F-24, R-09, Must)** – Als nicht angemeldete Person vor einem überfälligen Gerät will ich keinen Knopf „Anmelden und übernehmen“ sehen, damit niemand zur Übernahme eines Geräts mit „Nicht verwenden“ geführt wird.
