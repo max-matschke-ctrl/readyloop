@@ -429,7 +429,7 @@ describe('Kappung und Größe', () => {
       posten: posten(n).map((p, i) => ({ ...p, art: 'ma_hinweis', dringlichkeit: 'nicht_verwenden', status: null, frist: null, hinweise: ['Überfällig'], pfad: '/meine-geraete', schluessel: `ma${i}` })),
     });
     const eins = render(ma(51));
-    expect(eins.html).toContain('<b>… und 1 weitere Gerät</b>');
+    expect(eins.html).toContain('<b>… und 1 weiteres Gerät</b>');
     expect(eins.html).toContain(`<a href="${SITE}/meine-geraete" style="color:#2c3646">in Readyloop ansehen</a>`);
     expect(eins.html).toContain('dürfen ab sofort nicht benutzt werden. Diese Mail zeigt 50 von 51.');
     expect(render(ma(53)).text).toContain('… und 3 weitere Geräte – in Readyloop ansehen:');

@@ -240,8 +240,8 @@ function einleitung(digest: DigestPlan, betrieb: string, gekappt: boolean): stri
 
 /** D-I3a §5.10: „… und {n} weitere Prüfung(en)“ bzw. „Gerät(e)“ in der MA-Mail. */
 function weitereText(art: MailArt, n: number): string {
-  const wort = art === 'ma_hinweis' ? (n === 1 ? 'Gerät' : 'Geräte') : n === 1 ? 'Prüfung' : 'Prüfungen';
-  return `… und ${n} weitere ${wort}`;
+  if (art === 'ma_hinweis') return n === 1 ? '… und 1 weiteres Gerät' : `… und ${n} weitere Geräte`;
+  return n === 1 ? '… und 1 weitere Prüfung' : `… und ${n} weitere Prüfungen`;
 }
 
 /** D-I3a §5.5: „{gezeigt}“ bzw. bei Teilkappung „{gezeigt} von {gesamt}“. */
