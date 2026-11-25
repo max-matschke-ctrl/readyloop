@@ -2,7 +2,7 @@
 import { createHmac } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { abmeldeSeitenUrl, abmeldeToken, ENTWICKLUNGS_SECRET, oneClickUrl, pruefeAbmeldeToken } from '@/server/mail/abmelden';
-import { holeMailAdapter, mailModus, siteUrl } from '@/server/mail/index';
+import { holeMailAdapter, mailModus, mailSiteUrl, siteUrl } from '@/server/mail/index';
 import { RESEND_URL, resendAdapter } from '@/server/mail/resend';
 import type { GerenderteMail } from '@/server/mail/types';
 import { leereVorschau, listeVorschauMails, VORSCHAU_MAX, vorschauAdapter } from '@/server/mail/vorschau';
@@ -27,7 +27,7 @@ const MAIL: GerenderteMail = {
   kopfzeilen: { 'X-Readyloop-Art': 'pruefer_woche', 'List-Unsubscribe': '<https://x/api/mail/abmelden?t=abc>' },
   idempotenzSchluessel: '11111111-1111-4111-8111-111111111111',
 };
-const META = { organisationName: 'Test GmbH', art: 'pruefer_woche' as const, laufDatum: '2026-11-30' };
+const META = { organisationId: 'org-test', organisationName: 'Test GmbH', art: 'pruefer_woche' as const, laufDatum: '2026-11-30' };
 
 describe('mailModus (F-37)', () => {
   it('resend nur mit allen drei Variablen', () => {
@@ -51,6 +51,18 @@ describe('mailModus (F-37)', () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', '');
     vi.stubEnv('READYLOOP_DEMO', '1');
     expect(mailModus()).toBe('vorschau');
+  });
+  it('mailSiteUrl: Produktion (Supabase) ohne NEXT_PUBLIC_SITE_URL → null; Demo/Dev → localhost', () => {
+    expect(mailSiteUrl()).toBe('http://localhost:3000'); // Dev
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('READYLOOP_DEMO', '1');
+    expect(mailSiteUrl()).toBe('http://localhost:3000'); // Demo
+    vi.stubEnv('READYLOOP_DEMO', '');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://x.supabase.co');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon');
+    expect(mailSiteUrl()).toBeNull();
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://app.readyloop.de/');
+    expect(mailSiteUrl()).toBe('https://app.readyloop.de');
   });
   it('siteUrl ohne abschließenden Schrägstrich', () => {
     expect(siteUrl()).toBe('http://localhost:3000');
@@ -136,13 +148,16 @@ describe('vorschauAdapter', () => {
   it('speichert, Anbieter-ID vorschau-…, neueste zuerst, Filter nach Organisation', async () => {
     const a = vorschauAdapter();
     const e1 = await a.senden(MAIL, META);
-    await a.senden({ ...MAIL, betreff: 'zwei', kopfzeilen: {} }, { ...META, organisationName: 'Andere AG' });
+    // gleicher Name, andere Organisation: gefiltert wird nach ID
+    await a.senden({ ...MAIL, betreff: 'zwei', kopfzeilen: {} }, { ...META, organisationId: 'org-andere' });
     expect(e1.ok && e1.anbieterId.startsWith('vorschau-')).toBe(true);
     const alle = listeVorschauMails();
     expect(alle.map((m) => m.betreff)).toEqual(['zwei', MAIL.betreff]);
     expect(alle[1].listUnsubscribe).toBe(MAIL.kopfzeilen['List-Unsubscribe']);
     expect(alle[0].listUnsubscribe).toBeNull();
-    expect(listeVorschauMails('Test GmbH')).toHaveLength(1);
+    expect(listeVorschauMails('org-test').map((m) => m.betreff)).toEqual([MAIL.betreff]);
+    expect(listeVorschauMails('org-andere').map((m) => m.betreff)).toEqual(['zwei']);
+    expect(listeVorschauMails('org-unbekannt')).toEqual([]);
   });
 
   it(`kappt bei ${VORSCHAU_MAX} (älteste verworfen)`, async () => {

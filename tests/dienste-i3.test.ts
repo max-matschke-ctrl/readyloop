@@ -222,8 +222,16 @@ describe('Mail-Vorschau (F-37)', () => {
     await fuehreErinnerungslaufAus(system, vorschauAdapter(), { heute: HEUTE, jetzt: JETZT, ausloeser: 'manuell', warte: async () => {} });
     const seite = mailVorschauSeite(await sitzung('admin'), HEUTE, true);
     expect(seite.mails.length).toBeGreaterThan(0);
+    const admin = await sitzung('admin');
+    expect(seite.mails.every((m) => m.organisationId === admin.organisation.id)).toBe(true);
     expect(seite.mails.every((m) => m.organisationName === 'Elbtal Fördertechnik GmbH')).toBe(true);
     expect(seite.datumWaehlbar).toBe(true);
+    // Gleichnamige fremde Organisation erscheint nicht (Filter nach ID, nicht nach Name)
+    await vorschauAdapter().senden(
+      { an: 'x@example.org', betreff: 'fremd', text: '', html: '', kopfzeilen: {}, idempotenzSchluessel: 'x' },
+      { organisationId: 'fremde-org', organisationName: 'Elbtal Fördertechnik GmbH', art: 'frist_digest', laufDatum: HEUTE },
+    );
+    expect(mailVorschauSeite(admin, HEUTE, true).mails.some((m) => m.betreff === 'fremd')).toBe(false);
     const sif = await sitzung('sifa');
     expect(() => mailVorschauSeite(sif, HEUTE, true)).toThrow();
   });

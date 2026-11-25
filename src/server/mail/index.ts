@@ -33,3 +33,12 @@ export function holeMailAdapter(): MailAdapter | null {
 export function siteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/+$/, '');
 }
+
+/** Basis-URL für Links in Mails (F-36, F-38). Ohne NEXT_PUBLIC_SITE_URL im Produktionsmodus (Supabase und
+ *  NODE_ENV = production) null – dann verweigert der Lauf (nicht_konfiguriert), statt localhost-Links zu verschicken.
+ *  Im Demo-Modus und bei NODE_ENV ≠ production bleibt localhost erlaubt. */
+export function mailSiteUrl(): string | null {
+  if (process.env.NEXT_PUBLIC_SITE_URL?.trim()) return siteUrl();
+  if (betriebsmodus() === 'demo' || process.env.NODE_ENV !== 'production') return siteUrl();
+  return null;
+}

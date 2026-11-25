@@ -1,6 +1,7 @@
-// Vorschau-Adapter (F-37): Mails nur im Speicher des Server-Prozesses, nie versendet, nie in der DB.
+// Vorschau-Adapter (F-37): Mails nur im Speicher des Server-Prozesses, nie versendet. Der Inhalt steht nie in der DB;
+// im Supabase-Modus schreibt der Vorschau-Lauf auch keine Versanddatensätze (Trockenlauf, F-33).
 import { randomUUID } from 'node:crypto';
-import type { VorschauMail } from '@/domain/types';
+import type { Id, VorschauMail } from '@/domain/types';
 import type { GerenderteMail, MailAdapter, MailMeta, MailSendeErgebnis } from './types';
 
 export const VORSCHAU_MAX = 200;
@@ -22,6 +23,7 @@ export function vorschauAdapter(): MailAdapter {
         id,
         erstelltAm: new Date().toISOString(),
         laufDatum: meta.laufDatum,
+        organisationId: meta.organisationId,
         organisationName: meta.organisationName,
         art: meta.art,
         an: mail.an,
@@ -36,10 +38,10 @@ export function vorschauAdapter(): MailAdapter {
   };
 }
 
-/** Neueste zuerst; optional nur einer Organisation. */
-export function listeVorschauMails(organisationName?: string): VorschauMail[] {
+/** Neueste zuerst; optional nur einer Organisation (nach ID – Namen sind nicht eindeutig). */
+export function listeVorschauMails(organisationId?: Id): VorschauMail[] {
   return speicher()
-    .filter((m) => organisationName === undefined || m.organisationName === organisationName)
+    .filter((m) => organisationId === undefined || m.organisationId === organisationId)
     .slice()
     .reverse()
     .map((m) => ({ ...m }));

@@ -1,5 +1,5 @@
 // Vertrag §9.5 – Mail-Adapter (F-37). Mails entstehen nur serverseitig und gehen nur über MailAdapter.
-import type { IsoDate, MailArt, MailFehlerCode } from '@/domain/types';
+import type { Id, IsoDate, MailArt, MailFehlerCode } from '@/domain/types';
 
 export interface GerenderteMail {
   an: string;
@@ -15,6 +15,7 @@ export type MailSendeErgebnis =
   | { ok: false; fehlerCode: MailFehlerCode; wiederholbar: boolean };
 
 export interface MailMeta {
+  organisationId: Id;
   organisationName: string;
   art: MailArt;
   laufDatum: IsoDate;

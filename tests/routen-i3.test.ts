@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as cron from '@/app/api/cron/erinnerungen/route';
 import * as abmelden from '@/app/api/mail/abmelden/route';
 import * as webhook from '@/app/api/mail/webhook/route';
-import { ausloeserAus, bearerGueltig, heuteFuerLauf } from '@/server/erinnerungen/routen';
+import { ausloeserAus, bearerGueltig, CRON_SECRET_MIN_LAENGE, heuteFuerLauf } from '@/server/erinnerungen/routen';
 import { abmeldeToken } from '@/server/mail/abmelden';
 import { leereVorschau } from '@/server/mail/vorschau';
 import { DEMO_BENUTZER_IDS, DEMO_ORG_ID } from '@/server/repo/demo/daten';
@@ -55,6 +55,30 @@ describe('GET/POST /api/cron/erinnerungen', () => {
   it('ohne CRON_SECRET → 503', async () => {
     vi.stubEnv('CRON_SECRET', '');
     expect((await cron.GET(cronAnfrage('GET', { auth: `Bearer ${SECRET}` }))).status).toBe(503);
+  });
+
+  it(`CRON_SECRET kürzer als ${CRON_SECRET_MIN_LAENGE} Zeichen → 503 nicht_konfiguriert, auch mit passendem Bearer`, async () => {
+    const kurz = 'k'.repeat(CRON_SECRET_MIN_LAENGE - 1);
+    vi.stubEnv('CRON_SECRET', kurz);
+    const laeufeVorher = stand().erinnerungLaeufe.length;
+    const r = await cron.GET(cronAnfrage('GET', { auth: `Bearer ${kurz}` }));
+    expect(r.status).toBe(503);
+    expect(await r.json()).toEqual({ status: 'nicht_konfiguriert' });
+    expect(stand().erinnerungLaeufe).toHaveLength(laeufeVorher);
+    vi.stubEnv('CRON_SECRET', 'k'.repeat(CRON_SECRET_MIN_LAENGE));
+    expect((await cron.GET(cronAnfrage('GET', { auth: `Bearer ${'k'.repeat(CRON_SECRET_MIN_LAENGE)}`, query: '?heute=2026-11-30' }))).status).toBe(200);
+  });
+
+  it('Produktion (Supabase, Resend) ohne NEXT_PUBLIC_SITE_URL → 503 nicht_konfiguriert statt localhost-Links', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://x.supabase.co');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon');
+    vi.stubEnv('RESEND_API_KEY', 're_test');
+    vi.stubEnv('MAIL_ABSENDER', 'Readyloop <mail@example.org>');
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', '');
+    const r = await cron.GET(cronAnfrage('GET', { auth: `Bearer ${SECRET}` }));
+    expect(r.status).toBe(503);
+    expect(await r.json()).toEqual({ status: 'nicht_konfiguriert' });
   });
 
   it('fehlender oder falscher Bearer → 401 ohne Details', async () => {

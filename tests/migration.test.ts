@@ -673,6 +673,9 @@ describe('Migration Inkrement I3', () => {
 
   it('Jobs: Lauf Mo–Fr 05:00 UTC über pg_net mit Vault-Secrets; Pseudonymisierung 03:20 Berlin; laute Warnung', () => {
     expect(SQL6).toContain("perform cron.schedule(v_job_lauf, '0 5 * * 1-5', v_cmd_lauf)");
+    // F-36: Fortsetzung nach Lauf mit Status teilweise (Zeitbudget) – gleicher Auslöser, 05:20 UTC
+    expect(SQL6).toContain("v_job_fortsetzung constant text := 'readyloop_erinnerungen_fortsetzung'");
+    expect(SQL6).toContain("perform cron.schedule(v_job_fortsetzung, '20 5 * * 1-5', v_cmd_lauf)");
     expect(SQL6).toContain("perform cron.schedule(v_job_pseudo, '20 1,2 * * *', v_cmd_pseudo)");
     expect(SQL6).toContain("extract(hour from now() at time zone 'Europe/Berlin') = 3");
     const ausloesen = block6('create or replace function app.erinnerungen_ausloesen(');
@@ -684,6 +687,20 @@ describe('Migration Inkrement I3', () => {
     expect(SQL6).toMatch(/raise warning 'READYLOOP F-36: Vault-Secrets fehlen/);
     expect(SQL6.match(/message = 'READYLOOP F-36:/g)?.length).toBe(2);
     expect(block6('create or replace function app.mail_pseudonymisieren(')).toContain("interval '90 days'");
+  });
+
+  it('Lauf (F-36): teilweise blockiert nicht, manueller Lauf blockiert nicht, vorbereitet abgebrochener Läufe → fehler', () => {
+    const starten = block6('create or replace function public.erinnerung_lauf_starten(');
+    expect(starten).toMatch(/status = 'fertig' and ausloeser <> 'manuell'/);
+    expect(starten).toMatch(/set status = 'fehler', fehler_code = 'abgebrochen'/);
+    expect(starten).toMatch(/mv\.status = 'vorbereitet'[\s\S]*l\.status <> 'laeuft'/);
+    expect(block6('create or replace function public.erinnerung_lauf_beenden(')).toContain("('fertig', 'teilweise', 'fehler')");
+    expect(block6('create or replace function app.erinnerung_lauf_pruefen(')).toContain("('fertig', 'teilweise', 'fehler')");
+    const vercel = JSON.parse(readFileSync(path.resolve(__dirname, '../vercel.json'), 'utf8')) as { crons: { path: string; schedule: string }[] };
+    expect(vercel.crons).toEqual([
+      { path: '/api/cron/erinnerungen', schedule: '0 5 * * 1-5' },
+      { path: '/api/cron/erinnerungen', schedule: '20 5 * * 1-5' },
+    ]);
   });
 
   it('frühere Migrationen bleiben unverändert (I3-Ereignistyp nur in der neuen Migration)', () => {

@@ -1,6 +1,10 @@
 // Erinnerungslauf (F-36). „heute“ und „jetzt“ kommen als Parameter (Europe/Berlin, injizierbar).
 // Ablauf je Organisation: Daten lesen → Plan (rein) → je Empfänger Versand + Posten reservieren → rendern → senden → Status.
 // Ein Fehler bei einer Organisation oder einem Empfänger bricht den Lauf nicht ab.
+// Zeitbudget (F-36): Ist es erschöpft, endet der Lauf mit `teilweise`; der nächste Auslöser (05:20 UTC) setzt fort –
+// bereits reservierte Empfänger überspringt die Reservierung (eindeutig je Organisation, Empfänger, Datum).
+// Trockenlauf (F-33, Vorschau im Supabase-Modus): kein Lauf-Datensatz, keine Reservierung, kein Status – nur Rendern in den
+// Vorschau-Adapter.
 import { randomUUID } from 'node:crypto';
 import { istWerktag } from '@/domain/datum';
 import { kappePosten, planeErinnerungen, type DigestPlan } from '@/domain/erinnerungen';
@@ -15,27 +19,42 @@ import {
   type VersandStatus,
 } from '@/domain/types';
 import { abmeldeSeitenUrl, abmeldeToken, oneClickUrl } from '../mail/abmelden';
-import { siteUrl } from '../mail/index';
+import { mailSiteUrl } from '../mail/index';
 import type { MailAdapter, MailSendeErgebnis } from '../mail/types';
 import { renderMail } from '../mail/vorlagen';
 import type { ErinnerungsSystemRepository } from '../repo/types';
 import { planEingabeAus } from './laufdaten';
+
+/** F-36: Zeitbudget je Aufruf (Route maxDuration 60 s; Rest für die letzte Organisation inkl. Wiederholungen). */
+export const LAUF_BUDGET_MS = 45_000;
 
 export interface LaufOptionen {
   heute: IsoDate; // Europe/Berlin, injizierbar
   jetzt: Date;
   ausloeser: LaufAusloeser;
   erzwingen?: boolean; // ignoriert „bereits gelaufen“ und kein_werktag; Idempotenz bleibt
-  organisationIds?: Id[]; // Tests
+  /** Nur diese Organisationen (manueller Lauf: genau die der Sitzung; Tests). */
+  organisationIds?: Id[];
+  /** Ohne Lauf-Datensatz, Reservierung und Statusschreiben; Mails nur gerendert und an den Adapter (Vorschau). */
+  trockenlauf?: boolean;
+  budgetMs?: number; // Default LAUF_BUDGET_MS
+  uhr?: () => number; // Default Date.now; Tests
   warte?: (ms: number) => Promise<void>; // Default setTimeout; Tests sofort
 }
 
-export type LaufErgebnisStatus = 'fertig' | 'bereits_gelaufen' | 'laeuft_bereits' | 'kein_werktag' | 'nicht_konfiguriert' | 'fehler';
+export type LaufErgebnisStatus =
+  | 'fertig'
+  | 'teilweise'
+  | 'bereits_gelaufen'
+  | 'laeuft_bereits'
+  | 'kein_werktag'
+  | 'nicht_konfiguriert'
+  | 'fehler';
 
 export interface LaufErgebnis {
   status: LaufErgebnisStatus;
   laufId: Id | null;
-  organisationen: number;
+  organisationen: number; // vollständig bearbeitet
   mails: number; // erfolgreich (inkl. vorschau)
   fehler: number; // Versände mit Status fehler + Organisationen mit Lesefehler
 }
@@ -117,28 +136,50 @@ export async function fuehreErinnerungslaufAus(
   opt: LaufOptionen,
 ): Promise<LaufErgebnis> {
   if (adapter === null) return ergebnis('nicht_konfiguriert');
+  const site = mailSiteUrl();
+  if (site === null) {
+    console.warn('[erinnerungen] NEXT_PUBLIC_SITE_URL fehlt im Produktionsmodus → nicht_konfiguriert');
+    return ergebnis('nicht_konfiguriert');
+  }
   if (!istWerktag(opt.heute) && !opt.erzwingen) return ergebnis('kein_werktag');
   const warte = opt.warte ?? standardWarte;
+  const uhr = opt.uhr ?? Date.now;
+  const budget = opt.budgetMs ?? LAUF_BUDGET_MS;
+  const beginn = uhr();
+  const budgetErschoepft = () => uhr() - beginn >= budget;
+  const trocken = opt.trockenlauf ?? false;
   const jetzt = opt.jetzt.toISOString();
 
-  const start = await repo.starteLauf({ laufDatum: opt.heute, ausloeser: opt.ausloeser, erzwingen: opt.erzwingen ?? false, jetzt });
-  if (start.ergebnis === 'bereits_gelaufen') return ergebnis('bereits_gelaufen');
-  if (start.ergebnis === 'laeuft') return ergebnis('laeuft_bereits');
-  const laufId = start.lauf.id;
+  let laufId: Id | null = null;
+  if (!trocken) {
+    const start = await repo.starteLauf({ laufDatum: opt.heute, ausloeser: opt.ausloeser, erzwingen: opt.erzwingen ?? false, jetzt });
+    if (start.ergebnis === 'bereits_gelaufen') return ergebnis('bereits_gelaufen');
+    if (start.ergebnis === 'laeuft') return ergebnis('laeuft_bereits');
+    laufId = start.lauf.id;
+  }
 
   let organisationen = 0;
   let mails = 0;
   let fehler = 0;
+  let teilweise = false;
   try {
-    const orgIds = opt.organisationIds ?? (await repo.listeOrganisationIds());
-    for (const organisationId of orgIds) {
-      organisationen += 1;
+    const orgIds = opt.organisationIds ?? (await repo.listeOrganisationIds(opt.heute));
+    orgSchleife: for (const organisationId of orgIds) {
+      if (budgetErschoepft()) {
+        teilweise = true;
+        break;
+      }
       try {
         const daten = await repo.holeLaufDaten(organisationId, opt.heute);
         const digests = planeErinnerungen(planEingabeAus(daten, opt.heute));
         for (const digest of digests) {
-          const { versand, posten } = versandAus(digest, organisationId, laufId, opt.heute, jetzt);
-          if (!(await repo.reserviereVersand({ versand, posten }))) continue; // schon versandt heute (F-33/F-36)
+          if (budgetErschoepft()) {
+            // Vor der Reservierung abbrechen: es bleibt kein „vorbereitet“ zurück; der nächste Auslöser setzt fort.
+            teilweise = true;
+            break orgSchleife;
+          }
+          const { versand, posten } = versandAus(digest, organisationId, laufId ?? '', opt.heute, jetzt);
+          if (!trocken && !(await repo.reserviereVersand({ versand, posten }))) continue; // schon versandt heute (F-33/F-36)
 
           let status: VersandStatus;
           let versuche = 0;
@@ -151,7 +192,7 @@ export async function fuehreErinnerungslaufAus(
                 : null;
             const inhalt = renderMail(digest, {
               organisationName: daten.organisation.name,
-              siteUrl: siteUrl(),
+              siteUrl: site,
               laufDatum: opt.heute,
               abmeldung: token ? { seitenUrl: abmeldeSeitenUrl(token), oneClickUrl: oneClickUrl(token) } : null,
             });
@@ -159,7 +200,7 @@ export async function fuehreErinnerungslaufAus(
               () =>
                 adapter.senden(
                   { ...inhalt, an: digest.empfaenger.email, idempotenzSchluessel: versand.id },
-                  { organisationName: daten.organisation.name, art: digest.art, laufDatum: opt.heute },
+                  { organisationId, organisationName: daten.organisation.name, art: digest.art, laufDatum: opt.heute },
                 ),
               warte,
             );
@@ -177,24 +218,28 @@ export async function fuehreErinnerungslaufAus(
             fehlerCode = 'konfiguration';
             console.warn('[erinnerungen] Mail konnte nicht erstellt werden → konfiguration');
           }
-          await repo.setzeVersandStatus({ versandId: versand.id, status, versuche, anbieterId, fehlerCode, jetzt });
+          if (!trocken) await repo.setzeVersandStatus({ versandId: versand.id, status, versuche, anbieterId, fehlerCode, jetzt });
           if (status === 'fehler') fehler += 1;
           else mails += 1;
         }
+        organisationen += 1;
       } catch {
+        organisationen += 1;
         fehler += 1;
         console.warn('[erinnerungen] Organisation übersprungen (Fehler beim Lesen oder Schreiben)');
       }
     }
-    await repo.beendeLauf({ laufId, status: 'fertig', jetzt });
+    if (laufId !== null) await repo.beendeLauf({ laufId, status: teilweise ? 'teilweise' : 'fertig', jetzt });
   } catch {
-    await repo.beendeLauf({ laufId, status: 'fehler', jetzt }).catch(() => undefined);
+    if (laufId !== null) await repo.beendeLauf({ laufId, status: 'fehler', jetzt }).catch(() => undefined);
     return ergebnis('fehler', laufId, organisationen, mails, fehler);
   }
-  try {
-    await repo.pseudonymisiereMaHinweise(opt.jetzt);
-  } catch {
-    console.warn('[erinnerungen] Pseudonymisierung fehlgeschlagen');
+  if (!trocken) {
+    try {
+      await repo.pseudonymisiereMaHinweise(opt.jetzt);
+    } catch {
+      console.warn('[erinnerungen] Pseudonymisierung fehlgeschlagen');
+    }
   }
-  return ergebnis('fertig', laufId, organisationen, mails, fehler);
+  return ergebnis(teilweise ? 'teilweise' : 'fertig', laufId, organisationen, mails, fehler);
 }

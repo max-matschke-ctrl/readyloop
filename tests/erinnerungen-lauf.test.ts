@@ -1,7 +1,7 @@
 // BE-25: Erinnerungslauf mit Demo-System-Repository – „heute“ injiziert, Wartezeiten sofort (F-30 bis F-36, F-41).
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { addTage } from '@/domain/datum';
-import { MAIL_MAX_POSTEN, type MailFehlerCode } from '@/domain/types';
+import { MAIL_MAX_POSTEN, VERSAND_ERFOLGREICH, VERSAND_ERFOLGREICH_DEMO, type MailFehlerCode } from '@/domain/types';
 import { fuehreErinnerungslaufAus, WARTEZEITEN_MS, type LaufOptionen } from '@/server/erinnerungen/lauf';
 import { planEingabeAus } from '@/server/erinnerungen/laufdaten';
 import type { GerenderteMail, MailAdapter, MailMeta, MailSendeErgebnis } from '@/server/mail/types';
@@ -306,5 +306,158 @@ describe('DemoSystemRepository: Webhook und Statusübergänge', () => {
     expect(await repo.reserviereVersand({ versand: versand('a'), posten: posten('a') })).toBe(true);
     expect(await repo.reserviereVersand({ versand: versand('b'), posten: posten('b') })).toBe(false);
     expect(stand.mailVersand.filter((v) => v.id === 'b')).toEqual([]);
+  });
+});
+
+// Review I3 (Backend): Zeitbudget mit Fortsetzung, abgebrochene Versände, Trockenlauf, manueller Lauf, Site-URL.
+describe('Zeitbudget und Fortsetzung (F-36)', () => {
+  /** Uhr, die je Sendung um 10 ms vorrückt. */
+  function taktAdapter() {
+    let t = 0;
+    const basis = skriptAdapter();
+    const adapter: MailAdapter = {
+      modus: 'resend',
+      async senden(mail, meta) {
+        t += 10;
+        return basis.adapter.senden(mail, meta);
+      },
+    };
+    return { adapter, gesendet: basis.gesendet, uhr: () => t };
+  }
+
+  it('Budget erschöpft → teilweise, kein „vorbereitet“; 05:20-Auslöser setzt fort, ohne Doppelmail, Ergebnis wie ein voller Lauf', async () => {
+    const voll = erzeugeDemoStand(MONTAG);
+    await fuehreErinnerungslaufAus(new DemoSystemRepository(voll), skriptAdapter().adapter, opt(MONTAG));
+    const erwartet = voll.mailVersand.filter((v) => v.laufDatum === MONTAG).map((v) => `${v.organisationId}|${v.empfaengerBenutzerId}`).sort();
+    expect(erwartet.length).toBeGreaterThan(3);
+
+    const takt = taktAdapter();
+    const erst = await fuehreErinnerungslaufAus(repo, takt.adapter, opt(MONTAG, { uhr: takt.uhr, budgetMs: 25 }));
+    expect(erst.status).toBe('teilweise');
+    expect(erst.mails).toBe(3);
+    expect(stand.erinnerungLaeufe.at(-1)).toMatchObject({ status: 'teilweise', ausloeser: 'vercel_cron' });
+    expect(stand.mailVersand.some((v) => v.status === 'vorbereitet')).toBe(false);
+
+    const fort = skriptAdapter();
+    const zweit = await fuehreErinnerungslaufAus(repo, fort.adapter, { ...opt(MONTAG, { ausloeser: 'pg_cron' }), jetzt: new Date('2026-11-30T05:20:00Z') });
+    expect(zweit.status).toBe('fertig');
+    const heutige = stand.mailVersand.filter((v) => v.laufDatum === MONTAG).map((v) => `${v.organisationId}|${v.empfaengerBenutzerId}`).sort();
+    expect(heutige).toEqual(erwartet);
+    expect(new Set(heutige).size).toBe(heutige.length);
+    const erstEmpfaenger = new Set(takt.gesendet.map((g) => `${g.meta.organisationId}|${g.mail.an}`));
+    expect(fort.gesendet.filter((g) => erstEmpfaenger.has(`${g.meta.organisationId}|${g.mail.an}`))).toEqual([]);
+    // danach ist der Tag erledigt
+    expect((await fuehreErinnerungslaufAus(repo, fort.adapter, opt(MONTAG))).status).toBe('bereits_gelaufen');
+  });
+
+  it('Budget 0 → teilweise ohne Organisation und ohne Versand', async () => {
+    const e = await fuehreErinnerungslaufAus(repo, skriptAdapter().adapter, opt(MONTAG, { budgetMs: 0 }));
+    expect(e).toMatchObject({ status: 'teilweise', organisationen: 0, mails: 0 });
+    expect(stand.mailVersand.filter((v) => v.laufDatum === MONTAG)).toEqual([]);
+  });
+
+  it('Reihenfolge: Betriebe ohne heutigen Versand zuerst', async () => {
+    expect(await repo.listeOrganisationIds(MONTAG)).toEqual([DEMO_ORG_ID, DEMO_ORG2_ID].sort());
+    await fuehreErinnerungslaufAus(repo, skriptAdapter().adapter, opt(MONTAG, { organisationIds: [[DEMO_ORG_ID, DEMO_ORG2_ID].sort()[0]] }));
+    const [erste, zweite] = [DEMO_ORG_ID, DEMO_ORG2_ID].sort();
+    expect(await repo.listeOrganisationIds(MONTAG)).toEqual([zweite, erste]);
+    expect(await repo.listeOrganisationIds(DIENSTAG)).toEqual([erste, zweite]);
+  });
+
+  it('hängender Lauf mit „vorbereitet“-Versand → beim nächsten Start fehler (abgebrochen); Posten am nächsten Werktag erneut', async () => {
+    stand.erinnerungLaeufe.push({ id: 'haengt', laufDatum: MONTAG, ausloeser: 'pg_cron', status: 'laeuft', gestartetAm: '2026-11-30T05:00:00Z', beendetAm: null });
+    const sammel = skriptAdapter();
+    // Plan für Marco ermitteln und als „vorbereitet“ des hängenden Laufs anlegen (Funktion nach der Reservierung beendet)
+    const probe = erzeugeDemoStand(MONTAG);
+    await fuehreErinnerungslaufAus(new DemoSystemRepository(probe), sammel.adapter, opt(MONTAG));
+    const v = probe.mailVersand.find((x) => x.empfaengerBenutzerId === B.marco && x.laufDatum === MONTAG)!;
+    stand.mailVersand.push({ ...structuredClone(v), laufId: 'haengt', status: 'vorbereitet', versuche: 0, anbieterId: null, versendetAm: null });
+    stand.erinnerungPosten.push(...structuredClone(probe.erinnerungPosten.filter((p) => p.versandId === v.id)));
+
+    const { adapter, gesendet } = skriptAdapter();
+    const e = await fuehreErinnerungslaufAus(repo, adapter, { ...opt(MONTAG), jetzt: new Date('2026-11-30T05:20:00Z') });
+    expect(e.status).toBe('fertig');
+    expect(stand.erinnerungLaeufe.find((l) => l.id === 'haengt')!.status).toBe('fehler');
+    expect(stand.mailVersand.find((x) => x.id === v.id)).toMatchObject({ status: 'fehler', fehlerCode: 'abgebrochen' });
+    expect(gesendet.some((g) => g.mail.an === email(B.marco))).toBe(false); // eine Mail je Tag (F-33)
+    const dienstag = skriptAdapter();
+    await fuehreErinnerungslaufAus(repo, dienstag.adapter, opt(DIENSTAG));
+    expect(versandVon(B.marco, DIENSTAG)).toHaveLength(1);
+    expect(versandVon(B.marco, DIENSTAG)[0].status).toBe('versendet');
+  });
+
+  it('laufender (nicht hängender) Lauf: seine „vorbereitet“-Versände bleiben unberührt', async () => {
+    const start = await repo.starteLauf({ laufDatum: MONTAG, ausloeser: 'pg_cron', erzwingen: false, jetzt: '2026-11-30T05:00:00Z' });
+    if (start.ergebnis !== 'gestartet') throw new Error('Lauf nicht gestartet');
+    stand.mailVersand.push({
+      id: 'v-laeuft', organisationId: DEMO_ORG_ID, laufId: start.lauf.id, laufDatum: MONTAG, art: 'frist_digest', empfaengerBenutzerId: B.marco,
+      status: 'vorbereitet', versuche: 0, anbieterId: null, fehlerCode: null, postenAnzahl: 1, erstelltAm: '', versendetAm: null, statusAm: '',
+    });
+    expect((await repo.starteLauf({ laufDatum: MONTAG, ausloeser: 'vercel_cron', erzwingen: false, jetzt: '2026-11-30T05:01:00Z' })).ergebnis).toBe('laeuft');
+    expect(stand.mailVersand.find((v) => v.id === 'v-laeuft')!.status).toBe('vorbereitet');
+  });
+});
+
+describe('Manueller Lauf und Trockenlauf (F-33, F-37)', () => {
+  it('manueller Lauf einer Organisation blockiert den Tageslauf nicht', async () => {
+    const m = await fuehreErinnerungslaufAus(repo, vorschauAdapter(), opt(MONTAG, { ausloeser: 'manuell', erzwingen: true, organisationIds: [DEMO_ORG_ID] }));
+    expect(m.status).toBe('fertig');
+    expect(stand.mailVersand.filter((v) => v.laufDatum === MONTAG).every((v) => v.organisationId === DEMO_ORG_ID)).toBe(true);
+    const cron = await fuehreErinnerungslaufAus(repo, skriptAdapter().adapter, opt(MONTAG));
+    expect(cron.status).toBe('fertig');
+    expect(stand.mailVersand.some((v) => v.laufDatum === MONTAG && v.organisationId === DEMO_ORG2_ID)).toBe(true);
+  });
+
+  it('Trockenlauf: kein Lauf, kein Versand, keine Posten, kein Status – nur gerenderte Mails der gewählten Organisation; wiederholbar', async () => {
+    const vorher = structuredClone({ l: stand.erinnerungLaeufe, v: stand.mailVersand, p: stand.erinnerungPosten });
+    const o = opt(MONTAG, { ausloeser: 'manuell', erzwingen: true, organisationIds: [DEMO_ORG_ID], trockenlauf: true });
+    const e = await fuehreErinnerungslaufAus(repo, vorschauAdapter(), o);
+    expect(e).toMatchObject({ status: 'fertig', laufId: null, organisationen: 1 });
+    expect(e.mails).toBeGreaterThan(0);
+    expect({ l: stand.erinnerungLaeufe, v: stand.mailVersand, p: stand.erinnerungPosten }).toEqual(vorher);
+    const mails = listeVorschauMails(DEMO_ORG_ID);
+    expect(mails).toHaveLength(e.mails);
+    expect(listeVorschauMails(DEMO_ORG2_ID)).toEqual([]);
+    // nichts gebucht → zweiter Trockenlauf zeigt dieselben Mails erneut; ein echter Lauf danach sendet normal
+    expect((await fuehreErinnerungslaufAus(repo, vorschauAdapter(), o)).mails).toBe(e.mails);
+    const echt = await fuehreErinnerungslaufAus(repo, skriptAdapter().adapter, opt(MONTAG));
+    expect(echt.mails).toBeGreaterThanOrEqual(e.mails);
+  });
+
+  it('Trockenlauf setzt keine Sperre und läuft auch neben einem laufenden Lauf, ohne ihn zu verändern', async () => {
+    stand.erinnerungLaeufe.push({ id: 'aktiv', laufDatum: MONTAG, ausloeser: 'pg_cron', status: 'laeuft', gestartetAm: '2026-11-30T04:59:00Z', beendetAm: null });
+    const e = await fuehreErinnerungslaufAus(repo, vorschauAdapter(), opt(MONTAG, { erzwingen: true, organisationIds: [DEMO_ORG_ID], trockenlauf: true }));
+    expect(e.status).toBe('fertig');
+    expect(stand.erinnerungLaeufe.find((l) => l.id === 'aktiv')!.status).toBe('laeuft');
+  });
+
+  it('vorschau zählt nur im Demo-Modus als erinnert', () => {
+    expect(VERSAND_ERFOLGREICH).not.toContain('vorschau');
+    expect(VERSAND_ERFOLGREICH_DEMO).toContain('vorschau');
+  });
+});
+
+describe('Site-URL für Mail-Links (F-38)', () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it('Produktion (Supabase) ohne NEXT_PUBLIC_SITE_URL → nicht_konfiguriert, nichts geschrieben', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://x.supabase.co');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon');
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', '');
+    const vorher = structuredClone({ l: stand.erinnerungLaeufe, v: stand.mailVersand });
+    const { adapter, gesendet } = skriptAdapter();
+    expect((await fuehreErinnerungslaufAus(repo, adapter, opt(MONTAG))).status).toBe('nicht_konfiguriert');
+    expect(gesendet).toEqual([]);
+    expect({ l: stand.erinnerungLaeufe, v: stand.mailVersand }).toEqual(vorher);
+  });
+  it('mit NEXT_PUBLIC_SITE_URL: Links auf die konfigurierte Adresse, nie localhost', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://app.readyloop.de/');
+    const { adapter, gesendet } = skriptAdapter();
+    await fuehreErinnerungslaufAus(repo, adapter, opt(MONTAG));
+    expect(gesendet.length).toBeGreaterThan(0);
+    for (const g of gesendet) {
+      expect(g.mail.text).toContain('https://app.readyloop.de/');
+      expect(g.mail.text + g.mail.html).not.toContain('localhost');
+    }
   });
 });

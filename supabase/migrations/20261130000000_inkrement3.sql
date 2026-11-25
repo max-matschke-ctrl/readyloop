@@ -94,7 +94,8 @@ create table public.erinnerung_lauf (
   id uuid primary key default gen_random_uuid(),
   lauf_datum date not null,
   ausloeser text not null check (ausloeser in ('vercel_cron', 'pg_cron', 'manuell')),
-  status text not null default 'laeuft' check (status in ('laeuft', 'fertig', 'fehler')),
+  -- teilweise: Zeitbudget erschöpft, der nächste Auslöser (05:20 UTC) setzt fort (F-36)
+  status text not null default 'laeuft' check (status in ('laeuft', 'fertig', 'teilweise', 'fehler')),
   gestartet_am timestamptz not null default now(),
   beendet_am timestamptz,
   check ((status = 'laeuft') = (beendet_am is null))
@@ -113,7 +114,8 @@ create table public.mail_versand (
     check (status in ('vorbereitet', 'versendet', 'zugestellt', 'fehler', 'bounce', 'beschwerde', 'vorschau')),
   versuche int not null default 0 check (versuche between 0 and 3),
   anbieter_id text check (anbieter_id is null or length(anbieter_id) between 1 and 200),
-  fehler_code text check (fehler_code in ('netzwerk', 'rate_limit', 'anbieter_fehler', 'abgelehnt', 'ungueltige_adresse', 'konfiguration')),
+  fehler_code text check (fehler_code in ('netzwerk', 'rate_limit', 'anbieter_fehler', 'abgelehnt', 'ungueltige_adresse', 'konfiguration',
+    'abgebrochen')),
   posten_anzahl int not null check (posten_anzahl >= 0),
   erstellt_am timestamptz not null default now(),
   versendet_am timestamptz,
@@ -356,13 +358,13 @@ create trigger mail_versand_unveraenderlich before update on public.mail_versand
 create trigger mail_versand_kein_loeschen before delete on public.mail_versand
   for each row execute function app.verbiete_loeschen();
 
--- Lauf: nur laeuft → fertig | fehler.
+-- Lauf: nur laeuft → fertig | teilweise | fehler.
 create or replace function app.erinnerung_lauf_pruefen()
 returns trigger language plpgsql set search_path = public, pg_temp as $$
 begin
   if (new.id, new.lauf_datum, new.ausloeser, new.gestartet_am) is distinct from (old.id, old.lauf_datum, old.ausloeser, old.gestartet_am)
-     or old.status <> 'laeuft' or new.status not in ('fertig', 'fehler') then
-    raise exception 'erinnerung_lauf: nur laeuft → fertig/fehler (F-36)' using errcode = '42501';
+     or old.status <> 'laeuft' or new.status not in ('fertig', 'teilweise', 'fehler') then
+    raise exception 'erinnerung_lauf: nur laeuft → fertig/teilweise/fehler (F-36)' using errcode = '42501';
   end if;
   return new;
 end;
@@ -377,8 +379,10 @@ create trigger erinnerung_lauf_kein_loeschen before delete on public.erinnerung_
 -- System-RPCs (nur service_role, F-43)
 -- =====================================================================
 
--- F-36 Lauf-Sperre: hängende Läufe (> 15 Min.) gelten als abgebrochen; je Datum höchstens ein fertiger Lauf
--- (außer p_erzwingen); höchstens ein laufender Lauf.
+-- F-36 Lauf-Sperre: hängende Läufe (> 15 Min.) gelten als abgebrochen (→ fehler, werden übernommen); Versände
+-- abgebrochener Läufe, die noch „vorbereitet“ sind, → fehler (Code abgebrochen; ihre Posten zählen nicht als erinnert und
+-- kommen nach F-33/F-36 am nächsten Werktag erneut). Je Datum höchstens ein fertiger nicht-manueller Lauf (außer
+-- p_erzwingen); ein Lauf mit Status teilweise blockiert nicht (Fortsetzung). Höchstens ein laufender Lauf.
 create or replace function public.erinnerung_lauf_starten(p_datum date, p_ausloeser text, p_erzwingen boolean)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -389,8 +393,12 @@ begin
   end if;
   update public.erinnerung_lauf set status = 'fehler', beendet_am = now()
   where status = 'laeuft' and gestartet_am < now() - interval '15 minutes';
+  update public.mail_versand mv set status = 'fehler', fehler_code = 'abgebrochen', status_am = now()
+  where mv.status = 'vorbereitet'
+    and exists (select 1 from public.erinnerung_lauf l where l.id = mv.lauf_id and l.status <> 'laeuft');
   if not coalesce(p_erzwingen, false)
-     and exists (select 1 from public.erinnerung_lauf where lauf_datum = p_datum and status = 'fertig') then
+     and exists (select 1 from public.erinnerung_lauf
+                 where lauf_datum = p_datum and status = 'fertig' and ausloeser <> 'manuell') then
     return jsonb_build_object('ergebnis', 'bereits_gelaufen');
   end if;
   if exists (select 1 from public.erinnerung_lauf where status = 'laeuft') then
@@ -410,8 +418,8 @@ $$;
 create or replace function public.erinnerung_lauf_beenden(p_lauf uuid, p_status text)
 returns void language plpgsql security definer set search_path = public, pg_temp as $$
 begin
-  if p_status not in ('fertig', 'fehler') then
-    raise exception 'Lauf endet mit fertig oder fehler' using errcode = '22023';
+  if p_status is null or p_status not in ('fertig', 'teilweise', 'fehler') then
+    raise exception 'Lauf endet mit fertig, teilweise oder fehler' using errcode = '22023';
   end if;
   update public.erinnerung_lauf set status = p_status, beendet_am = now() where id = p_lauf and status = 'laeuft';
 end;
@@ -627,12 +635,14 @@ begin
 end;
 $$;
 
--- Jobs: readyloop_erinnerungen Mo–Fr 05:00 UTC; readyloop_mail_pseudonymisieren täglich 03:20 Europe/Berlin
+-- Jobs: readyloop_erinnerungen Mo–Fr 05:00 UTC, readyloop_erinnerungen_fortsetzung Mo–Fr 05:20 UTC (setzt einen Lauf mit
+-- Status teilweise fort; nach einem fertigen Lauf antwortet er bereits_gelaufen); readyloop_mail_pseudonymisieren täglich 03:20 Europe/Berlin
 -- (Läufe 01:20 und 02:20 UTC, ausgeführt nur der Lauf um 03:xx Berlin, wie F-27).
 -- Supabase-Kontext erkannt an der Rolle supabase_admin. Prüfung: supabase/tests/cron_erinnerungen.test.sql.
 do $do$
 declare
   v_job_lauf constant text := 'readyloop_erinnerungen';
+  v_job_fortsetzung constant text := 'readyloop_erinnerungen_fortsetzung';
   v_cmd_lauf constant text := 'select app.erinnerungen_ausloesen()';
   v_job_pseudo constant text := 'readyloop_mail_pseudonymisieren';
   v_cmd_pseudo constant text :=
@@ -656,6 +666,9 @@ begin
       if not exists (select 1 from cron.job where jobname = v_job_lauf) then
         perform cron.schedule(v_job_lauf, '0 5 * * 1-5', v_cmd_lauf);
       end if;
+      if not exists (select 1 from cron.job where jobname = v_job_fortsetzung) then
+        perform cron.schedule(v_job_fortsetzung, '20 5 * * 1-5', v_cmd_lauf);
+      end if;
     elsif v_supabase then
       raise warning using
         message = 'READYLOOP F-36: pg_net fehlt – der Erinnerungslauf wird NICHT von pg_cron ausgelöst (nur Vercel Cron).',
@@ -672,6 +685,7 @@ begin
              || 'und readyloop_cron_secret anlegen, dann diese Migration erneut ausführen oder einmalig: select cron.schedule('
              || quote_literal(v_job_pseudo) || ', ''20 1,2 * * *'', ' || quote_literal(v_cmd_pseudo) || '); select cron.schedule('
              || quote_literal(v_job_lauf) || ', ''0 5 * * 1-5'', ' || quote_literal(v_cmd_lauf)
+             || '); select cron.schedule(' || quote_literal(v_job_fortsetzung) || ', ''20 5 * * 1-5'', ' || quote_literal(v_cmd_lauf)
              || '); Kontrolle: supabase test db (cron_erinnerungen.test.sql muss grün sein).';
   else
     raise notice 'Readyloop: pg_cron nicht verfügbar (kein Supabase-Kontext) – Lauf nur über Vercel Cron/manuell, Pseudonymisierung nur über app.mail_pseudonymisieren().';

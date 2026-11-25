@@ -914,15 +914,18 @@ export const VERSAND_STATUS_LABEL: Record<VersandStatus, string> = {
   vorschau: 'Nur Vorschau, nicht versendet',
 };
 
-/** F-33: Posten dieser Versände gelten als gesendet. */
-export const VERSAND_ERFOLGREICH: readonly VersandStatus[] = ['versendet', 'zugestellt', 'bounce', 'beschwerde', 'vorschau'];
+/** F-33: Posten dieser Versände gelten als gesendet (Supabase-Modus). `vorschau` zählt hier bewusst NICHT: Im Supabase-Modus
+ *  ist die Vorschau ein Trockenlauf ohne Datensätze; Altbestände mit `vorschau` dürfen echte Mails nicht blockieren. */
+export const VERSAND_ERFOLGREICH: readonly VersandStatus[] = ['versendet', 'zugestellt', 'bounce', 'beschwerde'];
+/** F-33: nur Demo-Modus – dort ersetzt die Vorschau den Versand, `vorschau` zählt als erinnert. */
+export const VERSAND_ERFOLGREICH_DEMO: readonly VersandStatus[] = [...VERSAND_ERFOLGREICH, 'vorschau'];
 /** F-41: Filter „Probleme“; MA-Hinweise zeigen nur dann den Namen. */
 export const VERSAND_PROBLEME: readonly VersandStatus[] = ['fehler', 'bounce', 'beschwerde'];
 
 export const VERSAND_MAX_VERSUCHE = 3;
 export const MA_HINWEIS_AUFBEWAHRUNG_TAGE = 90;
 
-export const MAIL_FEHLER_CODES = ['netzwerk', 'rate_limit', 'anbieter_fehler', 'abgelehnt', 'ungueltige_adresse', 'konfiguration'] as const;
+export const MAIL_FEHLER_CODES = ['netzwerk', 'rate_limit', 'anbieter_fehler', 'abgelehnt', 'ungueltige_adresse', 'konfiguration', 'abgebrochen'] as const;
 export type MailFehlerCode = (typeof MAIL_FEHLER_CODES)[number];
 
 export const MAIL_FEHLER_LABEL: Record<MailFehlerCode, string> = {
@@ -932,6 +935,7 @@ export const MAIL_FEHLER_LABEL: Record<MailFehlerCode, string> = {
   abgelehnt: 'Vom Versanddienst abgelehnt',
   ungueltige_adresse: 'E-Mail-Adresse ungültig',
   konfiguration: 'Mailversand falsch eingerichtet',
+  abgebrochen: 'Erinnerungslauf abgebrochen',
 };
 
 export interface MailVersand {
@@ -975,7 +979,8 @@ export const POSTEN_IN_SUMME_LABEL = 'in Summe genannt';
 export const LAUF_AUSLOESER = ['vercel_cron', 'pg_cron', 'manuell'] as const;
 export type LaufAusloeser = (typeof LAUF_AUSLOESER)[number];
 
-export const LAUF_STATUS = ['laeuft', 'fertig', 'fehler'] as const;
+/** F-36: `teilweise` = Zeitbudget erschöpft, der nächste Auslöser (05:20 UTC) setzt fort. */
+export const LAUF_STATUS = ['laeuft', 'fertig', 'teilweise', 'fehler'] as const;
 export type LaufStatus = (typeof LAUF_STATUS)[number];
 
 export interface ErinnerungLauf {
@@ -1078,6 +1083,7 @@ export interface VorschauMail {
   id: Id;
   erstelltAm: IsoDateTime;
   laufDatum: IsoDate;
+  organisationId: Id; // Filter der Vorschau (nicht der Name – Namen sind nicht eindeutig)
   organisationName: string;
   art: MailArt;
   an: string; // E-Mail-Adresse (nur im Prozessspeicher, nie in der DB)

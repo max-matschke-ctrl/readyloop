@@ -76,11 +76,19 @@ export function supabaseSystemRepository(client: SupabaseClient): ErinnerungsSys
   };
 
   return {
-    async listeOrganisationIds() {
-      const zeilen = await alle<{ organisation_id: Id }>('mitgliedschaft lesen (System)', () =>
-        client.from('mitgliedschaft').select('organisation_id').eq('aktiv', true).order('organisation_id'),
-      );
-      return [...new Set(zeilen.map((z) => z.organisation_id))].sort();
+    async listeOrganisationIds(heute: IsoDate) {
+      const [zeilen, heutige] = await Promise.all([
+        alle<{ organisation_id: Id }>('mitgliedschaft lesen (System)', () =>
+          client.from('mitgliedschaft').select('organisation_id').eq('aktiv', true).order('organisation_id'),
+        ),
+        // organisationsübergreifend nur die IDs (Reihenfolge F-36), keine Fachdaten
+        alle<{ organisation_id: Id }>('mail_versand lesen (System)', () =>
+          client.from('mail_versand').select('id, organisation_id').eq('lauf_datum', heute).order('id'),
+        ),
+      ]);
+      const ids = [...new Set(zeilen.map((z) => z.organisation_id))].sort();
+      const mitVersand = new Set(heutige.map((z) => z.organisation_id));
+      return [...ids.filter((id) => !mitVersand.has(id)), ...ids.filter((id) => mitVersand.has(id))];
     },
 
     async holeLaufDaten(org, heute: IsoDate): Promise<LaufDaten> {

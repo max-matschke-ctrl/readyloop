@@ -5,14 +5,16 @@ import { heuteBerlin, istIsoDate } from '@/domain/datum';
 import type { LaufAusloeser } from '@/domain/types';
 import { betriebsmodus } from '../betriebsmodus';
 import { abmeldenPerToken } from '../dienste-erinnerungen';
-import { holeMailAdapter } from '../mail/index';
+import { holeMailAdapter, mailSiteUrl } from '../mail/index';
 import { pruefeSvixSignatur, webhookStatus } from '../mail/webhook';
 import { fuehreErinnerungslaufAus } from './lauf';
-import { holeSystemRepository } from './system';
+import { holeSystemRepository, istTrockenlauf } from './system';
 
 const JSON_KOPF = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
 const json = (daten: unknown, status = 200) => new Response(JSON.stringify(daten), { status, headers: JSON_KOPF });
 const WEBHOOK_MAX_BYTES = 256 * 1024;
+/** F-36: kürzere Secrets gelten als nicht konfiguriert (503), nicht als gültig. */
+export const CRON_SECRET_MIN_LAENGE = 32;
 
 /** Zeitkonstanter Vergleich (gleich lange Hashes, unabhängig von der Eingabelänge). */
 export function bearerGueltig(kopfzeile: string | null, secret: string): boolean {
@@ -48,17 +50,27 @@ export function heuteFuerLauf(url: URL, jetzt: Date): string {
 
 /** GET/POST /api/cron/erinnerungen */
 export async function cronErinnerungen(request: Request): Promise<Response> {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return json({ status: 'nicht_konfiguriert' }, 503);
+  const secret = process.env.CRON_SECRET ?? '';
+  if (secret.length < CRON_SECRET_MIN_LAENGE) return json({ status: 'nicht_konfiguriert' }, 503);
   if (!bearerGueltig(request.headers.get('authorization'), secret)) return new Response('Unauthorized', { status: 401 });
   const adapter = holeMailAdapter();
   if (adapter === null) return json({ status: 'nicht_konfiguriert' }, 503);
+  if (mailSiteUrl() === null) {
+    console.warn('[cron/erinnerungen] NEXT_PUBLIC_SITE_URL fehlt im Produktionsmodus → nicht_konfiguriert');
+    return json({ status: 'nicht_konfiguriert' }, 503);
+  }
   const jetzt = new Date();
   const heute = heuteFuerLauf(new URL(request.url), jetzt);
   const ausloeser = await ausloeserAus(request);
   try {
-    const ergebnis = await fuehreErinnerungslaufAus(await holeSystemRepository(), adapter, { heute, jetzt, ausloeser });
-    return json(ergebnis, ergebnis.status === 'fehler' ? 500 : 200);
+    const ergebnis = await fuehreErinnerungslaufAus(await holeSystemRepository(), adapter, {
+      heute,
+      jetzt,
+      ausloeser,
+      trockenlauf: istTrockenlauf(adapter),
+    });
+    const http = ergebnis.status === 'fehler' ? 500 : ergebnis.status === 'nicht_konfiguriert' ? 503 : 200;
+    return json(ergebnis, http);
   } catch (e) {
     console.error('[cron/erinnerungen]', e instanceof Error ? e.message : 'Fehler');
     return json({ status: 'fehler' }, 500);

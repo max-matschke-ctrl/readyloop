@@ -47,7 +47,7 @@ import * as maengel from './dienste-maengel';
 import * as mitarbeiter from './dienste-mitarbeiter';
 import * as verwaltung from './dienste-verwaltung';
 import { fuehreErinnerungslaufAus } from './erinnerungen/lauf';
-import { holeSystemRepository } from './erinnerungen/system';
+import { holeSystemRepository, istTrockenlauf } from './erinnerungen/system';
 import { holeMailAdapter, mailModus } from './mail/index';
 import { sichererRuecksprung } from './pfade';
 import { RepositoryFehler } from './repo/supabase/mapping';
@@ -683,7 +683,8 @@ export async function mailAbmeldenPerToken(prev: ActionState, formData: FormData
 }
 
 /** mail.vorschau + mailModus() === 'vorschau'. Feld heute (nur Demo-Modus berücksichtigt, sonst heute()).
- *  Lauf mit ausloeser 'manuell', erzwingen = true. */
+ *  Lauf mit ausloeser 'manuell', erzwingen = true, strikt nur für die Organisation der Sitzung.
+ *  Supabase-Modus: Trockenlauf (F-33) – keine Versand-/Postendatensätze, die Mails stehen nur in der Vorschau. */
 export async function erinnerungslaufStarten(prev: ActionState, formData: FormData): Promise<ActionState> {
   void prev;
   const sitzung = await sitzungMitRecht('mail.vorschau');
@@ -692,18 +693,29 @@ export async function erinnerungslaufStarten(prev: ActionState, formData: FormDa
   const geprueft = erinnerungslaufSchema.safeParse(felder(formData, ['heute']));
   if (!geprueft.success) return validierungsfehler(geprueft.error);
   const adapter = holeMailAdapter();
-  const ergebnis = await mitAbfang('erinnerungslaufStarten', async () => {
+  const trocken = istTrockenlauf(adapter);
+  const ergebnis = await mitAbfang('erinnerungslaufStarten', async (): Promise<ActionState> => {
     const lauf = await fuehreErinnerungslaufAus(await holeSystemRepository(), adapter, {
       heute: istDemoModus() && geprueft.data.heute ? geprueft.data.heute : heute(),
       jetzt: new Date(),
       ausloeser: 'manuell',
       erzwingen: true,
+      organisationIds: [sitzung.organisation.id],
+      trockenlauf: trocken,
     });
     if (lauf.status === 'laeuft_bereits') return { status: 'fehler', meldung: 'Ein Erinnerungslauf läuft gerade. Bitte gleich erneut versuchen.' };
-    if (lauf.status !== 'fertig') return { status: 'fehler', meldung: 'Der Erinnerungslauf ist fehlgeschlagen.' };
+    if (lauf.status === 'nicht_konfiguriert') return { status: 'fehler', meldung: 'Der Mailversand ist nicht eingerichtet.' };
+    if (lauf.status !== 'fertig' && lauf.status !== 'teilweise') return { status: 'fehler', meldung: 'Der Erinnerungslauf ist fehlgeschlagen.' };
+    const rest = lauf.status === 'teilweise' ? ' Zeitlimit erreicht – bitte erneut ausführen für die übrigen Mails.' : '';
+    if (trocken) {
+      return {
+        status: 'ok',
+        meldung: (lauf.mails > 0 ? `Vorschau erstellt: ${lauf.mails} Mails (nicht versendet, nicht protokolliert).` : 'Keine Mails fällig.') + rest,
+      };
+    }
     return {
       status: 'ok',
-      meldung: lauf.mails > 0 ? `Lauf ausgeführt: ${lauf.mails} Mails in der Vorschau.` : 'Keine neuen Mails (bereits erinnert).',
+      meldung: (lauf.mails > 0 ? `Lauf ausgeführt: ${lauf.mails} Mails in der Vorschau.` : 'Keine neuen Mails (bereits erinnert).') + rest,
     };
   });
   if (ergebnis.status === 'ok') {

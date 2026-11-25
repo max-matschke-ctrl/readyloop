@@ -113,11 +113,15 @@ export type LaufStartErgebnis = { ergebnis: 'gestartet'; lauf: ErinnerungLauf } 
 
 /** Ohne Benutzersitzung (F-43). Demo: In-Memory über alle Organisationen. Supabase: Service-Role-Client (system.ts). */
 export interface ErinnerungsSystemRepository {
-  /** Organisationen mit mindestens einer aktiven Mitgliedschaft, nach ID sortiert. */
-  listeOrganisationIds(): Promise<Id[]>;
+  /** Organisationen mit mindestens einer aktiven Mitgliedschaft. Reihenfolge (F-36): zuerst Betriebe ohne Versand am
+   *  Datum `heute` (Fortsetzung nach `teilweise`), dann die übrigen; innerhalb nach ID. */
+  listeOrganisationIds(heute: IsoDate): Promise<Id[]>;
   holeLaufDaten(organisationId: Id, heute: IsoDate): Promise<LaufDaten>;
+  /** F-36: hängende Läufe (> 15 Min. `laeuft`) → `fehler`; danach „vorbereitet“-Versände nicht laufender Läufe → `fehler`
+   *  (Code `abgebrochen`, Posten kommen nach F-33/F-36 am nächsten Werktag erneut). `bereits_gelaufen` nur bei einem
+   *  `fertig`en, nicht manuellen Lauf desselben Datums (außer erzwingen); `teilweise` blockiert nicht. */
   starteLauf(daten: { laufDatum: IsoDate; ausloeser: LaufAusloeser; erzwingen: boolean; jetzt: IsoDateTime }): Promise<LaufStartErgebnis>;
-  beendeLauf(daten: { laufId: Id; status: 'fertig' | 'fehler'; jetzt: IsoDateTime }): Promise<void>;
+  beendeLauf(daten: { laufId: Id; status: 'fertig' | 'teilweise' | 'fehler'; jetzt: IsoDateTime }): Promise<void>;
   /** Atomar Versand + Posten. false bei Konflikt (Organisation, Empfänger, Datum) – dann nichts geschrieben. */
   reserviereVersand(daten: { versand: MailVersand; posten: ErinnerungPosten[] }): Promise<boolean>;
   setzeVersandStatus(daten: {

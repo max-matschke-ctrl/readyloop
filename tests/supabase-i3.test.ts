@@ -119,7 +119,8 @@ describe('Supabase-System-Repository (Service-Role)', () => {
     }
     const posten = aufrufe.find((a) => a.tabelle === 'erinnerung_posten')!;
     expect(posten.spalten).toContain('mail_versand!inner(status)');
-    expect(posten.filter).toContainEqual(['in', 'mail_versand.status', ['versendet', 'zugestellt', 'bounce', 'beschwerde', 'vorschau']]);
+    // F-33: im Supabase-Modus zählt vorschau NICHT als erinnert (Vorschau ist dort ein Trockenlauf)
+    expect(posten.filter).toContainEqual(['in', 'mail_versand.status', ['versendet', 'zugestellt', 'bounce', 'beschwerde']]);
     expect(posten.filter).toContainEqual(['not', 'empfaenger_benutzer_id.is', null]);
     expect(aufrufe.filter((a) => a.art === 'from').every((a) => a.op === 'select')).toBe(true);
   });

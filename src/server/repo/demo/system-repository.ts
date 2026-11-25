@@ -5,7 +5,7 @@ import { addTage, isoWocheMontag } from '@/domain/datum';
 import {
   MA_HINWEIS_AUFBEWAHRUNG_TAGE,
   MAIL_ART_FUER_ROLLE,
-  VERSAND_ERFOLGREICH,
+  VERSAND_ERFOLGREICH_DEMO,
   type AbbestellbareMailArt,
   type Id,
   type IsoDate,
@@ -35,9 +35,10 @@ export class DemoSystemRepository implements ErinnerungsSystemRepository {
     return this.stand.mitgliedschaften.find((m) => m.organisationId === organisationId && m.benutzerId === benutzerId && m.aktiv) ?? null;
   }
 
-  async listeOrganisationIds(): Promise<Id[]> {
-    const ids = new Set(this.stand.mitgliedschaften.filter((m) => m.aktiv).map((m) => m.organisationId));
-    return [...ids].sort();
+  async listeOrganisationIds(heute: IsoDate): Promise<Id[]> {
+    const ids = [...new Set(this.stand.mitgliedschaften.filter((m) => m.aktiv).map((m) => m.organisationId))].sort();
+    const mitVersand = new Set(this.stand.mailVersand.filter((v) => v.laufDatum === heute).map((v) => v.organisationId));
+    return [...ids.filter((id) => !mitVersand.has(id)), ...ids.filter((id) => mitVersand.has(id))];
   }
 
   async holeLaufDaten(organisationId: Id, heute: IsoDate): Promise<LaufDaten> {
@@ -49,7 +50,7 @@ export class DemoSystemRepository implements ErinnerungsSystemRepository {
     const benutzerIds = new Set(mitgliedschaften.map((m) => m.benutzerId));
     const erfolgreich = new Set(
       vonOrg(s.mailVersand)
-        .filter((v) => VERSAND_ERFOLGREICH.includes(v.status))
+        .filter((v) => VERSAND_ERFOLGREICH_DEMO.includes(v.status)) // Demo: vorschau zählt (F-33)
         .map((v) => v.id),
     );
     const fristAb = addTage(heute, -730);
@@ -103,7 +104,18 @@ export class DemoSystemRepository implements ErinnerungsSystemRepository {
         l.beendetAm = jetzt;
       }
     }
-    if (!erzwingen && laeufe.some((l) => l.laufDatum === laufDatum && l.status === 'fertig')) return { ergebnis: 'bereits_gelaufen' as const };
+    // Abgebrochene Läufe: „vorbereitet“ → fehler (abgebrochen); Posten kommen nach F-33/F-36 erneut.
+    const laufend = new Set(laeufe.filter((l) => l.status === 'laeuft').map((l) => l.id));
+    for (const v of this.stand.mailVersand) {
+      if (v.status === 'vorbereitet' && !laufend.has(v.laufId)) {
+        v.status = 'fehler';
+        v.fehlerCode = 'abgebrochen';
+        v.statusAm = jetzt;
+      }
+    }
+    if (!erzwingen && laeufe.some((l) => l.laufDatum === laufDatum && l.status === 'fertig' && l.ausloeser !== 'manuell')) {
+      return { ergebnis: 'bereits_gelaufen' as const };
+    }
     if (laeufe.some((l) => l.status === 'laeuft')) return { ergebnis: 'laeuft' as const };
     const lauf = { id: randomUUID(), laufDatum, ausloeser, status: 'laeuft' as const, gestartetAm: jetzt, beendetAm: null };
     laeufe.push(lauf);

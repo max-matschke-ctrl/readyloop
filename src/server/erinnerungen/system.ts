@@ -2,6 +2,7 @@
 // Demo: In-Memory über alle Organisationen. Supabase: Service-Role-Client nur über system-repository (BE-28).
 import { heuteBerlin } from '@/domain/datum';
 import { betriebsmodus } from '../betriebsmodus';
+import type { MailAdapter } from '../mail/types';
 import type { ErinnerungsSystemRepository } from '../repo/types';
 
 export async function holeSystemRepository(): Promise<ErinnerungsSystemRepository> {
@@ -16,4 +17,10 @@ export async function holeSystemRepository(): Promise<ErinnerungsSystemRepositor
     return standardSystemRepository();
   }
   throw new Error('Readyloop ist nicht konfiguriert');
+}
+
+/** F-33: Im Supabase-Modus ist jeder Lauf mit dem Vorschau-Adapter ein Trockenlauf (keine Versand-/Postendatensätze,
+ *  kein Statusschreiben). Nur im Demo-Modus schreibt die Vorschau ins (In-Memory-)Protokoll und zählt als erinnert. */
+export function istTrockenlauf(adapter: MailAdapter | null): boolean {
+  return adapter !== null && adapter.modus === 'vorschau' && betriebsmodus() !== 'demo';
 }

@@ -41,6 +41,7 @@ import {
 import { abmeldeToken } from '@/server/mail/abmelden';
 import { leereVorschau } from '@/server/mail/vorschau';
 import { DEMO_BENUTZER_IDS, DEMO_BEREICH_IDS, DEMO_ORG_ID } from '@/server/repo/demo/daten';
+import { demoRepository, demoStandVon } from '@/server/repo/demo/repository';
 import { DEMO_COOKIE } from '@/server/sitzung';
 
 const SPEICHER = globalThis as { __readyloopDemoRepository?: unknown };
@@ -195,6 +196,15 @@ describe('erinnerungslaufStarten (Vorschau)', () => {
       status: 'ok',
       meldung: 'Keine neuen Mails (bereits erinnert).',
     });
+  });
+  it('manueller Lauf nur für die Organisation der Sitzung', async () => {
+    als('admin');
+    expect((await erinnerungslaufStarten(INITIAL_ACTION_STATE, form({ heute: '2026-11-30' }))).status).toBe('ok');
+    const stand = demoStandVon(demoRepository('2026-11-30'));
+    const heutige = stand.mailVersand.filter((v) => v.laufDatum === '2026-11-30');
+    expect(heutige.length).toBeGreaterThan(0);
+    expect(heutige.every((v) => v.organisationId === DEMO_ORG_ID)).toBe(true);
+    expect((await holeMailVorschau()).mails.every((m) => m.organisationId === DEMO_ORG_ID)).toBe(true);
   });
   it('ungültiges Datum → Feldfehler heute; SIF → kein Recht', async () => {
     als('admin');

@@ -307,7 +307,7 @@ export async function listeMailProtokoll(
 
 export function mailVorschauSeite(sitzung: Sitzung, heute: IsoDate, datumWaehlbar: boolean): MailVorschauSeite {
   if (!can(sitzung.rolle, 'mail.vorschau')) throw new Error('Keine Berechtigung für die Mail-Vorschau');
-  return { mails: listeVorschauMails(sitzung.organisation.name), heute, datumWaehlbar };
+  return { mails: listeVorschauMails(sitzung.organisation.id), heute, datumWaehlbar };
 }
 
 // ---------------------------------------------------------------------------

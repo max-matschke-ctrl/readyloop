@@ -257,3 +257,37 @@ reset role;
 \echo '== Auslöser pg_cron (F-36)'
 select 'Auslöser ohne Vault meldet Warnung statt Fehler (erw. OK 1): ' || t($$select app.erinnerungen_ausloesen()$$);
 select 'Ereignis-Typ erlaubt (erw. OK 1): ' || t($$insert into ereignis (organisation_id, typ, akteur_name) values ('00000000-0000-0000-0000-0000000000a1', 'erinnerung_einstellung_gespeichert', 'Test')$$);
+
+\echo '== Zeitbudget, Fortsetzung, abgebrochene Versände, manueller Lauf (F-36, Review I3)'
+reset role;
+set role service_role;
+select 'Start 02.12. (erw. gestartet): ' || q($$select erinnerung_lauf_starten('2026-12-02', 'vercel_cron', false) ->> 'ergebnis'$$);
+select id as lauf4 from erinnerung_lauf where lauf_datum = '2026-12-02' and status = 'laeuft' \gset
+select 'Reservierung im Lauf 4 bleibt vorbereitet (erw. true): ' || q(format($f$select erinnerung_versand_reservieren(
+  jsonb_build_object('id','00000000-0000-0000-0000-00000000f010','organisation_id','00000000-0000-0000-0000-0000000000a1','lauf_id',%L,'lauf_datum','2026-12-02','art','frist_digest','empfaenger_benutzer_id','33333333-3333-3333-3333-333333333333'),
+  jsonb_build_array(jsonb_build_object('schluessel','frist:00000000-0000-0000-0000-0000000000f7:v30:2027-01-01:33333333-3333-3333-3333-333333333333','art','frist','stufe','v30','geraet_id','00000000-0000-0000-0000-0000000000e3','geraet_pruefart_id','00000000-0000-0000-0000-0000000000f7','bereich_id','00000000-0000-0000-0000-0000000000c1','bezug_datum','2027-01-01','rolle','zustaendig')))$f$, :'lauf4'));
+select 'Lauf 4 endet teilweise (Zeitbudget) (erw. OK 1): ' || t(format($f$select erinnerung_lauf_beenden(%L, 'teilweise')$f$, :'lauf4'));
+select 'Lauf 4 gespeichert (erw. teilweise|true): ' || q(format($f$select status || '|' || (beendet_am is not null) from erinnerung_lauf where id = %L$f$, :'lauf4'));
+select 'Teilweiser Lauf wieder öffnen (erw. FEHLER): ' || t(format($f$update erinnerung_lauf set status = 'laeuft', beendet_am = null where id = %L$f$, :'lauf4'));
+select 'Fortsetzung 05:20 am selben Datum: teilweise blockiert nicht (erw. gestartet): ' || q($$select erinnerung_lauf_starten('2026-12-02', 'pg_cron', false) ->> 'ergebnis'$$);
+select 'Vorbereiteter Versand des beendeten Laufs → fehler/abgebrochen (erw. fehler|abgebrochen): ' || q($$select status || '|' || fehler_code from mail_versand where id = '00000000-0000-0000-0000-00000000f010'$$);
+select id as lauf5 from erinnerung_lauf where lauf_datum = '2026-12-02' and status = 'laeuft' \gset
+select 'Abgebrochener Versand zählt nicht als erinnert, blockiert aber den Tag (erw. false): ' || q(format($f$select erinnerung_versand_reservieren(
+  jsonb_build_object('organisation_id','00000000-0000-0000-0000-0000000000a1','lauf_id',%L,'lauf_datum','2026-12-02','art','frist_digest','empfaenger_benutzer_id','33333333-3333-3333-3333-333333333333'),
+  jsonb_build_array(jsonb_build_object('schluessel','frist:00000000-0000-0000-0000-0000000000f7:v30:2027-01-01:33333333-3333-3333-3333-333333333333','art','frist','stufe','v30','geraet_id','00000000-0000-0000-0000-0000000000e3','geraet_pruefart_id','00000000-0000-0000-0000-0000000000f7','bereich_id','00000000-0000-0000-0000-0000000000c1','bezug_datum','2027-01-01','rolle','zustaendig')))$f$, :'lauf5'));
+select 'Laufender Lauf: sein vorbereiteter Versand bleibt (erw. true|vorbereitet): ' || q(format($f$select erinnerung_versand_reservieren(
+  jsonb_build_object('id','00000000-0000-0000-0000-00000000f011','organisation_id','00000000-0000-0000-0000-0000000000a1','lauf_id',%L,'lauf_datum','2026-12-02','art','frist_digest','empfaenger_benutzer_id','99999999-9999-9999-9999-999999999999'),
+  jsonb_build_array(jsonb_build_object('schluessel','frist:00000000-0000-0000-0000-0000000000f7:v30:2027-01-01:99999999-9999-9999-9999-999999999999','art','frist','stufe','v30','geraet_id','00000000-0000-0000-0000-0000000000e3','geraet_pruefart_id','00000000-0000-0000-0000-0000000000f7','bereich_id','00000000-0000-0000-0000-0000000000c1','bezug_datum','2027-01-01','rolle','zustaendig')))$f$, :'lauf5')) || '|' || q($$select status from mail_versand where id = '00000000-0000-0000-0000-00000000f011'$$);
+select 'Zweiter Auslöser während der Fortsetzung (erw. laeuft): ' || q($$select erinnerung_lauf_starten('2026-12-02', 'vercel_cron', false) ->> 'ergebnis'$$);
+select 'Versand des laufenden Laufs unberührt (erw. vorbereitet): ' || q($$select status from mail_versand where id = '00000000-0000-0000-0000-00000000f011'$$);
+select 'Lauf 5 ungültiger Endstatus (erw. FEHLER): ' || t(format($f$select erinnerung_lauf_beenden(%L, null)$f$, :'lauf5'));
+select 'Lauf 5 fertig (erw. OK 1): ' || t(format($f$select erinnerung_lauf_beenden(%L, 'fertig')$f$, :'lauf5'));
+select 'Nach fertig: 05:20-Auslöser (erw. bereits_gelaufen): ' || q($$select erinnerung_lauf_starten('2026-12-02', 'pg_cron', false) ->> 'ergebnis'$$);
+select 'Nächster Start: vorbereitet des beendeten Laufs 5 → abgebrochen (erw. fehler|abgebrochen): ' || q($$select status || '|' || fehler_code from mail_versand where id = '00000000-0000-0000-0000-00000000f011'$$);
+select 'Manueller Lauf 03.12. (erw. gestartet): ' || q($$select erinnerung_lauf_starten('2026-12-03', 'manuell', true) ->> 'ergebnis'$$);
+select id as lauf6 from erinnerung_lauf where lauf_datum = '2026-12-03' and status = 'laeuft' \gset
+select 'Manueller Lauf fertig (erw. OK 1): ' || t(format($f$select erinnerung_lauf_beenden(%L, 'fertig')$f$, :'lauf6'));
+select 'Manueller fertiger Lauf blockiert den Tageslauf nicht (erw. gestartet): ' || q($$select erinnerung_lauf_starten('2026-12-03', 'vercel_cron', false) ->> 'ergebnis'$$);
+select id as lauf7 from erinnerung_lauf where lauf_datum = '2026-12-03' and status = 'laeuft' \gset
+select 'Lauf 7 fertig (erw. OK 1): ' || t(format($f$select erinnerung_lauf_beenden(%L, 'fertig')$f$, :'lauf7'));
+reset role;
