@@ -20,3 +20,18 @@ export function eskalationText(tage: Record<EskalationsEbene, number>): string {
 export function jaNein(wert: boolean): string {
   return wert ? 'ja' : 'nein';
 }
+
+const UHRZEIT = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+
+/** 'HH:MM' eines Zeitpunkts in Europe/Berlin. */
+export function uhrzeit(wert: string): string {
+  const d = new Date(wert);
+  return Number.isNaN(d.getTime()) ? wert : UHRZEIT.format(d);
+}
+
+/** ISO-Datum ± Tage (rein kalendarisch, UTC-Arithmetik ohne Zeitzonenfehler). */
+export function plusTage(iso: string, tage: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + tage);
+  return d.toISOString().slice(0, 10);
+}
