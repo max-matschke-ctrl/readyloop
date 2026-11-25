@@ -77,7 +77,7 @@ export function ErinnerungUebersicht({ eintraege }: { eintraege: ErinnerungEinst
                     {bereich.name}
                   </Link>
                 </th>
-                <td className="tabular-nums">{staffelText(einstellung.staffelTage)}</td>
+                <td className="whitespace-nowrap tabular-nums">{staffelText(einstellung.staffelTage)}</td>
                 <td className="tabular-nums">{eskalationText(einstellung.eskalationTage)}</td>
                 <td>{jaNein(einstellung.sifaInKopie)}</td>
                 <td className="text-steel">
