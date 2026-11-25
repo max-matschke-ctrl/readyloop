@@ -30,7 +30,11 @@ export function ErinnerungslaufForm({ heute, datumWaehlbar }: Props) {
             {!pending && <Mail aria-hidden="true" size={16} strokeWidth={1.75} />}
             Erinnerungslauf jetzt ausführen
           </AbsendenButton>
-          <p className="text-xs text-steel">Erzeugt die Mails dieses Tages. Bereits erinnerte Prüfungen werden übersprungen.</p>
+          <p className="text-xs text-steel">
+            {datumWaehlbar
+              ? 'Erzeugt die Mails dieses Tages. Bereits erinnerte Prüfungen werden übersprungen.'
+              : 'Erzeugt die Mails dieses Tages nur zur Ansicht. Nichts wird versendet oder protokolliert.'}
+          </p>
         </div>
       </form>
     </section>

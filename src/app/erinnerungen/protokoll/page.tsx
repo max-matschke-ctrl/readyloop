@@ -53,6 +53,22 @@ function LetzterLauf({ lauf }: { lauf: ProtokollSeite['letzterLauf'] }) {
       </Meldung>
     );
   }
+  if (lauf.status === 'teilweise') {
+    // F-36: Zeitbudget erschöpft; der nächste Auslöser setzt fort. Ochre-Warnung, nicht „fertig“.
+    return (
+      <Meldung
+        art="warnung"
+        text={
+          <>
+            {lauf.beendetAm ? <>Unterbrochen um {uhrzeit(lauf.beendetAm)} Uhr, weil das Zeitlimit erreicht war. </> : <>Das Zeitlimit war erreicht. </>}
+            Der nächste automatische Lauf versendet die übrigen Erinnerungen.
+          </>
+        }
+      >
+        Erinnerungslauf am {datum(lauf.laufDatum)}: Teilweise – wird fortgesetzt.
+      </Meldung>
+    );
+  }
   if (lauf.status === 'laeuft') {
     return <Meldung art="hinweis">Erinnerungslauf läuft seit {datum(lauf.laufDatum)}.</Meldung>;
   }
