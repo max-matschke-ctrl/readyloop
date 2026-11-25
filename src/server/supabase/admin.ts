@@ -1,4 +1,5 @@
 // Service-Role-Client (BE-12/BE-14). Nur serverseitig und nur für Einladungen (F-8, Q-23).
+// Einladungen; I3-Service (Erinnerungslauf, Abmeldung, Webhook) siehe system.ts (F-43).
 // Fachdaten laufen nie hierüber. Nicht aus src/app/** importieren.
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { RepositoryFehler } from '../repo/supabase/mapping';

@@ -12,7 +12,8 @@ export async function holeSystemRepository(): Promise<ErinnerungsSystemRepositor
     return new DemoSystemRepository(demoStandVon(demoRepository(heuteBerlin())));
   }
   if (modus === 'supabase') {
-    throw new Error('nicht implementiert (BE-28)');
+    const { standardSystemRepository } = await import('../repo/supabase/system-repository');
+    return standardSystemRepository();
   }
   throw new Error('Readyloop ist nicht konfiguriert');
 }

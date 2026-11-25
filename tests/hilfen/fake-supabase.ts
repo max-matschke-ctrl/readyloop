@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export interface Aufruf {
   art: 'from' | 'rpc' | 'upload' | 'download';
   tabelle?: string;
-  op?: 'select' | 'insert' | 'update' | 'delete';
+  op?: 'select' | 'insert' | 'update' | 'delete' | 'upsert';
   spalten?: string;
   werte?: unknown;
   filter: [string, string, unknown][];
@@ -43,6 +43,20 @@ export function fakeSupabase(handler: (a: Aufruf) => Antwort = () => ({ data: []
         a.op = 'update';
         a.werte = werte;
         a.optionen = optionen;
+        return b;
+      },
+      upsert(werte: unknown, optionen?: unknown) {
+        a.op = 'upsert';
+        a.werte = werte;
+        a.optionen = optionen;
+        return b;
+      },
+      not(s: string, op: string, w: unknown) {
+        a.filter.push(['not', `${s}.${op}`, w]);
+        return b;
+      },
+      range(von: number, bis: number) {
+        a.filter.push(['range', String(von), bis]);
         return b;
       },
       delete(optionen?: unknown) {
