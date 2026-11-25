@@ -1,4 +1,4 @@
-// Kopfzeilen der öffentlichen QR-Seite (F-24). Ohne Node-Abhängigkeit (läuft in der Middleware).
+// Kopfzeilen der öffentlichen QR-Seite (F-24) und der Abmeldeseite (F-40, I3). Ohne Node-Abhängigkeit (läuft in der Middleware).
 
 /**
  * Nicht zwischenspeichern, Referrer nur an die eigene Origin, nicht indexieren.
@@ -15,8 +15,13 @@ export function istQrPfad(pfad: string): boolean {
   return pfad === '/g' || pfad.startsWith('/g/');
 }
 
-/** Setzt die QR-Kopfzeilen auf eine Antwort, wenn der Pfad /g/* ist. */
+/** I3: öffentliche Abmeldeseite /abmelden?t= (Token in der URL wie bei /g/*). */
+export function istAbmeldePfad(pfad: string): boolean {
+  return pfad === '/abmelden' || pfad.startsWith('/abmelden/');
+}
+
+/** Setzt die QR-Kopfzeilen auf eine Antwort, wenn der Pfad /g/* oder /abmelden ist. */
 export function setzeQrKopfzeilen(pfad: string, kopf: Headers): void {
-  if (!istQrPfad(pfad)) return;
+  if (!istQrPfad(pfad) && !istAbmeldePfad(pfad)) return;
   for (const [name, wert] of Object.entries(QR_KOPFZEILEN)) kopf.set(name, wert);
 }

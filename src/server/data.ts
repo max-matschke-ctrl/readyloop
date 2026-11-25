@@ -38,6 +38,9 @@ import type {
   TokenSeite,
 } from '@/domain/types';
 import * as dienste from './dienste';
+import * as erinnerungen from './dienste-erinnerungen';
+import { holeSystemRepository } from './erinnerungen/system';
+import { mailModus as mailModusIntern } from './mail/index';
 import * as etiketten from './dienste-etiketten';
 import * as maengel from './dienste-maengel';
 import * as mitarbeiter from './dienste-mitarbeiter';
@@ -255,44 +258,56 @@ export async function holeEtiketten(filter: EtikettenFilter): Promise<EtikettenE
   return etiketten.holeEtiketten(sitzung, await holeRepository(sitzung), { heute: heute(), jetzt: new Date() }, filter);
 }
 
-// ---------- I3 Erinnerungen (§9.7) – Rümpfe folgen in BE-26 ----------
-
-const NICHT_IMPLEMENTIERT_BE26 = 'nicht implementiert (BE-26)';
+// ---------- I3 Erinnerungen (§9.7) ----------
 
 /** F-37. */
 export function mailModus(): MailModus {
-  throw new Error(NICHT_IMPLEMENTIERT_BE26);
+  return mailModusIntern();
+}
+
+async function mitRepoRecht(aktion: Aktion) {
+  const sitzung = await erfordereSitzung(aktion);
+  return { sitzung, repo: await holeRepository(sitzung) };
 }
 
 /** erinnerung.einstellen (sonst notFound()). Je Bereich der Organisation, alphabetisch. */
 export async function listeErinnerungEinstellungen(): Promise<ErinnerungEinstellungAnsicht[]> {
-  throw new Error(NICHT_IMPLEMENTIERT_BE26);
+  const { sitzung, repo } = await mitRepoRecht('erinnerung.einstellen');
+  return erinnerungen.listeErinnerungEinstellungen(sitzung, repo);
 }
 
 /** erinnerung.einstellen (sonst notFound()); null, wenn der Bereich nicht zur Organisation gehört. */
 export async function holeErinnerungEinstellung(bereichId: Id): Promise<ErinnerungEinstellungAnsicht | null> {
-  void bereichId;
-  throw new Error(NICHT_IMPLEMENTIERT_BE26);
+  const { sitzung, repo } = await mitRepoRecht('erinnerung.einstellen');
+  return erinnerungen.holeErinnerungEinstellung(sitzung, repo, bereichId);
 }
 
 /** benachrichtigung.eigene. */
 export async function holeEigeneBenachrichtigungen(): Promise<EigeneBenachrichtigungen> {
-  throw new Error(NICHT_IMPLEMENTIERT_BE26);
+  const { sitzung, repo } = await mitRepoRecht('benachrichtigung.eigene');
+  return erinnerungen.holeEigeneBenachrichtigungen(sitzung, repo, mailModusIntern());
 }
 
 /** erinnerung.protokoll (sonst notFound()). Defaults: von = heute − 30, bis = heute, seite = 1. Maskierung F-41. */
 export async function listeMailProtokoll(filter: ProtokollFilter): Promise<ProtokollSeite> {
-  void filter;
-  throw new Error(NICHT_IMPLEMENTIERT_BE26);
+  const { sitzung, repo } = await mitRepoRecht('erinnerung.protokoll');
+  return erinnerungen.listeMailProtokoll(sitzung, repo, heuteIntern(), filter, mailModusIntern());
 }
 
 /** mail.vorschau und mailModus() === 'vorschau' (sonst notFound()). Nur Mails der aktuellen Organisation. */
 export async function holeMailVorschau(): Promise<MailVorschauSeite> {
-  throw new Error(NICHT_IMPLEMENTIERT_BE26);
+  const sitzung = await erfordereSitzung('mail.vorschau');
+  if (mailModusIntern() !== 'vorschau') notFound();
+  return erinnerungen.mailVorschauSeite(sitzung, heuteIntern(), betriebsmodusIntern() === 'demo');
 }
 
 /** Ohne Sitzung, nie Redirect. null bei ungültigem Token oder wenn die Person kein aktives Mitglied mit passender Rolle ist. */
 export async function holeAbmeldeSeite(token: string): Promise<AbmeldeSeite | null> {
-  void token;
-  throw new Error(NICHT_IMPLEMENTIERT_BE26);
+  if (typeof token !== 'string' || token.length < 20 || token.length > 500) return null;
+  try {
+    return await erinnerungen.holeAbmeldeSeite(await holeSystemRepository(), token);
+  } catch (e) {
+    console.error('holeAbmeldeSeite', e instanceof Error ? e.message : 'Fehler');
+    return null;
+  }
 }
