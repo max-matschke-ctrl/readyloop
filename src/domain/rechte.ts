@@ -1,5 +1,16 @@
-// Vertrag Inkrement 1 + 2 + I3M – siehe docs/backlog.md §3.3, §5.3 und §7.3
-import { EINLADBARE_ROLLEN, type Aktion, type Geraet, type Id, type Rolle, type Sitzung, type Uebernahme } from './types';
+// Vertrag Inkrement 1 + 2 + I3M + I3 – siehe docs/backlog.md §3.3, §5.3, §7.3 und §9.3
+import {
+  ABBESTELLBARE_MAIL_ARTEN,
+  EINLADBARE_ROLLEN,
+  MAIL_ART_FUER_ROLLE,
+  type Aktion,
+  type MailArt,
+  type Geraet,
+  type Id,
+  type Rolle,
+  type Sitzung,
+  type Uebernahme,
+} from './types';
 
 export const RECHTE: Record<Aktion, readonly Rolle[]> = {
   'geraet.lesen': ['admin', 'sifa', 'verantwortlicher', 'pruefer'],
@@ -26,6 +37,10 @@ export const RECHTE: Record<Aktion, readonly Rolle[]> = {
   'uebernahmen.lesen': ['admin'],
   'etikett.verwalten': ['admin', 'verantwortlicher'],
   'mitarbeiter.einladen': ['admin', 'verantwortlicher'],
+  'erinnerung.einstellen': ['admin'],
+  'erinnerung.protokoll': ['admin', 'sifa'],
+  'mail.vorschau': ['admin'],
+  'benachrichtigung.eigene': ['admin', 'sifa', 'verantwortlicher', 'pruefer', 'mitarbeiter'],
 };
 
 export function can(rolle: Rolle, aktion: Aktion): boolean {
@@ -81,4 +96,9 @@ export function istMeinGeraet(
   offeneUebernahme: Pick<Uebernahme, 'benutzerId'> | null,
 ): boolean {
   return geraet.zugeordnetAn === benutzerId || (offeneUebernahme !== null && offeneUebernahme.benutzerId === benutzerId);
+}
+
+/** F-40: nur die eigene, abbestellbare Mailart der Rolle. */
+export function darfAbbestellen(rolle: Rolle, art: MailArt): boolean {
+  return MAIL_ART_FUER_ROLLE[rolle] === art && (ABBESTELLBARE_MAIL_ARTEN as readonly MailArt[]).includes(art);
 }

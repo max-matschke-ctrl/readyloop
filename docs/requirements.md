@@ -1,6 +1,6 @@
 # Anforderungen Readyloop – Pilot Mittelstand
 
-Stand 20.11.2026 (Inkrement I3M – Mitarbeiter umgesetzt inkl. Review-Fixes, Migration `20261129000000_review_i3m.sql`; offen nur FE-15a und Gates G-4/G-5) · Quellen: `docs/context/projektstand.md`, `docs/research/recherche-anforderungen.md` · Backlog: `docs/backlog.md`
+Stand 25.11.2026 (I3M umgesetzt inkl. Review-Fixes. **I3 E-Mail-Erinnerungen umgesetzt** auf Branch `erinnerungen`: §3c F-30–F-43, US-34–US-43, Rechte §6, Datenkatalog §6a, Q-47–Q-60; Regeln auf Code-Stand, u. a. `MAIL_MAX_POSTEN` 50 mit `inSumme`, Laufstatus `teilweise`, Trockenlauf. Offen: FE-15a, Rest R-I3-1 (Backlog §8.0) und Gates G-4/G-5/G-6) · Quellen: `docs/context/projektstand.md`, `docs/research/recherche-anforderungen.md` · Backlog: `docs/backlog.md`
 
 ## 1. Rahmen
 
@@ -32,8 +32,8 @@ Regel: Must = Gewicht 5, rechtlich zwingend oder Kern des Pilots. Gewichte unver
 | R-13 | Überwachungsbedürftige Anlagen als eigene Klasse | 3 | Should | I7 | |
 | R-14 | Kontrollen (arbeitstäglich/wöchentlich) | 3 | Could | I7 | |
 | R-15 | Elektro-Messwerte, Fehlerquote | 3 | Could | I7 | |
-| R-16 | Fälligkeitsübersicht, Vorlauf 90/60/30 | 5 | Must | I1 / I3 | I1: Übersicht mit festem Vorlauf 30 Tage. Staffel 90/60/30 I3 |
-| R-17 | Eskalationskette per E-Mail | 5 | Must | I3 | |
+| R-16 | Fälligkeitsübersicht, Vorlauf 90/60/30 | 5 | Must | I1 / I3 | I1: Übersicht mit festem Vorlauf 30 Tage. I3: Mail-Staffel 90/60/30 je Bereich einstellbar (F-31); Status-Schwelle „bald fällig“ bleibt 30 Tage (F-30, Q-4) |
+| R-17 | Eskalationskette per E-Mail | 5 | Must | I3 | F-32: VER (+0) → SIF (+7) → ADM/Geschäftsführung (+14), je Bereich einstellbar; Sammelmail, idempotent, Versandprotokoll (F-33, F-41) |
 | R-18 | Geräteakte | 5 | Must | I1 / I2 / I4 | I1 Stammdaten, Herstellerfrist, Historie. I2 Mängel, Anlässe, Betriebsstatus. Betriebsanleitung-Upload von I2 nach I4 verschoben (nicht im I2-Umfang; Upload-Strecke entsteht dort mit dem Import) |
 | R-19 | „Prüfdatum unbekannt“, Datum mit Herkunft | 4 | Must | I1 | Projektstand: nicht verhandelbar |
 | R-20 | QR/NFC-Etiketten, Prüfplakette drucken | 4 | Must | I3M / I5 | MVP-Entscheidung (NFC + QR für wechselnde Geräte). I3M: QR-Etikett mit Prüfplakette als Druckseite (F-25). NFC I5 |
@@ -61,7 +61,7 @@ Regel: Must = Gewicht 5, rechtlich zwingend oder Kern des Pilots. Gewichte unver
 | R-42 | AVV, TOM, Unterauftragsverarbeiter | 5 | Must | Gate | organisatorisch, vor erstem echten Datensatz |
 | R-43 | EU-Hosting, KI ohne Personennamen | 4 | Must | I1 / I6 | CLAUDE.md: nicht verhandelbar. I1: Supabase-Region EU. KI-Adapter I6 |
 | R-44 | Betriebsrats-Paket | 4 | Must | Gate G-4 (vor Pilotnutzung I3M) | Projektstand: Betriebsrat vor Pilot. Datenkatalog Mitarbeiter in §6a als Baustein |
-| R-45 | Keine Leistungsauswertung je Mitarbeiter, Löschkonzept | 4 | Should | ab I1 (Designregel) / I3M | Designregel gilt ab I1: keine Auswertung je Person. I3M: Sichtbarkeit, 90-Tage-Pseudonymisierung der Übernahmen, Lösen bei Austritt (F-27) |
+| R-45 | Keine Leistungsauswertung je Mitarbeiter, Löschkonzept | 4 | Should | ab I1 (Designregel) / I3M / I3 | Designregel gilt ab I1: keine Auswertung je Person. I3M: Sichtbarkeit, 90-Tage-Pseudonymisierung der Übernahmen, Lösen bei Austritt (F-27). I3: Versandprotokoll ohne Filter/Zählung je Person, MA-Hinweise ohne Gerät in der Ansicht und nach 90 Tagen ohne Empfänger (F-41) |
 
 Ergänzende Anforderungen aus Projektstand und Vorgaben dieser Runde:
 
@@ -76,6 +76,7 @@ Ergänzende Anforderungen aus Projektstand und Vorgaben dieser Runde:
 | P-07 | Supabase-Betrieb: Repository gegen Supabase mit gleicher Schnittstelle wie Demo, Login E-Mail/Passwort, RLS als zweite Verteidigungslinie | Must | I2 |
 | P-08 | Demo-Schutz: Demo in Produktion nur mit `READYLOOP_DEMO=1` (Q-9) | Must | I2 |
 | P-09 | Mitarbeiter-Funktionen gleichwertig am Handy und am Büro-PC: responsive Web-App, gleicher Login, keine Funktion setzt App-Installation, Kamera-Zugriff, Service Worker oder Push voraus (Vorgabe Max 20.11.2026, F-29) | Must | I3M |
+| P-10 | E-Mail nur serverseitig hinter austauschbarem `MailAdapter` (Resend; wie der KI-Adapter); Demo/Dev ohne Versand mit Mail-Vorschau; Auslöser Vercel Cron und `pg_cron` gleichwertig, Lauf mit injizierbarem „heute“ (F-36, F-37; Vorgabe Max 23.11.2026) | Must | I3 |
 
 ## 3. Fachregeln Regel-Engine (verbindlich für I1)
 
@@ -206,7 +207,7 @@ Umfang: Rolle Mitarbeiter (MA), „Meine Geräte“, Übernahme/Rückgabe, Zuord
 - Nicht enthalten: Personennamen außer dem Prüfernamen aus dem Nachweis (Pflichtinhalt § 14 Abs. 7 BetrSichV); kein Halter, keine Zuordnung, kein Freigebender, kein Melder; keine Mängelbeschreibungen (nur der Grund „Gefährlicher Mangel offen“); kein Nachweis-PDF (Q-38); keine Bereichsnamen; kein Verlauf (je Prüfart nur der neueste Nachweis, nur offene Anlässe).
 - Keine internen IDs (weder Gerät noch Organisation, Prüfart, Nachweis oder Anlass), damit sich alter und neuer Aufkleber nicht verknüpfen und Geräte keinem Betrieb zuordnen lassen. Prüfarten tragen in den Rohdaten nur eine laufende Nummer je Gerät (`nr`), Nachweise und Anlässe verweisen über `pruefart_nr`. Einzige Ausnahme: Ist der Aufrufer angemeldet, aktives Mitglied der Geräte-Organisation und ist diese seine aktuelle Organisation der Sitzung, erhält der Server zusätzlich die Geräte-ID (für MA-Kurzansicht und Link „Geräteakte öffnen“). Anonyme und fremde Aufrufer erhalten sie nie; ein geratener Organisationsparameter hilft nicht.
 - Antwort mit `Cache-Control: no-store`, `Referrer-Policy: same-origin`, `robots: noindex, nofollow`. `same-origin` statt `no-referrer`, weil Chrome bei `no-referrer` für Formular-POST ohne JavaScript `Origin: null` sendet und Next.js die Server Action dann ablehnt; die Token-URL geht weiterhin an keine fremde Origin (externe Links und Ressourcen erhalten keinen Referrer).
-- Aktionen: ohne Anmeldung „Anmelden und übernehmen“ (nur `wechselnd`) bzw. „Anmelden und Mangel melden“ → `/login?next=/g/{token}`. Mit MA-Sitzung derselben Organisation direkt „Gerät übernehmen“, „Zurückgeben“, „Mangel melden“ nach F-23/F-26. Mit anderer Rolle und Recht `geraet.lesen` im Geltungsbereich: Link „Geräteakte öffnen“. Gehört das Gerät nicht zur aktuellen Organisation der Sitzung: nur die öffentliche Ansicht.
+- Aktionen: ohne Anmeldung „Anmelden und übernehmen“ (nur wenn `uebernahmeHinweis(ansicht, ansicht.nutzung) === null`, also `wechselnd`, `in_betrieb` und Nutzbarkeit ≠ `nicht_verwenden`; **Bugfix I3, US-43** – vorher erschien der Knopf auch bei „Nicht verwenden“) bzw. „Anmelden und Mangel melden“ (immer) → `/login?next=/g/{token}`. Mit MA-Sitzung derselben Organisation direkt „Gerät übernehmen“, „Zurückgeben“, „Mangel melden“ nach F-23/F-26. Mit anderer Rolle und Recht `geraet.lesen` im Geltungsbereich: Link „Geräteakte öffnen“. Gehört das Gerät nicht zur aktuellen Organisation der Sitzung: nur die öffentliche Ansicht.
 
 **F-25 QR-Etiketten (R-20, ohne NFC).**
 - Recht `etikett.verwalten`: ADM ganze Organisation, VER eigene Bereiche. Druckseite `/etiketten`: Auswahl nach Bereich und Kategorie oder ein einzelnes Gerät aus der Geräteakte (`?geraet=`, hat Vorrang). Kategorie: ohne URL-Parameter `kategorie` gilt `wechselnd`; Parameter leer oder `alle` = alle Kategorien. Geräte außerhalb des Geltungsbereichs werden ignoriert.
@@ -220,7 +221,7 @@ Umfang: Rolle Mitarbeiter (MA), „Meine Geräte“, Übernahme/Rückgabe, Zuord
 - Gespeichert wird ein Mangel nach F-14: Status `offen`, ohne Prüfart, ohne Nachweis, ohne Verantwortlichen; Termin automatisch nach Q-16 (gefährlich heute, erheblich +30, gering +90). Ereignis `mangel_erfasst`. Ein gefährlicher Mangel macht das Gerät sofort `vor_nutzung_pruefen` (F-9) und damit „Nicht verwenden“.
 - MA erfassen Mängel nur über „Mangel melden“; die Action `mangelErfassen` lehnt die Rolle `mitarbeiter` ab.
 - Der Name des Melders ist für ADM, SIF und VER (Bereich) am Mangel sichtbar (Rückfragen, Q-37). Kein Filter, keine Spalte und keine Zählung nach Melder (R-45). MA sehen keine Mängelliste, nur die Anzahl offener Mängel je Gerät.
-- Bestätigung: „Mangel gemeldet. Er steht beim Verantwortlichen in der Mängelliste.“ (E-Mail erst mit I3.)
+- Bestätigung: „Mangel gemeldet. Er steht beim Verantwortlichen in der Mängelliste.“ (Eine Mail an den VER bei gemeldeten Mängeln ist **nicht** Teil von I3, Q-50.)
 
 **F-27 Datensparsamkeit bei Zuordnung und Übernahme (R-45; Betriebsrats-Gate G-4 bleibt).**
 - Aktueller Halter (offene Übernahme) und Zuordnung mit Namen: ADM, SIF, VER (Bereich). PRF: nichts. Andere MA: nur „Wird von einer anderen Person genutzt“. Öffentlich: nichts.
@@ -247,6 +248,110 @@ Umfang: Rolle Mitarbeiter (MA), „Meine Geräte“, Übernahme/Rückgabe, Zuord
 - Keine Funktion setzt App-Installation, Kamera-Berechtigung, Service Worker oder Push voraus. QR-Scan über die Kamera-App des Handys; am Computer über die Suche.
 - Touch-Ziele auf MA-Seiten ≥ 48 px. Unterstützt: aktuelle Versionen von Chrome, Edge, Firefox, Safari (iOS) und Chrome (Android).
 - Gemeinsam genutzte Büro-PCs (Q-40): „Abmelden“ im Menü auf jeder Seite; Login-Seite zeigt den Hinweis „An gemeinsam genutzten Computern nach der Arbeit abmelden.“; kein „Angemeldet bleiben“.
+
+## 3c. Fachregeln Inkrement I3 – E-Mail-Erinnerungen
+
+Umfang: Fälligkeitsjob mit Vorlauf-Staffel und Eskalation, Prüfer-Wochenübersicht, Hinweis an Mitarbeiter, Sammelmail, Idempotenz, Versandprotokoll, Resend-Adapter mit Vorschau, Einstellungen je Bereich, persönliche Abmeldung, Bugfix QR-Seite. **Nicht in I3:** SMS, Push, Kalender-Export (ICS, später), Terminbuchung, Mail bei gemeldeten Mängeln oder Anlässen (Q-50), Benachrichtigung bei Einladung bekannter Konten (Q-56), Export des Protokolls. Alle Regeln aus §3 bis §3b gelten weiter.
+
+**F-30 Grundsatz und Mailarten.**
+- Es gibt genau drei Mailarten. Rollen sind je Organisation exklusiv, deshalb hat jede Mail genau eine Art (`MAIL_ART_FUER_ROLLE`):
+
+  | Art | Empfänger | Inhalt | Abbestellbar |
+  |---|---|---|---|
+  | `frist_digest` | ADM, SIF, VER | Vorlauf (F-31) und Eskalation (F-32) | nein (Pflicht, F-40) |
+  | `pruefer_woche` | PRF | zugewiesene fällige Prüfungen (F-34) | ja, Default an |
+  | `ma_hinweis` | MA | eigene Geräte „Nicht verwenden“ (F-35) | ja, Default an |
+
+- **Sammelmail:** je Organisation, Empfänger und Kalendertag (Europe/Berlin) höchstens **eine** Mail, gruppiert nach Dringlichkeit (F-38). Prüfer und Sifa mit mehreren Betrieben erhalten je Betrieb eine eigene Mail (Mandantentrennung, Betrieb im Betreff; Q-47).
+- Empfänger sind nur aktive Mitgliedschaften; Adresse = E-Mail des Benutzerkontos.
+- Grundlage ist die freigegebene Frist und der Status nach F-9. Ohne freigegebene Frist (`gbu`) oder ohne letztes Prüfdatum (`unbekannt`) gibt es kein Fälligkeitsdatum und deshalb keine Fristerinnerung – es wird nichts geschätzt. Diese Prüfarten stehen weiter in der App und in der Prüfer-Wochenübersicht.
+- Vorlauf und Eskalation nur für Geräte mit Betriebsstatus `in_betrieb` (F-11: außer Betrieb wird nicht eskaliert).
+- Die Status-Schwelle `bald_faellig` bleibt 30 Tage (F-9). Die Staffel steuert nur Mails (Q-4 damit erledigt).
+
+**F-31 Vorlauf (R-16).** Je Bereich eine Staffel aus 1–3 verschiedenen Werten (Tage, 1–365, absteigend gespeichert), Default 90/60/30. Für jede Prüfart mit `faelligAm` und Resttagen r ≥ 1 sind die Stufen `v{s}` mit r ≤ s erreicht; maßgeblich ist die dringlichste (kleinstes s). Zuständig: alle aktiven VER des Bereichs. Kopie: SIF, wenn `sifaInKopie` (Default an) – ausgewählte SIF oder alle aktiven.
+
+**F-32 Eskalation (R-17).** u = −r = Tage seit Fälligkeit (u = 0 am Fälligkeitstag). Schwellen je Bereich 0 ≤ eVER ≤ eSIF ≤ eADM ≤ 90, Default 0 / 7 / 14. Maßgeblich ist die höchste erreichte Stufe:
+
+| Stufe | erreicht ab | zuständig | Kopie |
+|---|---|---|---|
+| `e_verantwortlicher` | u ≥ eVER | VER des Bereichs | SIF, wenn `sifaInKopie` |
+| `e_sifa` | u ≥ eSIF | SIF (Auswahl oder alle) | VER |
+| `e_admin` | u ≥ eADM | ADM (Auswahl oder alle) = Geschäftsführung | SIF, VER |
+
+Rangfolge aller Stufen (dringlicher rechts): `v{größtes s}` < … < `v{kleinstes s}` < `e_verantwortlicher` < `e_sifa` < `e_admin`. Nach `e_admin` gibt es zu dieser Fälligkeit keine weitere Mail (Q-48). Liegt u unter eVER (eVER > 0), gilt keine Stufe.
+
+**F-33 Versandregel und Idempotenz.**
+- Ein Empfänger erhält zu einer Prüfart und Fälligkeit (`faelligAm`) eine Stufe nur, wenn sie dringlicher ist als die dringlichste, die er zu dieser Fälligkeit schon erfolgreich erhalten hat (gleich ob zuständig oder in Kopie). Damit: jede Stufe höchstens einmal je (Prüfart, Stufe, Fälligkeit, Empfänger); nach einem Ausfall wird nur die aktuelle Stufe nachgeholt, keine verpassten Zwischenstufen; ein neu eingesetzter VER erhält beim nächsten Lauf die aktuelle Stufe; eine neue Fälligkeit (Nachweis, neue Frist) startet die Staffel neu.
+- Posten-Schlüssel (eindeutig je Versand): `frist:{geraetPruefartId}:{stufe}:{faelligAm}:{empfaengerId}` · `pruefer:{geraetPruefartId}:woche:{MontagDerIsoWoche}:{empfaengerId}` · `ma:{geraetId}:{zustandsKennung}:{empfaengerId}`.
+- „Erfolgreich“ = Versandstatus `versendet`, `zugestellt`, `bounce` oder `beschwerde` (`VERSAND_ERFOLGREICH`). Bounce und Beschwerde zählen als versendet, damit nicht täglich an eine tote Adresse nachgesendet wird; das Protokoll zeigt das Problem (F-41). `vorschau` zählt **nur im Demo-Modus** als erfolgreich (`VERSAND_ERFOLGREICH_DEMO`), weil dort die Vorschau den Versand ersetzt.
+- Vorschau im Supabase-Modus = **Trockenlauf**: kein Lauf-Datensatz, keine Reservierung von Versand und Posten, kein Statusschreiben; die gerenderten Mails stehen nur in der Mail-Vorschau (F-37). Eine Vorschau kann deshalb nie als „erinnert“ zählen und keinen echten Versand desselben Tages blockieren. Gelesen wird der echte Stand (bisherige erfolgreiche Posten), die Vorschau zeigt also, was ein echter Lauf jetzt senden würde; sie ist beliebig wiederholbar.
+- Der manuelle Lauf („Erinnerungslauf jetzt ausführen“, F-37) betrifft strikt nur die Organisation der Sitzung (`sitzung.organisation.id`), nie andere Betriebe. Ein manueller Lauf zählt nicht als Tageslauf: Er löst bei Vercel Cron/`pg_cron` kein `bereits_gelaufen` aus.
+- Ist ein Empfänger für denselben Posten zuständig und in Kopie, erhält er ihn einmal als zuständig.
+- Kappung (`MAIL_MAX_POSTEN` = 50): Posten ab Platz 51 der Sammelmail stehen nicht einzeln in der Mail, sondern nur in Summe („… und {n} weitere Prüfungen – in Readyloop ansehen“). Sie gelten trotzdem als erinnert: Sie werden mit demselben Versand wie gesendet protokolliert, mit dem Kennzeichen „in Summe genannt“ (`inSumme`), und zählen für diese Regel wie einzeln gezeigte Posten. So entsteht am Folgetag keine zweite Mail zur selben Stufe.
+- Bereich ohne aktiven VER: zuständig wird die SIF (Auswahl oder alle), ohne aktive SIF die ADM-Auswahl; Posten-Hinweis „Bereich ohne Verantwortlichen“. Gilt für Vorlauf und `e_verantwortlicher`.
+- Ausgewählte SIF/ADM, die nicht mehr aktiv sind, werden ignoriert; bleibt niemand übrig, gelten alle aktiven der Rolle, und die Einstellungsseite warnt.
+
+**F-34 Prüfer-Wochenübersicht.** Montags – fällt der Montagslauf aus, beim ersten Lauf der ISO-Woche – erhält jeder aktive Prüfer eine Mail mit allen ihm zugewiesenen Prüfarten der Organisation, die in der Prüfer-Ansicht in der Gruppe „fällig“ stehen (alles außer `ok`, wie `prueferGruppe`). Höchstens eine je ISO-Woche; ohne Posten keine Mail. Default an, abbestellbar (F-40). Je Posten Gerät, Inventarnummer, Bereich, Prüfart, Status, fällig am, Frist mit Quelle, Stufe, Fundstelle oder „Frist über GBU festlegen“; Link `/pruefer`.
+
+**F-35 Hinweis an Mitarbeiter (datensparsam).**
+- Hat ein Gerät, das einem aktiven MA zugeordnet ist (F-22) oder das er offen übernommen hat (F-23), die Nutzbarkeit `nicht_verwenden` (F-21), erhält **nur dieser MA** einen Hinweis – einmal je Zustand. Bei `unklar` kein Hinweis. Andere Geräte, andere Personen, Halterwechsel: nichts.
+- Zustandskennung (erste zutreffende Regel, Gesamtstatus und Grund nach F-9): Betriebsstatus ≠ `in_betrieb` → `ausser_betrieb:{ID des letzten Ereignisses betriebsstatus_geaendert, sonst „ohne“}`; Gesamtstatus `ueberfaellig` → `ueberfaellig:{frühestes überschrittenes faelligAm}`; Gesamtstatus `vor_nutzung_pruefen` mit Grund `gefaehrlicher_mangel` → `mangel:{ID des ältesten offenen gefährlichen Mangels}`, Grund `anlass` → `anlass:{ID des ältesten offenen Anlasses}`, Grund `nicht_bestanden` → `nicht_bestanden:{ID des letzten Nachweises nicht_bestanden}`.
+- Inhalt nur: Betrieb, Bezeichnung, Inventarnummer, „Nicht verwenden“ mit Grund (`NUTZUNG_LABEL`, `VOR_NUTZUNG_GRUND_LABEL`), Handlung „Gerät nicht verwenden und den Verantwortlichen informieren“ (übernommen: „… und zurückgeben“), Link `/meine-geraete`. Keine Mängelbeschreibung, keine Namen, keine Fristwerte.
+- Versand im Tageslauf (morgens), nicht sofort – Push ist ausgeschlossen; sofort maßgeblich bleibt die Anzeige in der App und auf der QR-Seite.
+
+**F-36 Lauf und Auslöser (P-10).**
+- Ein Lauf je Werktag (Mo–Fr), Zeitplan `0 5 * * 1-5` UTC (06:00 MEZ / 07:00 MESZ), Fortsetzungs-Auslöser `20 5 * * 1-5` UTC (siehe Zeitbudget). „heute“ = Datum Europe/Berlin zum Laufzeitpunkt. An Samstag und Sonntag antwortet der Lauf `kein_werktag`; was am Wochenende fällig wird, holt der nächste Werktag nach F-33 nach. Keine Feiertagslogik (Q-51).
+- Zwei gleichwertige Auslöser auf dieselbe Route `/api/cron/erinnerungen`: Vercel Cron (GET) und Supabase `pg_cron` + `pg_net` (POST). Beide senden `Authorization: Bearer {CRON_SECRET}`; Vergleich zeitkonstant. `CRON_SECRET` fehlt oder ist kürzer als 32 Zeichen → 503 `nicht_konfiguriert`; falsches Secret → 401 ohne Details. Beide Auslöser feuern um 05:00 und 05:20 UTC (Vercel Cron: zwei Einträge in `vercel.json`; `pg_cron`: Jobs `readyloop_erinnerungen` und `readyloop_erinnerungen_fortsetzung`).
+- Lauf-Sperre: höchstens ein laufender Lauf; je Datum höchstens ein fertiger (nicht manueller) Lauf – der zweite Auslöser erhält `bereits_gelaufen`. Ein Lauf, der länger als 15 Minuten `laeuft` (z. B. Funktion beendet), gilt als abgebrochen: Der nächste Start setzt ihn auf `fehler` und übernimmt.
+- Zeitbudget: Ein Aufruf arbeitet höchstens 20 s (`LAUF_BUDGET_MS`; Route `maxDuration` 60 s; ein Versand mit Wiederholungen kann bis 35 s dauern). Geprüft wird vor jeder Organisation und vor jeder Reservierung – es bleibt also kein Versand halb angelegt. Ist das Budget erschöpft, endet der Lauf mit Status `teilweise` (Antwort 200 `teilweise`). `teilweise` blockiert nicht: Der nächste Auslöser (05:20 UTC) startet einen neuen Lauf für dasselbe Datum; bereits versorgte Empfänger überspringt die Reservierung (eindeutig je Organisation, Empfänger, Datum), es entsteht keine Doppelmail. Reihenfolge der Organisationen: zuerst Betriebe ohne Versand am heutigen Datum, dann die übrigen (je nach ID).
+- Abgebrochene Versände: Versände im Status `vorbereitet`, deren Lauf nicht mehr `laeuft` (abgebrochen/übernommen), setzt der nächste Lauf-Start auf `fehler` mit Fehlercode `abgebrochen`. Erneut versucht wird nach den F-Regeln: Die Posten gelten als nicht gesendet (F-33) und kommen am nächsten Werktag in die neue Sammelmail; am selben Tag keine zweite Mail an diesen Empfänger (es ist offen, ob die Mail vor dem Abbruch noch hinausging).
+- Ablauf je Organisation: Daten lesen → Plan (rein, deterministisch, F-31–F-35) → je Empfänger Versand und Posten in **einer** Transaktion reservieren (eindeutig je Organisation, Empfänger, Datum) → senden → Status setzen. Ein Fehler bei einer Organisation oder einem Empfänger bricht den Lauf nicht ab.
+- Wiederholung: vorübergehende Fehler (Netz, 429, 5xx) bis 3 Versuche im selben Lauf (Wartezeit 1 s, dann 4 s), danach `fehler`. Dauerhafte Fehler (z. B. ungültige Adresse) → sofort `fehler`. Posten ohne erfolgreichen Versand gelten als nicht gesendet und kommen am nächsten Werktag in die neue Sammelmail – so bleibt es bei einer Mail je Tag.
+- Mail-Modus `aus` (F-37) → 503 `nicht_konfiguriert`, nichts wird geschrieben.
+- Links in Mails: Im Produktionsmodus (Supabase und `NODE_ENV = production`) ist `NEXT_PUBLIC_SITE_URL` Pflicht; fehlt sie, verweigert der Lauf (503 `nicht_konfiguriert`, nichts geschrieben) statt Links auf `localhost` zu versenden. Im Demo-Modus und bei `NODE_ENV ≠ production` bleibt `http://localhost:3000` erlaubt.
+- Testbarkeit: Der Dienst erhält `heute` und `jetzt` als Parameter. Die Route übernimmt `?heute=YYYY-MM-DD` nur im Demo-Modus oder bei `NODE_ENV ≠ production`.
+
+**F-37 Versandweg und Mail-Modus (P-10, R-43 sinngemäß).**
+- Mails entstehen nur serverseitig und gehen nur über `MailAdapter`. Modus: `resend`, wenn `RESEND_API_KEY`, `MAIL_ABSENDER`, `MAIL_ABMELDE_SECRET` gesetzt sind; sonst `vorschau` im Demo-Modus oder bei `NODE_ENV ≠ production`; sonst `aus`.
+- Resend über die HTTPS-API mit `fetch` (keine neue Abhängigkeit), Kopfzeile `Idempotency-Key` = Versand-ID, Öffnungs- und Klick-Tracking aus, Senderegion EU (Gate G-6, Q-55).
+- `vorschau`: gerenderte Mails im Speicher des Server-Prozesses (höchstens 200, älteste werden verworfen). Demo-Modus: Versandstatus `vorschau` im (In-Memory-)Protokoll. Supabase-Modus: Trockenlauf ohne Datensätze (F-33). Ansicht `/admin/mails` nur für ADM und nur im Modus `vorschau`; sie zeigt nur Mails der eigenen Organisation (Filter nach Organisations-ID, nicht nach Name). HTML im Iframe mit `sandbox` ohne Skripte. Button „Erinnerungslauf jetzt ausführen“ – nur für die Organisation der Sitzung (F-33); ein abweichendes Datum ist nur im Demo-Modus wählbar.
+- Zustellstatus: Webhook `/api/mail/webhook` prüft die Svix-Signatur (Toleranz 5 Minuten) und setzt über die Anbieter-ID `zugestellt`, `bounce` oder `beschwerde`.
+
+**F-38 Mailinhalt.**
+- Deutsch, kurz. Betreff mit Betrieb und Zählung, z. B. „Readyloop · Elbtal Fördertechnik GmbH: 2 überfällig, 1 heute fällig, 4 demnächst“. Anrede „Guten Tag,“ ohne Namen. **Kein Personenname** in Mails (weder Empfänger noch VER, Prüfer oder Melder).
+- Gruppen in dieser Reihenfolge (`DRINGLICHKEITEN`), leere Gruppen entfallen: „Nicht verwenden“, „Überfällig“, „Heute fällig“, „In den nächsten 30 Tagen fällig“, „Vorlauf“, „Ohne Termin“; innerhalb nach fällig am, Bereich, Gerät.
+- Je Posten: Gerät und Inventarnummer, Bereich, Prüfart, fällig am mit „in n Tagen“ bzw. „seit n Tagen überfällig“, Frist als „{n} Monate · {Quelle} · Stufe {A–D} · {Fundstelle}“, Rolle („Sie sind zuständig“ / „Zur Kenntnis“), ggf. Hinweis (Eskalationsstufe, „Bereich ohne Verantwortlichen“), Link `{NEXT_PUBLIC_SITE_URL}/geraete/{id}`.
+- Ein Fristwert erscheint nie ohne Quelle und Stufe; ohne freigegebene Frist steht „Frist über GBU festlegen“. Status nie nur über Farbe.
+- Entwurfshinweis: Hat mindestens eine Prüfart der Mail einen Katalogschlüssel, zu dem es keinen freigegebenen Eintrag gibt, steht über der Fußzeile: „Der Readyloop-Prüfkatalog ist für {n} Prüfart(en) dieser Mail noch nicht fachlich freigegeben (Entwurf). Maßgeblich sind die in Readyloop freigegebenen Fristen mit der angegebenen Quelle und Ihre Gefährdungsbeurteilung.“
+- Höchstens 50 Posten je Mail (`MAIL_MAX_POSTEN`), die dringlichsten in der obigen Reihenfolge. Ab Platz 51 nur in Summe: Einleitung ergänzt um „Diese Mail zeigt die 50 dringlichsten von {N}.“ (MA-Hinweis: „Diese Mail zeigt 50 von {N}.“), Gruppentitel „{gezeigt} von {gesamt}“, unter den Posten „… und {n} weitere Prüfungen – in Readyloop ansehen“ (n = 1: „Prüfung“; MA-Hinweis „Gerät“/„Geräte“; D-I3a M-10, §5.10). Die gekappten Posten gelten als erinnert (F-33, `inSumme`).
+- Fußzeile: Grund des Empfangs. Pflichtmail: `PFLICHTMAIL_BEGRUENDUNG`, ohne `List-Unsubscribe`. Abbestellbare Mail: Link „Diese Mails abbestellen“ und Kopfzeilen `List-Unsubscribe: <{One-Click-URL}>` und `List-Unsubscribe-Post: List-Unsubscribe=One-Click` (RFC 8058).
+- Text- und HTML-Teil; HTML ohne externe Bilder, Schriften, Skripte, Tracking-Pixel; Prüfplakette als Text-Badge (Gestaltung: designer, D-I3).
+
+**F-39 Einstellungen je Bereich (ADM).** Staffel (F-31), Eskalationstage (F-32), `sifaInKopie`, SIF-Empfänger („alle aktiven“ oder Auswahl ≥ 1), ADM-Empfänger („alle aktiven“ oder Auswahl ≥ 1). VER sind immer alle aktiven VER des Bereichs – Zuständigkeit folgt der Bereichsverantwortung, nicht einer Mail-Einstellung. „Auf Standard zurücksetzen“ speichert die Standardwerte. Wirkung ab dem nächsten Lauf. Jede Änderung erzeugt `erinnerung_einstellung_gespeichert` (F-42). SIF sieht die Einstellungen aller Bereiche, VER die seiner Bereiche lesend in „Benachrichtigungen“.
+
+**F-40 Abmeldung.**
+- Jede Person kann **ihre** abbestellbare Mailart (`pruefer_woche` bzw. `ma_hinweis`) je Organisation ab- und wieder anbestellen: angemeldet unter `/einstellungen/benachrichtigungen` oder ohne Anmeldung über den Link in der Mail.
+- Link-Token: HMAC-SHA256 über (Organisation, Benutzer, Art) mit `MAIL_ABMELDE_SECRET`, base64url, ohne Ablauf, ohne E-Mail-Adresse. `GET /abmelden?t=` zeigt nur eine Bestätigungsseite (Link-Scanner ändern nichts); geändert wird nur per POST (Formular oder One-Click `POST /api/mail/abmelden?t=`). Ungültiges Token → „Dieser Link ist nicht gültig.“
+- `frist_digest` ist **nicht abbestellbar**. Begründung: § 3 Abs. 6 und § 14 BetrSichV verpflichten den Arbeitgeber, Prüffristen festzulegen und einzuhalten; überträgt er Aufgaben auf Bereichsverantwortliche (§ 13 Abs. 2 ArbSchG), muss er deren Erfüllung organisieren und überwachen. Die Erinnerung mit Eskalation ist diese Organisationsmaßnahme. Eine persönliche Abmeldung würde sie unbemerkt aushebeln; Empfänger ändert deshalb nur der ADM, und jede Änderung ist protokolliert (F-39). Prüfer-Übersicht und MA-Hinweis sind Service: Die Pflicht liegt beim Betrieb, und die Information steht in der App bzw. am QR-Code.
+- Abmeldungen sind kein Ereignis (persönliche Einstellung); gespeichert werden Art, Status und Zeitpunkt. Wirkung ab dem nächsten Lauf.
+
+**F-41 Versandprotokoll (R-24, R-45).**
+- Je Mail ein Versand-Datensatz: Organisation, Lauf, Datum, Art, Empfänger (Benutzer-ID), Status, Versuche, Anbieter-ID, Fehlercode, Anzahl Posten, Zeitpunkte. **Nicht gespeichert:** Betreff, Mailtext, E-Mail-Adresse.
+- Je Posten: Schlüssel, Art, Stufe, Gerät, Prüfart, Bereich, Bezugsdatum, Rolle, Empfänger. Posten sind unveränderlich (nur INSERT). Beim Versand darf sich nur der Status vorwärts bewegen: `vorbereitet` → `versendet` | `fehler` | `vorschau`; `versendet` → `zugestellt` | `bounce` | `beschwerde`; `zugestellt` → `bounce` | `beschwerde`. Kein Löschen.
+- MA-Hinweise: nach 90 Tagen entfernt ein täglicher Job den Empfänger aus Versand und Posten (wie F-27), weil sonst dauerhaft festgehalten wäre, wer welches Gerät wann hatte. Danach kann ein unveränderter Zustand einen erneuten Hinweis auslösen (gewollt).
+- Ansicht `/erinnerungen/protokoll` für ADM und SIF: Filter Zeitraum (Default letzte 30 Tage), Status (einzeln oder „Probleme“ = `fehler`, `bounce`, `beschwerde`), Art, Bereich; 50 je Seite, neueste zuerst. Je Mail: Datum, Art, Empfänger (Name, Rolle), Status mit Text, Versuche, Anzahl Posten; aufklappbar die Posten (Gerät, Prüfart, Stufe, fällig am, Rolle; bei `inSumme` Kennzeichen „in Summe genannt“ – noch nicht umgesetzt, Backlog §8.0 R-I3-1). Oben „Letzter Lauf: {Datum}, {Status}“, bei `teilweise` als Warnung „Teilweise – wird fortgesetzt.“
+- MA-Hinweise erscheinen nur als Zeile „Mitarbeiter/in“ ohne Posten und ohne Gerät; den Namen zeigt die Zeile nur bei einem Problem-Status (damit der ADM die Adresse korrigieren kann). Keine Filter, Sortierung, Suche oder Zählung nach Person (R-45). Kein Export in I3.
+- VER, PRF, MA haben keine Protokollansicht.
+
+**F-42 Ereignisse I3 (R-24).**
+
+| Typ | geraetId | daten |
+|---|---|---|
+| `erinnerung_einstellung_gespeichert` | null | `bereichId`, `bereich`, `alt` (Einstellung oder null = Standard), `neu` |
+
+Versand, Posten, Läufe und Abmeldungen erzeugen kein Ereignis (eigenes Protokoll bzw. persönliche Einstellung).
+
+**F-43 Service-Zugriff ohne Benutzer (Erweiterung F-8, Q-54).** Lauf, One-Click-Abmeldung und Webhook haben keine Benutzersitzung. Sie verwenden den Service-Role-Schlüssel ausschließlich in `src/server/supabase/system.ts`, importiert nur vom System-Repository; jede Abfrage filtert ausdrücklich nach `organisation_id`; Schreiben nur in die I3-Tabellen (über RPCs, die nur `service_role` ausführen darf). Fachdaten aus Benutzeraktionen laufen weiter nur über den Benutzer-Client (RLS).
 
 ## 4. User Stories (Must und Should)
 
@@ -323,8 +428,7 @@ Rollen: ADM Admin · SIF Sifa · VER Verantwortlicher · PRF Prüfer · MA Mitar
 - G: dieses Gerät. W: zurück „in Betrieb“. T: Warnung vor dem Speichern; danach „Überfällig – nicht verwenden“; Ereignis `betriebsstatus_geaendert`.
 - G: Formular. W: „ausgemustert“ per Request. T: abgelehnt.
 
-**US-14 Erinnerung und Eskalation (R-16, R-17, I3)** – Als VER will ich E-Mails 90/60/30 Tage vorher; bei Überfälligkeit Eskalation an SIF, danach Geschäftsführung.
-- G: Regel je Bereich. W: Fälligkeit erreicht. T: genau eine Mail je Stufe und Prüfart; Versand protokolliert.
+**US-14 Erinnerung und Eskalation (R-16, R-17, I3)** – ersetzt durch US-34 bis US-43 (Fachregeln F-30 bis F-43).
 
 **US-15 Export (R-25, I4)** – Als SIF will ich zum Stichtag den Prüfstatus aller Geräte, offene Mängel und Nachweise als Excel/PDF/ZIP.
 - T: Export enthält je Prüfart Frist, Quelle, Stufe, Fundstelle, letzte Prüfung mit Herkunft.
@@ -448,7 +552,86 @@ Rollen: ADM Admin · SIF Sifa · VER Verantwortlicher · PRF Prüfer · MA Mitar
 - T: keine Funktion verlangt Installation, Kamera-Berechtigung, Service Worker oder Push.
 - G: gemeinsam genutzter PC. W: Menü „Abmelden“. T: Sitzung beendet, zurück auf `/login` mit Hinweis „An gemeinsam genutzten Computern nach der Arbeit abmelden.“
 
-**Pilot-Gates (kein Code):** G-1 Katalogeinträge der Pilotgeräte vom Sicherheitsingenieur freigegeben (R-40). G-2 AVV, TOM, Unterauftragsverarbeiter-Liste unterschrieben (R-42). G-3 Supabase-Projekt in EU-Region (R-43). G-4 Betriebsrat informiert, Betriebsvereinbarung oder schriftlicher Verzicht, bevor im Pilot der erste Mitarbeiter eingeladen wird (R-44; Grundlage: F-27 und Datenkatalog §6a). Ohne Betriebsrat: schriftliche Bestätigung der Geschäftsführung, dass keiner besteht. G-5 Migrationen I1+I2+I3M (inkl. `20261129000000_review_i3m.sql`) gegen echte Supabase eingespielt (I3M inkl. `pg_cron`-Job für F-27; keine WARNING „READYLOOP F-27“ beim Einspielen, `cron_pseudonymisierung.test.sql` grün), pgTAP-RLS-Tests (`supabase test db`) grün, E-Mail-Vorlagen (Einladung, Passwort) und SMTP-Absender mit EU-Anbieter eingerichtet – vor dem ersten echten Datensatz.
+**User Stories I3 – E-Mail-Erinnerungen.** Beispiele mit „heute“ = Dienstag, 01.12.2026 (injiziert), Bereich Lager mit Standard-Einstellung (90/60/30, Eskalation 0/7/14, Sifa in Kopie), VER Lager, eine SIF, ein ADM.
+
+**US-34 Vorlauf (R-16, F-31, F-33, Must)** – Als VER will ich 90, 60 und 30 Tage vor einer Fälligkeit erinnert werden, damit ich die Prüfung rechtzeitig beauftrage.
+- G: Prüfart in Lager, freigegebene Frist, `faelligAm` 01.03.2027 (r = 90). W: Lauf. T: VER erhält eine Mail mit dem Posten in Gruppe „Vorlauf“, Rolle „Sie sind zuständig“, Frist mit Monaten, Quelle, Stufe und Fundstelle; SIF erhält denselben Posten „Zur Kenntnis“; ADM erhält nichts; Protokoll: zwei Versand-Datensätze, Posten-Stufe `v90`.
+- G: derselbe Fall. W: zweiter Lauf am selben Tag (zweiter Auslöser). T: Antwort `bereits_gelaufen`, keine Mail. W: Lauf mit `erzwingen` (Vorschau). T: keine neue Mail (Idempotenz F-33).
+- G: `v90` am 01.12. gesendet. W: Läufe bis r = 61. T: keine weitere Mail. W: Lauf bei r = 60. T: Stufe `v60`.
+- G: neues Gerät mit r = 20, nichts gesendet. W: Lauf. T: nur Stufe `v30`, keine Mails für `v90`/`v60`.
+- G: Bereich mit `sifaInKopie = false`. T: SIF erhält keinen Vorlauf-Posten.
+- G: Prüfart ohne freigegebene Frist oder mit Prüfdatum unbekannt. T: kein Posten in `frist_digest`.
+- G: Gerät außer Betrieb mit r = 30. T: kein Posten.
+
+**US-35 Eskalation (R-17, F-32, Must)** – Als Geschäftsführung will ich, dass überfällige Prüfungen nach festen Tagen bis zu mir eskalieren, damit ich meiner Organisationspflicht nachkomme.
+- G: `faelligAm` = 01.12.2026 (u = 0). W: Lauf. T: VER Posten `e_verantwortlicher` in Gruppe „Heute fällig“; SIF in Kopie.
+- G: `faelligAm` = 24.11.2026 (u = 7), `e_verantwortlicher` bereits gesendet. W: Lauf. T: SIF zuständig (`e_sifa`, Gruppe „Überfällig“, „seit 7 Tagen überfällig“), VER in Kopie, ADM nichts.
+- G: u = 14. T: ADM zuständig (`e_admin`), SIF und VER in Kopie. G: u = 15 und später. T: keine weitere Mail zu dieser Fälligkeit.
+- G: Lauf-Ausfall, erster Lauf bei u = 10, nichts gesendet. T: nur `e_sifa` (keine nachgeholte Zwischenstufe).
+- G: ADM-Empfänger ausgewählt = nur ADM „Geschäftsführung“. T: nur diese Person erhält `e_admin`.
+- G: Bereich ohne aktiven VER, u = 0. T: SIF zuständig mit Hinweis „Bereich ohne Verantwortlichen“.
+- G: Gerät außer Betrieb, Frist seit 20 Tagen abgelaufen (`vor_nutzung_pruefen`, Grund außer Betrieb). T: keine Eskalation.
+- G: Nachweis erfasst, neue `faelligAm` in 12 Monaten. T: Staffel beginnt für die neue Fälligkeit von vorn.
+
+**US-36 Sammelmail (F-30, F-38, Must)** – Als SIF will ich höchstens eine Mail am Tag, sortiert nach Dringlichkeit, damit Erinnerungen nicht untergehen.
+- G: SIF hat an einem Tag 1 × `e_sifa`, 2 × Kopie `e_verantwortlicher`, 5 × Kopie Vorlauf über drei Bereiche. W: Lauf. T: genau eine Mail; Gruppen „Überfällig“, „Heute fällig“, „In den nächsten 30 Tagen fällig“, „Vorlauf“ in dieser Reihenfolge; Betreff nennt Betrieb und Zählung.
+- G: Sifa ist extern und Mitglied in zwei Betrieben mit Posten. T: zwei Mails, je Betrieb eine (Q-47).
+- G: beliebige Mail. T: kein Personenname im Betreff, Text oder HTML; jeder Fristwert mit Quelle und Stufe; Links zeigen auf `/geraete/{id}` der App.
+- G: Mail mit einer Prüfart, deren Katalogschlüssel nur einen Entwurf hat. T: Entwurfshinweis (F-38).
+- G: 130 Posten. T: 50 Posten einzeln, „… und 80 weitere Prüfungen – in Readyloop ansehen“; alle 130 als erinnert gebucht (80 mit „in Summe genannt“).
+- G: Pflichtmail. T: keine Kopfzeile `List-Unsubscribe`, Fußzeile mit Begründung F-40.
+
+**US-37 Prüfer-Wochenübersicht (F-34, Should)** – Als PRF will ich montags eine Übersicht meiner fälligen Prüfungen in diesem Betrieb, damit ich Termine planen kann.
+- G: Montag 30.11.2026, PRF mit 3 zugewiesenen Prüfarten (überfällig, unbekannt, ok). W: Lauf. T: eine Mail mit 2 Posten („Überfällig“, „Ohne Termin“ mit „Frist über GBU festlegen“ bzw. „Prüfdatum unbekannt“), Link `/pruefer`, Kopfzeilen `List-Unsubscribe` und `List-Unsubscribe-Post`.
+- G: Lauf am Dienstag derselben Woche. T: keine zweite Übersicht. G: Montagslauf ausgefallen. W: Lauf am Dienstag. T: Übersicht wird nachgeholt.
+- G: PRF hat abbestellt oder keine fälligen Prüfarten. T: keine Mail.
+
+**US-38 Hinweis an Mitarbeiter (F-35, R-45, Should)** – Als MA will ich erfahren, wenn ein Gerät, das ich habe, nicht mehr verwendet werden darf, damit ich es nicht ungeprüft benutze.
+- G: Jonas hat L-008 übernommen; L-008 ist überfällig. W: Lauf. T: Jonas erhält eine Mail mit L-008, „Nicht verwenden – Überfällig“, Handlung „… und zurückgeben“, Link `/meine-geraete`; keine Namen, keine Mängelbeschreibung, keine Fristwerte.
+- W: nächster Lauf, Zustand unverändert. T: keine Mail. G: zusätzlich wird ein gefährlicher Mangel gemeldet. W: nächster Lauf. T: Gesamtstatus bleibt `ueberfaellig` (F-9), Zustandskennung unverändert – kein zweiter Hinweis. G: L-008 wird geprüft (ok), danach gefährlicher Mangel gemeldet. T: neuer Hinweis „Gefährlicher Mangel offen“.
+- G: Aylin hält P-003 (verwendbar), ein anderes Gerät der Organisation ist überfällig. T: Aylin erhält nichts.
+- G: Nutzbarkeit `unklar`. T: kein Hinweis.
+- G: ADM oder SIF öffnet das Protokoll. T: die Zeile zeigt „Mitarbeiter/in“, kein Gerät, kein Name (außer bei Zustellproblem).
+
+**US-39 Einstellungen je Bereich (F-39, Must)** – Als ADM will ich Staffel, Eskalationstage und Empfänger je Bereich einstellen, damit die Kette zu unserer Organisation passt.
+- G: ADM, `/admin/erinnerungen`. T: je Bereich Staffel, Eskalation, Sifa in Kopie, Empfänger und Kennzeichnung „Standard“ bzw. geändert (Name, Datum).
+- W: Produktion auf Staffel 60/30/14, Eskalation 0/3/10, ADM-Auswahl „Geschäftsführung“ speichern. T: gespeichert; Ereignis `erinnerung_einstellung_gespeichert` mit alt und neu; nächster Lauf nutzt die Werte.
+- W: Staffel 30/30. T: Feldfehler „Jeder Wert nur einmal.“ W: Eskalation 0/14/7. T: Feldfehler an `eskalationSifa`. W: Staffel 400. T: Feldfehler. W: Auswahl „Auswahl“ ohne Person. T: Feldfehler.
+- W: „Auf Standard zurücksetzen“. T: 90/60/30, 0/7/14, Sifa in Kopie, alle.
+- G: Bereich ohne aktiven VER. T: Warnung „Kein aktiver Verantwortlicher – Erinnerungen gehen an die Sifa.“
+- G: SIF, VER, PRF, MA. W: `/admin/erinnerungen` oder Action per Request. T: 404 bzw. abgelehnt.
+
+**US-40 Abmelden und Pflichtmails (F-40, Must)** – Als PRF oder MA will ich nicht-pflichtige Mails selbst abbestellen; als ADM will ich, dass Pflichtmails nicht abbestellt werden können.
+- G: PRF, `/einstellungen/benachrichtigungen`. T: „Wochenübersicht für Prüfer“ mit Schalter; W: abbestellen. T: gespeichert, nächste Woche keine Mail; W: wieder bestellen. T: wieder aktiv.
+- G: Link in der Mail. W: `GET /abmelden?t=…`. T: Bestätigungsseite ohne Änderung; W: „Abbestellen“. T: abgemeldet, Seite bestätigt. W: One-Click-POST des Mailprogramms. T: abgemeldet, HTTP 200.
+- W: verändertes Token. T: „Dieser Link ist nicht gültig.“, keine Änderung.
+- G: VER, SIF, ADM. T: Seite zeigt „Fristen-Erinnerung“ als Pflicht mit Begründung, ohne Schalter; Action mit `art=frist_digest` → abgelehnt. VER sieht die Einstellungen seiner Bereiche lesend, SIF und ADM alle.
+- G: PRF versucht `art=ma_hinweis`. T: abgelehnt (nur die eigene Art).
+
+**US-41 Versandprotokoll (F-41, R-45, Must)** – Als SIF will ich sehen, wer wann woran erinnert wurde und ob die Mail ankam, damit ich die Fristenüberwachung nachweisen kann.
+- G: ADM oder SIF, `/erinnerungen/protokoll`. T: Mails der letzten 30 Tage, neueste zuerst; je Zeile Datum, Art, Empfänger, Status-Text, Versuche, Anzahl Posten; aufklappbar Posten; oben „Letzter Lauf“.
+- W: Filter „Probleme“. T: nur `fehler`, `bounce`, `beschwerde`. W: Filter Bereich Lager. T: nur Mails mit Posten aus Lager. Filter stehen in der URL.
+- G: Webhook meldet Bounce. T: Status „Nicht zustellbar – E-Mail-Adresse prüfen“.
+- T: kein Filter, keine Sortierung und keine Zählung nach Person; keine Mailtexte, keine E-Mail-Adressen.
+- G: VER, PRF, MA. W: Seite aufrufen. T: 404. Supabase: direkter SELECT auf `mail_versand`, `erinnerung_posten` liefert keine Zeilen; nur RPC `mail_protokoll` für ADM/SIF.
+
+**US-42 Auslöser, Wiederholung und Vorschau (F-36, F-37, P-10, Must)** – Als Max will ich, dass der Lauf zuverlässig einmal je Werktag läuft und ich Mails ohne Versand prüfen kann.
+- G: `CRON_SECRET` gesetzt. W: Aufruf ohne oder mit falschem Bearer. T: 401. G: kein `CRON_SECRET`. T: 503.
+- G: Vercel Cron und `pg_cron` lösen beide aus. T: genau ein Lauf, der zweite antwortet `bereits_gelaufen`.
+- G: Samstag. T: `kein_werktag`, keine Mail.
+- G: Adapter liefert zweimal 503, dann ok. T: Status `versendet`, `versuche = 3`. G: dreimal 503. T: `fehler`; nächster Werktag: Posten in der neuen Sammelmail.
+- G: Demo-Modus, ADM, `/admin/mails`. W: „Erinnerungslauf jetzt ausführen“ mit Datum 30.11.2026. T: gerenderte Mails aller Empfänger erscheinen (Betreff, Empfängeradresse, HTML in Sandbox, Textteil, `List-Unsubscribe` falls vorhanden); nichts verlässt den Server; Protokoll zeigt `vorschau`.
+- G: Produktion mit Supabase ohne Resend-Variablen. T: Modus `aus`, Lauf 503 `nicht_konfiguriert`, `/admin/mails` 404, Einstellungsseiten zeigen „Mailversand ist nicht eingerichtet“.
+- G: `CRON_SECRET` mit 31 Zeichen. T: 503. G: Produktion mit Supabase und Resend, ohne `NEXT_PUBLIC_SITE_URL`. W: Aufruf mit gültigem Bearer. T: 503 `nicht_konfiguriert`, nichts geschrieben.
+- G: Zeitbudget (20 s) erschöpft. T: Lauf endet `teilweise` (HTTP 200), kein Versand bleibt `vorbereitet`; der Auslöser um 05:20 UTC setzt fort, kein Empfänger erhält eine zweite Mail; Protokoll zeigt „Teilweise – wird fortgesetzt.“
+- G: Supabase-Modus mit Vorschau-Adapter (Entwicklung). W: „Erinnerungslauf jetzt ausführen“ zweimal. T: beide Male dieselben Mails in der Vorschau, nur für die eigene Organisation; Protokoll unverändert (Trockenlauf, F-33).
+
+**US-43 Bugfix QR-Seite (F-24, R-09, Must)** – Als nicht angemeldete Person vor einem überfälligen Gerät will ich keinen Knopf „Anmelden und übernehmen“ sehen, damit niemand zur Übernahme eines Geräts mit „Nicht verwenden“ geführt wird.
+- G: nicht angemeldet, L-001 (`wechselnd`, überfällig). W: `/g/demoL001xxxxxxxxxxxxxx`. T: kein „Anmelden und übernehmen“; „Anmelden und Mangel melden“ vorhanden.
+- G: wechselndes Gerät außer Betrieb. T: kein „Anmelden und übernehmen“.
+- G: L-002 (`wechselnd`, bald fällig). T: „Anmelden und übernehmen“ vorhanden. G: Gerät mit Nutzbarkeit `unklar`. T: Knopf vorhanden (Q-30).
+
+**Pilot-Gates (kein Code):** G-1 Katalogeinträge der Pilotgeräte vom Sicherheitsingenieur freigegeben (R-40). G-2 AVV, TOM, Unterauftragsverarbeiter-Liste unterschrieben (R-42). G-3 Supabase-Projekt in EU-Region (R-43). G-4 Betriebsrat informiert, Betriebsvereinbarung oder schriftlicher Verzicht, bevor im Pilot der erste Mitarbeiter eingeladen wird (R-44; Grundlage: F-27 und Datenkatalog §6a). Ohne Betriebsrat: schriftliche Bestätigung der Geschäftsführung, dass keiner besteht. G-5 Migrationen I1+I2+I3M (inkl. `20261129000000_review_i3m.sql`) gegen echte Supabase eingespielt (I3M inkl. `pg_cron`-Job für F-27; keine WARNING „READYLOOP F-27“ beim Einspielen, `cron_pseudonymisierung.test.sql` grün), pgTAP-RLS-Tests (`supabase test db`) grün, E-Mail-Vorlagen (Einladung, Passwort) und SMTP-Absender mit EU-Anbieter eingerichtet – vor dem ersten echten Datensatz. **G-6 (vor der ersten echten Erinnerungs-Mail, I3):** Resend-Konto mit Senderegion EU, Absenderdomain mit SPF, DKIM und DMARC verifiziert, Öffnungs-/Klick-Tracking aus; Resend mit AVV in der Unterauftragsverarbeiter-Liste (G-2, Q-55); `CRON_SECRET` (≥ 32 Zeichen), `RESEND_API_KEY`, `MAIL_ABSENDER`, `MAIL_ABMELDE_SECRET` (≥ 32 Zeichen), `RESEND_WEBHOOK_SECRET` und `NEXT_PUBLIC_SITE_URL` (Produktions-URL, Pflicht) gesetzt, Webhook eingerichtet; Vercel Cron mit beiden Einträgen (05:00 und 05:20 UTC) aktiv; Migration I3 eingespielt mit `pg_cron` **und** `pg_net`, Vault-Secrets `readyloop_cron_url` und `readyloop_cron_secret` angelegt, keine WARNING „READYLOOP F-36“, `cron_erinnerungen.test.sql` grün (Jobs `readyloop_erinnerungen`, `readyloop_erinnerungen_fortsetzung`, `readyloop_mail_pseudonymisieren`); Probeaufruf der Cron-Route mit gültigem Bearer antwortet nicht 503; ein Probelauf mit Pilotdaten im Modus `vorschau` von Sifa gegengelesen; Betriebsrat über MA-Hinweis und Protokoll informiert (Datenkatalog §6a, G-4).
 
 ## 5. Datenmodell
 
@@ -468,12 +651,18 @@ Entitäten (I1 fett; übrige ab I2+):
 | **ereignis** | typ, geraet_id?, akteur_id, akteur_name, zeitpunkt, daten (jsonb) | n:1 organisation; nur INSERT per Trigger |
 | anlass (I2) | geraet_id, geraet_pruefart_id, art, datum, beschreibung, erfasst_von/_name/_am, aufgehoben_von/_name/_am?, aufhebungsgrund? | n:1 geraet_pruefart; INSERT + einmaliges Aufheben; „offen“ wird berechnet (F-10) |
 | mangel (I2) | geraet_id, geraet_pruefart_id?, nachweis_id?, beschreibung, schwere, termin, status, verantwortlich_id?, erfasst_von/_name/_am, kenntnis_von/_name/_am?, behoben_am?, behoben_durch?, behebung?, behebung_erfasst_von/_name/_am? | n:1 geraet, n:1 geraet_pruefart?, n:1 nachweis?; nur Statusübergänge F-14 |
-| erinnerung (I3) | geraet_pruefart_id, stufe, versendet_am, empfaenger | |
+| erinnerung_einstellung (I3) | bereich_id (PK), staffel_tage int[], eskalation_verantwortlicher/_sifa/_admin int, sifa_in_kopie, sifa_empfaenger uuid[]?, admin_empfaenger uuid[]? (null = alle aktiven), geaendert_von/_name/_am | 1:1 bereich; fehlt → Standard; INSERT/UPDATE nur ADM; kein DELETE |
+| mail_abmeldung (I3) | benutzer_id, art (`pruefer_woche` \| `ma_hinweis`), abgemeldet bool, geaendert_am | n:1 organisation; unique (organisation, benutzer, art); nur die Person selbst (RLS) bzw. Service per Token; kein DELETE |
+| erinnerung_lauf (I3, ohne Betriebsbezug) | lauf_datum, ausloeser, status (`laeuft` \| `fertig` \| `teilweise` \| `fehler`; `teilweise` = Zeitbudget erschöpft, F-36), gestartet_am, beendet_am? | global; nur `service_role`; partieller Unique-Index (lauf_datum) where status = 'laeuft' |
+| mail_versand (I3) | lauf_id, lauf_datum, art, empfaenger_benutzer_id?, status, versuche, anbieter_id?, fehler_code? (inkl. `abgebrochen`, F-36), posten_anzahl (inkl. Posten „in Summe“), erstellt_am, versendet_am?, status_am, pseudonymisiert_am? | n:1 organisation, n:1 erinnerung_lauf; unique (organisation, empfaenger, lauf_datum); **kein Betreff, kein Inhalt, keine Adresse**; nur Statusfortschritt (F-41) |
+| erinnerung_posten (I3) | versand_id, schluessel, art, stufe, geraet_id, geraet_pruefart_id?, bereich_id, bezug_datum?, rolle, empfaenger_benutzer_id?, in_summe (Posten ab Platz 51, nur in Summe genannt, gilt als erinnert, F-33) | n:1 mail_versand; unique (versand_id, schluessel); nur INSERT; `ma_hinweis` nach 90 Tagen ohne Empfänger |
 | geraet_token (I3M) | geraet_id, token (22 Zeichen base64url, unique), aktiv, erstellt_am, deaktiviert_am? | n:1 geraet; genau ein aktiver Token je Gerät (partieller Unique-Index); entsteht per Trigger beim Anlegen; NFC nutzt ab I5 denselben Token |
 | uebernahme (I3M) | geraet_id, benutzer_id?, benutzer_name?, von, bis?, ende_art?, beendet_von?, pseudonymisiert_am? | n:1 geraet; höchstens eine offene je Gerät (partieller Unique-Index `bis is null`); INSERT, einmaliges Beenden, Pseudonymisierung nach 90 Tagen (F-23, F-27); kein DELETE |
 | pruefer_qualifikation (später) | mitgliedschaft_id, typ, nachweis, gueltig_bis | I2 vereinfacht: `mitgliedschaft.pruefer_typen` (Q-22) |
 
-Ereignisse I1: `geraet_angelegt`, `frist_freigegeben` (alte und neue Frist in `daten`), `nachweis_erfasst`. I2: siehe F-19. I3M: siehe F-28 (Übernahmen bewusst ohne Ereignis). Später: `export_erstellt` (I4).
+Ereignisse I1: `geraet_angelegt`, `frist_freigegeben` (alte und neue Frist in `daten`), `nachweis_erfasst`. I2: siehe F-19. I3M: siehe F-28 (Übernahmen bewusst ohne Ereignis). I3: `erinnerung_einstellung_gespeichert` (F-42; Versand bewusst ohne Ereignis). Später: `export_erstellt` (I4).
+
+RPCs I3 (Details Backlog BE-27): `erinnerung_lauf_starten`, `erinnerung_lauf_beenden`, `erinnerung_versand_reservieren`, `erinnerung_versand_status`, `mail_abmelden_system` – nur `service_role`; `mail_protokoll(…)` – `security definer`, nur ADM/SIF der Organisation, maskiert MA-Hinweise (F-41). Jobs: `readyloop_erinnerungen` (`pg_cron` + `pg_net`, Mo–Fr 05:00 UTC → `/api/cron/erinnerungen`), `readyloop_mail_pseudonymisieren` (täglich 03:20 Europe/Berlin).
 
 RPCs (Supabase, `security invoker`, damit RLS greift und mehrere Schreibvorgänge eine Transaktion sind): `geraet_anlegen`, `frist_setzen`, `geraet_verschieben`, `betriebsstatus_setzen`, `mitglied_speichern`; I3M: `etikett_erneuern`. Begründungen und Nachweisbezug gelangen über `set_config('readyloop.kontext', …, true)` in die Ereignis-Trigger.
 
@@ -489,7 +678,7 @@ Speicherung PDF: Supabase Storage, privater Bucket `nachweise`, Pfad `{organisat
 
 ## 6. Rechte-Matrix
 
-Rollenebene = `can(rolle, aktion)`. Geltungsbereich zusätzlich: ADM/SIF ganze Organisation · VER eigene Bereiche · PRF nur Prüfarten mit `zugewiesener_pruefer_id` = eigene Benutzer-ID · MA: keine Geräteakte; „Meine Geräte“ (zugeordnet oder offene eigene Übernahme) und Kurzansicht aller Geräte der Organisation mit den Feldern der öffentlichen Ansicht (I3M). `imGeltungsbereich` bleibt für MA `false`. Nur aktive Mitgliedschaften zählen (I2). Stand I3M; Code: `src/domain/rechte.ts`, Vertrag `docs/backlog.md` §5.3 und §7.3.
+Rollenebene = `can(rolle, aktion)`. Geltungsbereich zusätzlich: ADM/SIF ganze Organisation · VER eigene Bereiche · PRF nur Prüfarten mit `zugewiesener_pruefer_id` = eigene Benutzer-ID · MA: keine Geräteakte; „Meine Geräte“ (zugeordnet oder offene eigene Übernahme) und Kurzansicht aller Geräte der Organisation mit den Feldern der öffentlichen Ansicht (I3M). `imGeltungsbereich` bleibt für MA `false`. Nur aktive Mitgliedschaften zählen (I2). Stand I3 (geplant); Code: `src/domain/rechte.ts`, Vertrag `docs/backlog.md` §5.3, §7.3 und §9.3.
 
 | Aktion | ADM | SIF | VER | PRF | MA |
 |---|---|---|---|---|---|
@@ -521,7 +710,15 @@ Rollenebene = `can(rolle, aktion)`. Geltungsbereich zusätzlich: ADM/SIF ganze O
 | etikett.verwalten (I3M: drucken, erneuern) | ✓ | – | ✓ Bereich | – | – |
 | mitarbeiter.einladen (I3M) | ✓ | – | ✓ nur Rolle `mitarbeiter` | – | – |
 | Öffentliche QR-Seite `/g/{token}` (I3M) | jeder, auch ohne Login | ← | ← | ← | ← |
-| nachweis.loeschen, mangel.loeschen, anlass.loeschen, uebernahme.loeschen | – | – | – | – | – |
+| erinnerung.einstellen (I3: Staffel, Eskalation, Empfänger je Bereich, F-39) | ✓ | – | – | – | – |
+| erinnerung.protokoll (I3: Versandprotokoll, F-41; MA-Hinweise maskiert) | ✓ | ✓ | – | – | – |
+| mail.vorschau (I3: `/admin/mails`, Lauf manuell; nur Mail-Modus `vorschau`) | ✓ | – | – | – | – |
+| benachrichtigung.eigene (I3: eigene Mails ansehen, F-40) | ✓ ansehen (Pflicht) + Einstellungen aller Bereiche lesend | ✓ ansehen (Pflicht) + Einstellungen aller Bereiche lesend | ✓ ansehen (Pflicht) + Einstellungen eigener Bereiche lesend | ✓ `pruefer_woche` ab-/anbestellen | ✓ `ma_hinweis` ab-/anbestellen |
+| Empfang `frist_digest` (Pflicht, F-31/F-32) | `e_admin` (Auswahl oder alle) | Kopie Vorlauf/`e_verantwortlicher` (wenn `sifaInKopie`), zuständig `e_sifa`, Ersatz bei Bereich ohne VER | ✓ Bereich: Vorlauf, `e_verantwortlicher`; Kopie ab `e_sifa` | – | – |
+| Empfang `pruefer_woche` (F-34) | – | – | – | ✓ zugewiesene fällige Prüfarten | – |
+| Empfang `ma_hinweis` (F-35) | – | – | – | – | ✓ nur eigene Geräte |
+| Abmelden per Mail-Link ohne Login (F-40) | jeder mit gültigem Token, nur die Art und Organisation aus dem Token | ← | ← | ← | ← |
+| nachweis.loeschen, mangel.loeschen, anlass.loeschen, uebernahme.loeschen, mail_versand/erinnerung_posten löschen | – | – | – | – | – |
 
 `katalog.freigeben` hat keine Rolle im Betrieb; Katalogfreigabe läuft plattformseitig (Migration/Service-Role) mit Name, Datum, Version des Sicherheitsingenieurs.
 
@@ -536,6 +733,12 @@ RLS I3M (Kurzfassung, Details Backlog BE-19):
 - `mitgliedschaft` INSERT zusätzlich für VER, nur Rolle `mitarbeiter`, ohne Bereichszuordnung.
 - `anon`: nur `execute` auf `geraet_oeffentlich(text, uuid)`; alle übrigen Funktionen (auch `app.geraet_status_json`, `ma_kurzansichten`, `uebernahmen_verlauf`) ausdrücklich `revoke execute … from anon, public`.
 
+RLS I3 (Kurzfassung, Details Backlog BE-27):
+- `erinnerung_einstellung`: SELECT ADM, SIF (Organisation), VER (eigene Bereiche); INSERT/UPDATE nur ADM; kein DELETE. Trigger schreibt `erinnerung_einstellung_gespeichert`.
+- `mail_abmeldung`: SELECT/INSERT/UPDATE nur eigene Zeilen (`benutzer_id = auth.uid()` und aktives Mitglied der Organisation); kein DELETE.
+- `mail_versand`, `erinnerung_posten`, `erinnerung_lauf`: RLS an, **keine** Policies für `authenticated`/`anon`; Lesen nur über `mail_protokoll` (ADM/SIF, maskiert), Schreiben nur über `service_role`-RPCs. Trigger erzwingen Unveränderlichkeit und Statusübergänge (F-41) auch für `service_role`.
+- Alle neuen Funktionen `revoke execute … from public, anon`; System-RPCs zusätzlich `revoke … from authenticated`, `grant … to service_role`.
+
 ## 6a. Datenkatalog Mitarbeiter (Baustein Betriebsrats-Paket R-44, G-4)
 
 | Datum | Zweck | Wer sieht es | Speicherdauer |
@@ -547,8 +750,11 @@ RLS I3M (Kurzfassung, Details Backlog BE-19):
 | Beendende Person einer Übernahme (`beendet_von`, Benutzer-ID) | technische Nachvollziehbarkeit des Endes (Übergabe, Beenden durch Verwaltung) | niemand in der App | wie abgeschlossene Übernahme: nach 90 Tagen entfernt |
 | Gemeldeter Mangel (Name des Melders, Zeitpunkt, Beschreibung) | Rückfragen, Sicherheitsdokumentation (R-12) | ADM, SIF, VER (Bereich) | wie Mängel (unbefristet, R-02/Q-12) |
 | Login-Zeitpunkte | Betrieb der Anmeldung | nur Plattform (Supabase-Auth-Protokoll), nicht in der App | nach Supabase-Standard; in AVV/TOM benennen (G-2) |
+| Hinweis-Mail „Nicht verwenden“ (I3: Empfänger, Datum, Status; im Posten Gerät und Zustandskennung) | Hinweis nur einmal je Zustand senden (Idempotenz), Zustellfehler beheben | niemand in der App mit Gerät; ADM/SIF sehen im Protokoll nur „Mitarbeiter/in“, den Namen nur bei Zustellproblem | Empfänger nach 90 Tagen entfernt (täglicher Job), Rest unbefristet |
+| Abmeldung von Hinweis-Mails (Art, Status, Zeitpunkt) | Wunsch der Person umsetzen | nur die Person selbst | bis Widerruf; Austritt beendet den Empfang ohnehin |
+| E-Mail-Adresse und Mailinhalt beim Versanddienst (Resend) | Zustellung | Versanddienst als Unterauftragsverarbeiter (AVV, G-2/G-6); nicht in der Readyloop-Datenbank | nach AVV des Versanddienstes; in G-6 festhalten |
 
-Nicht erhoben: Standort, Gerätedaten des Handys, Nutzungsdauer, Scans ohne Aktion, Zahl der Meldungen oder Übernahmen je Person.
+Nicht erhoben: Standort, Gerätedaten des Handys, Nutzungsdauer, Scans ohne Aktion, Zahl der Meldungen oder Übernahmen je Person; in I3 zusätzlich keine Öffnungs- oder Klickverfolgung von Mails.
 
 ## 7. Offene Fragen (mit Default)
 
@@ -557,7 +763,7 @@ Nicht erhoben: Standort, Gerätedaten des Handys, Nutzungsdauer, Scans ohne Akti
 | Q-1 | Reicht für § 14 Abs. 7 (Unterschrift/elektronische Signatur) ein PDF mit Unterschrift plus Login-Bestätigung? | Ja: PDF-Upload Pflicht + Bestätigung „PDF enthält Unterschrift“. Qualifizierte E-Signatur nicht im MVP. Jurist klären |
 | Q-2 | Darf die Sifa Geräte anlegen und Nachweise erfassen? | Nein (Projektstand). Matrix in `rechte.ts`, Änderung ist eine Zeile |
 | Q-3 | Reihenfolge Gesamtstatus `unbekannt` vor `gbu`? | Ja wie F-6; im Pilot mit Sifa prüfen |
-| Q-4 | Vorlauf „bald fällig“ | 30 Tage fest in I1; 90/60/30 je Bereich ab I3 |
+| Q-4 | Vorlauf „bald fällig“ | Entschieden (I3, F-30): Status-Schwelle bleibt 30 Tage; 90/60/30 je Bereich gilt nur für Mails (F-31) |
 | Q-5 | Wer gibt den Katalog frei, bis wann? | Kein Pilotstart, bevor die Einträge der Pilotgeräte freigegeben sind (G-1). Bis dahin GBU-Fristen |
 | Q-6 | Ergebnis `nicht_bestanden`: Frist neu starten? | Nein. Letzte Prüfung bleibt, Status „vor Nutzung prüfen“ bis bestandene Nachprüfung, Führung zur Mängelerfassung (F-12). Mit Sifa im Pilot prüfen |
 | Q-7 | Prüfer-Zuweisung je Prüfart oder je Gerät? | Je Prüfart (Elektro- und Kranprüfer unterscheiden sich) |
@@ -576,7 +782,7 @@ Nicht erhoben: Standort, Gerätedaten des Handys, Nutzungsdauer, Scans ohne Akti
 | Q-20 | Ausmustern in I2? | Nein; `ausgemustert` kommt mit der Aufbewahrungs-Nachfrist in I4 |
 | Q-21 | GBU-Dokument je Prüfart oder je Gerätegruppe (US-22 alt)? Upload? | Je Prüfart, nur Titel + https-Link, kein Upload. Upload ggf. mit Betriebsanleitung in I4 |
 | Q-22 | Prüferqualifikation mit Gültigkeit und Nachweisdokument? | I2 nur Typen an der Prüfer-Mitgliedschaft, Warnung ohne Block. Gültigkeit/Dokument nach Pilotfeedback |
-| Q-23 | Einladung eines Benutzers, der schon ein Konto hat (Prüfer mehrerer Betriebe) | Mitgliedschaft anlegen, keine Mail; UI-Hinweis. Benachrichtigungs-Mail ab I3 (Resend) |
+| Q-23 | Einladung eines Benutzers, der schon ein Konto hat (Prüfer mehrerer Betriebe) | Mitgliedschaft anlegen, keine Mail; UI-Hinweis. Benachrichtigungs-Mail nicht in I3 (Q-56); kann später über den I3-`MailAdapter` laufen |
 | Q-24 | Lassen sich pgTAP-Tests im Agentenlauf ausführen? | Nein (keine lokale Supabase/Docker). Tests werden geschrieben; Ausführung ist Gate G-5 vor Pilotstart |
 | Q-25 | Darf ein Anlass zurückgenommen werden? | Ja, „aufheben“ mit Begründung ≥ 10 Zeichen durch SIF/VER; bleibt im Verlauf sichtbar |
 | Q-26 | Darf nach einer Prüfung über den Stufe-B-Richtwert hinaus verlängert werden? | Ja, wie F-4: GBU-Frist mit Begründung und Fundstelle; Stufe A und Herstellerfrist bleiben harte Grenzen |
@@ -600,3 +806,17 @@ Nicht erhoben: Standort, Gerätedaten des Handys, Nutzungsdauer, Scans ohne Akti
 | Q-44 | Benachrichtigung des vorherigen Halters bei Übergabe? | Keine (Push ausgeschlossen, E-Mail dafür nicht nötig). Er sieht das Gerät nicht mehr in „Meine Geräte“ |
 | Q-45 | Kategorie eines Geräts nachträglich ändern (z. B. personenbezogen → wechselnd)? | Nicht in I3M; kommt mit der Stammdatenbearbeitung (I4). Bis dahin neu anlegen |
 | Q-46 | Ende von Zuordnung und Übernahme beim Ausmustern (I4)? | Ausmustern löst Zuordnung und beendet Übernahme (`beendet_verwaltung`); Regel wird in I4 umgesetzt |
+| Q-47 | „Eine Mail je Empfänger und Tag“ – je Betrieb oder über alle Betriebe einer Person (externe Sifa, Prüfer)? | Je Betrieb. Mandantentrennung (RLS, Betrieb im Betreff, Links in die richtige Organisation); externe Personen ordnen Mails so ihrem Kunden zu. Im Pilot nachfragen, ob Prüfdienstleister eine betriebsübergreifende Übersicht wollen (dann I6 mit Aufträgen) |
+| Q-48 | Nach `e_admin` weitere Erinnerungen (z. B. wöchentlich), solange überfällig? | Nein. Die Geräteliste zeigt „Überfällig – nicht verwenden“ dauerhaft; Prüfer-Wochenübersicht läuft weiter. Wiederholungsmails erzeugen Gewöhnung. Im Pilot mit Sifa prüfen, ggf. Option „alle n Tage wiederholen“ je Bereich |
+| Q-49 | Geschäftsführung ohne Readyloop-Konto als Eskalationsempfänger (freie E-Mail-Adresse)? | Nein. Geschäftsführung wird als ADM eingeladen und in der ADM-Auswahl gewählt. Grund: keine Adressen ohne Konto und Abmeldeweg, keine Fehlleitung, Links funktionieren nur mit Konto |
+| Q-50 | Mail an den VER bei neu gemeldetem gefährlichem Mangel, neuem Anlass oder Status „Prüfdatum unbekannt“? | Nicht in I3 (Umfang Max 23.11.). Empfehlung: als nächstes kleines Paket einen Abschnitt „Neu: nicht verwenden“ in der Tagesmail des VER (gefährliche Mängel, Anlässe), weil der Lauf diese Zustände für F-35 ohnehin berechnet. Entscheidung Max |
+| Q-51 | Laufzeit und Feiertage | Mo–Fr 05:00 UTC (06:00 MEZ / 07:00 MESZ), keine Feiertagslogik; was an Feiertagen fällig wird, kommt am Feiertag selbst. Bundeslandkalender erst bei Bedarf |
+| Q-52 | Wochentag der Prüfer-Übersicht einstellbar? | Nein, Montag (Nachholung im Laufe der Woche). Einstellbar erst nach Pilotfeedback |
+| Q-53 | Aufbewahrung des Versandprotokolls (`frist_digest`, `pruefer_woche`) | Unbefristet wie Ereignisse: Nachweis, dass die Fristenüberwachung organisiert war (Organisationspflicht). MA-Hinweise nach 90 Tagen ohne Empfänger (F-41). Datenschutzbeauftragter des Pilotkunden bestätigt |
+| Q-54 | Service-Role-Schlüssel für Lauf, One-Click-Abmeldung und Webhook (Erweiterung F-8) | Ja, eng begrenzt nach F-43: eine Datei, ein Importeur, jede Abfrage mit `organisation_id`, Schreiben nur über `service_role`-RPCs, statischer Test auf Importstellen. Alternative (alles in Postgres per `pg_net` an Resend) verworfen: Mail-Vorlagen und Tests gehören in TypeScript |
+| Q-55 | Resend (US-Anbieter) trotz Q-27 „EU-Anbieter“? | Resend wie im Projektstand-Stack, Senderegion EU, AVV und Standardvertragsklauseln, Eintrag in die Unterauftragsverarbeiter-Liste (G-6). Mailinhalt ohne Personennamen (F-38) verringert das Risiko. Der Adapter erlaubt den Wechsel zu einem EU-Anbieter ohne Fachcode-Änderung. Jurist/DSB bestätigt |
+| Q-56 | Benachrichtigungs-Mail bei Einladung eines bekannten Kontos (Q-23) | Nicht in I3; später über `MailAdapter` als eigene Art ohne Abmeldung (einmalig) |
+| Q-57 | Sifa in Kopie schon beim Vorlauf – zu viele Mails? | Default an (Projektstand „Sifa in Kopie“), je Bereich abschaltbar; durch die Sammelmail höchstens eine Mail je Tag |
+| Q-58 | Hinweis an den MA, wenn das Gerät wieder verwendbar ist? | Nein (kein Handlungsbedarf, weniger Mails). Der MA sieht den Status in „Meine Geräte“ |
+| Q-59 | Zeigt die Geräteakte je Prüfart „zuletzt erinnert am … (Stufe)“? | Nicht in I3; Protokoll reicht für den Nachweis. Nach Pilotfeedback |
+| Q-60 | Erneut senden per Knopf im Protokoll (z. B. nach Adresskorrektur)? | Nein in I3; nicht erfolgreich versendete Posten kommen am nächsten Werktag automatisch erneut (F-36). Bounce zählt als versendet – nach Adresskorrektur erhält die Person die nächste Stufe regulär |

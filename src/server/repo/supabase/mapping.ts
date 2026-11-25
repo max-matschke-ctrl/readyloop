@@ -1,7 +1,13 @@
 // Mapping Postgres (snake_case) ↔ Vertrag (BE-13). Reine Funktionen, ohne Supabase-Abhängigkeit.
+import { istStandard } from '@/domain/erinnerungen';
 import type {
   Anlass,
   Benutzer,
+  ErinnerungEinstellung,
+  ErinnerungLauf,
+  ErinnerungPosten,
+  MailVersand,
+  Rolle,
   Bereich,
   Ereignis,
   FestgelegteFrist,
@@ -16,7 +22,7 @@ import type {
   Organisation,
   Uebernahme,
 } from '@/domain/types';
-import type { KurzRohdaten, StatusRohdaten, TokenRohdaten, UebernahmeVerlaufEintrag } from '../types';
+import type { KurzRohdaten, ProtokollRohdaten, StatusRohdaten, TokenRohdaten, UebernahmeVerlaufEintrag } from '../types';
 
 // ---------- Zeilentypen (Spalten wie in den Migrationen) ----------
 
@@ -721,6 +727,200 @@ export const vonTokenRohdaten = (r: TokenRohdaten): TokenRohJson => ({
   ...vonStatusRoh(r),
   organisation_name: r.organisationName,
   ...(r.eigeneOrganisation ? { geraet_id: r.eigeneOrganisation.geraetId, gleiche_organisation: true } : {}),
+});
+
+// ---------- I3: Erinnerungen (BE-28) ----------
+
+export interface ErinnerungEinstellungZeile {
+  bereich_id: string;
+  organisation_id: string;
+  staffel_tage: number[];
+  eskalation_verantwortlicher: number;
+  eskalation_sifa: number;
+  eskalation_admin: number;
+  sifa_in_kopie: boolean;
+  sifa_empfaenger: string[] | null;
+  admin_empfaenger: string[] | null;
+  geaendert_von: string | null;
+  geaendert_von_name: string | null;
+  geaendert_am: string;
+}
+export interface MailVersandZeile {
+  id: string;
+  organisation_id: string;
+  lauf_id: string;
+  lauf_datum: string;
+  art: MailVersand['art'];
+  empfaenger_benutzer_id: string | null;
+  status: MailVersand['status'];
+  versuche: number;
+  anbieter_id: string | null;
+  fehler_code: MailVersand['fehlerCode'];
+  posten_anzahl: number;
+  erstellt_am: string;
+  versendet_am: string | null;
+  status_am: string;
+}
+export interface ErinnerungPostenZeile {
+  id: string;
+  organisation_id: string;
+  versand_id: string;
+  schluessel: string;
+  art: ErinnerungPosten['art'];
+  stufe: string;
+  geraet_id: string;
+  geraet_pruefart_id: string | null;
+  bereich_id: string;
+  bezug_datum: string | null;
+  rolle: ErinnerungPosten['rolle'];
+  empfaenger_benutzer_id: string | null;
+  in_summe?: boolean | null; // fehlt bei älteren Antworten → false
+  erstellt_am: string;
+}
+export interface ErinnerungLaufZeile {
+  id: string;
+  lauf_datum: string;
+  ausloeser: ErinnerungLauf['ausloeser'];
+  status: ErinnerungLauf['status'];
+  gestartet_am: string;
+  beendet_am: string | null;
+}
+/** Antwort der RPC mail_protokoll (maskiert bereits MA-Hinweise, F-41). */
+export interface ProtokollJson {
+  gesamt: number;
+  versand: (MailVersandZeile & { empfaenger_name: string | null; empfaenger_rolle: Rolle | null })[];
+  posten: ErinnerungPostenZeile[];
+  letzter_lauf: { lauf_datum: string; status: ErinnerungLauf['status']; beendet_am: string | null } | null;
+}
+
+export const SPALTEN_I3 = {
+  einstellung:
+    'bereich_id, organisation_id, staffel_tage, eskalation_verantwortlicher, eskalation_sifa, eskalation_admin, sifa_in_kopie, sifa_empfaenger, admin_empfaenger, geaendert_von, geaendert_von_name, geaendert_am',
+  posten:
+    'id, organisation_id, versand_id, schluessel, art, stufe, geraet_id, geraet_pruefart_id, bereich_id, bezug_datum, rolle, empfaenger_benutzer_id, in_summe, erstellt_am',
+} as const;
+
+export function zuErinnerungEinstellung(z: ErinnerungEinstellungZeile): ErinnerungEinstellung {
+  const werte = {
+    staffelTage: [...z.staffel_tage],
+    eskalationTage: { verantwortlicher: z.eskalation_verantwortlicher, sifa: z.eskalation_sifa, admin: z.eskalation_admin },
+    sifaInKopie: z.sifa_in_kopie,
+    sifaEmpfaengerIds: z.sifa_empfaenger ? [...z.sifa_empfaenger] : null,
+    adminEmpfaengerIds: z.admin_empfaenger ? [...z.admin_empfaenger] : null,
+  };
+  return {
+    organisationId: z.organisation_id,
+    bereichId: z.bereich_id,
+    ...werte,
+    standard: istStandard(werte),
+    geaendertVon: z.geaendert_von,
+    geaendertVonName: z.geaendert_von_name,
+    geaendertAm: isoZeit(z.geaendert_am),
+  };
+}
+export const vonErinnerungEinstellung = (e: ErinnerungEinstellung): ErinnerungEinstellungZeile => ({
+  bereich_id: e.bereichId,
+  organisation_id: e.organisationId,
+  staffel_tage: [...e.staffelTage],
+  eskalation_verantwortlicher: e.eskalationTage.verantwortlicher,
+  eskalation_sifa: e.eskalationTage.sifa,
+  eskalation_admin: e.eskalationTage.admin,
+  sifa_in_kopie: e.sifaInKopie,
+  sifa_empfaenger: e.sifaEmpfaengerIds ? [...e.sifaEmpfaengerIds] : null,
+  admin_empfaenger: e.adminEmpfaengerIds ? [...e.adminEmpfaengerIds] : null,
+  geaendert_von: e.geaendertVon,
+  geaendert_von_name: e.geaendertVonName,
+  geaendert_am: e.geaendertAm ?? new Date(0).toISOString(),
+});
+
+export const zuMailVersand = (z: MailVersandZeile): MailVersand => ({
+  id: z.id,
+  organisationId: z.organisation_id,
+  laufId: z.lauf_id,
+  laufDatum: datum(z.lauf_datum),
+  art: z.art,
+  empfaengerBenutzerId: z.empfaenger_benutzer_id,
+  status: z.status,
+  versuche: z.versuche,
+  anbieterId: z.anbieter_id,
+  fehlerCode: z.fehler_code,
+  postenAnzahl: z.posten_anzahl,
+  erstelltAm: isoZeit(z.erstellt_am),
+  versendetAm: isoZeitOderNull(z.versendet_am),
+  statusAm: isoZeit(z.status_am),
+});
+export const vonMailVersand = (v: MailVersand): MailVersandZeile => ({
+  id: v.id,
+  organisation_id: v.organisationId,
+  lauf_id: v.laufId,
+  lauf_datum: v.laufDatum,
+  art: v.art,
+  empfaenger_benutzer_id: v.empfaengerBenutzerId,
+  status: v.status,
+  versuche: v.versuche,
+  anbieter_id: v.anbieterId,
+  fehler_code: v.fehlerCode,
+  posten_anzahl: v.postenAnzahl,
+  erstellt_am: v.erstelltAm,
+  versendet_am: v.versendetAm,
+  status_am: v.statusAm,
+});
+
+export const zuErinnerungPosten = (z: ErinnerungPostenZeile): ErinnerungPosten => ({
+  id: z.id,
+  organisationId: z.organisation_id,
+  versandId: z.versand_id,
+  schluessel: z.schluessel,
+  art: z.art,
+  stufe: z.stufe,
+  geraetId: z.geraet_id,
+  geraetPruefartId: z.geraet_pruefart_id,
+  bereichId: z.bereich_id,
+  bezugDatum: datumOderNull(z.bezug_datum),
+  rolle: z.rolle,
+  empfaengerBenutzerId: z.empfaenger_benutzer_id,
+  inSumme: z.in_summe === true,
+  erstelltAm: isoZeit(z.erstellt_am),
+});
+export const vonErinnerungPosten = (p: ErinnerungPosten): ErinnerungPostenZeile => ({
+  id: p.id,
+  organisation_id: p.organisationId,
+  versand_id: p.versandId,
+  schluessel: p.schluessel,
+  art: p.art,
+  stufe: p.stufe,
+  geraet_id: p.geraetId,
+  geraet_pruefart_id: p.geraetPruefartId,
+  bereich_id: p.bereichId,
+  bezug_datum: p.bezugDatum,
+  rolle: p.rolle,
+  empfaenger_benutzer_id: p.empfaengerBenutzerId,
+  in_summe: p.inSumme,
+  erstellt_am: p.erstelltAm,
+});
+
+export const zuErinnerungLauf = (z: ErinnerungLaufZeile): ErinnerungLauf => ({
+  id: z.id,
+  laufDatum: datum(z.lauf_datum),
+  ausloeser: z.ausloeser,
+  status: z.status,
+  gestartetAm: isoZeit(z.gestartet_am),
+  beendetAm: isoZeitOderNull(z.beendet_am),
+});
+
+export const zuProtokollRohdaten = (j: ProtokollJson): ProtokollRohdaten => ({
+  versand: (j.versand ?? []).map((v) => ({ ...zuMailVersand(v), empfaengerName: v.empfaenger_name ?? null, empfaengerRolle: v.empfaenger_rolle ?? null })),
+  posten: (j.posten ?? []).map(zuErinnerungPosten),
+  gesamt: Number(j.gesamt ?? 0),
+  letzterLauf: j.letzter_lauf
+    ? { laufDatum: datum(j.letzter_lauf.lauf_datum), status: j.letzter_lauf.status, beendetAm: isoZeitOderNull(j.letzter_lauf.beendet_am) }
+    : null,
+});
+export const vonProtokollRohdaten = (r: ProtokollRohdaten): ProtokollJson => ({
+  gesamt: r.gesamt,
+  versand: r.versand.map((v) => ({ ...vonMailVersand(v), empfaenger_name: v.empfaengerName, empfaenger_rolle: v.empfaengerRolle })),
+  posten: r.posten.map(vonErinnerungPosten),
+  letzter_lauf: r.letzterLauf ? { lauf_datum: r.letzterLauf.laufDatum, status: r.letzterLauf.status, beendet_am: r.letzterLauf.beendetAm } : null,
 });
 
 // ---------- Fehler ----------

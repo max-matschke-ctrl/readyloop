@@ -2,11 +2,17 @@
 // damit RLS als zweite Verteidigungslinie greift (P-07). Ereignisse entstehen per Trigger: der Parameter `ereignis`
 // wird ignoriert (Ausnahme: Zusatzdaten wie `eingeladen` gehen an die RPC).
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Id } from '@/domain/types';
+import { PROTOKOLL_PRO_SEITE, type AbbestellbareMailArt, type Id } from '@/domain/types';
 import type { Repository } from '../types';
 import {
   RepositoryFehler,
   SPALTEN,
+  SPALTEN_I3,
+  vonErinnerungEinstellung,
+  zuErinnerungEinstellung,
+  zuProtokollRohdaten,
+  type ErinnerungEinstellungZeile,
+  type ProtokollJson,
   nachweisPfad,
   pgFehlerText,
   vonBereich,
@@ -415,5 +421,56 @@ export function supabaseRepository(
     },
     /** No-op: Trigger app.mitarbeiter_austritt in derselben Transaktion wie mitglied_speichern. */
     async loeseNutzungen() {},
+
+    // ------------------------------------------------------------ I3 (BE-28)
+    /** RLS: ADM/SIF alle Bereiche, VER eigene Bereiche. */
+    async listeErinnerungEinstellungen(org) {
+      return (await liste<ErinnerungEinstellungZeile>('erinnerung_einstellung', SPALTEN_I3.einstellung, [['organisation_id', org]])).map(
+        zuErinnerungEinstellung,
+      );
+    },
+    /** Upsert je Bereich (nur ADM, RLS). geaendert_* und das Ereignis setzen die Trigger; `ereignis` wird ignoriert. */
+    async speichereErinnerungEinstellung({ einstellung }) {
+      const { geaendert_von: _v, geaendert_von_name: _n, geaendert_am: _a, ...werte } = vonErinnerungEinstellung(einstellung);
+      void _v;
+      void _n;
+      void _a;
+      pruefe(await client.from('erinnerung_einstellung').upsert(werte, { onConflict: 'bereich_id' }), 'erinnerung_einstellung speichern');
+    },
+    /** RLS: nur eigene Zeilen. */
+    async listeEigeneAbmeldungen(org, benutzerId) {
+      const zeilen = (pruefe(
+        await client.from('mail_abmeldung').select('art').eq('organisation_id', org).eq('benutzer_id', benutzerId).eq('abgemeldet', true),
+        'mail_abmeldung lesen',
+      ) ?? []) as { art: AbbestellbareMailArt }[];
+      return zeilen.map((z) => z.art);
+    },
+    /** Upsert (organisation_id, benutzer_id, art); RLS prüft Person und passende Rolle; geaendert_am setzt der Trigger. */
+    async setzeEigeneAbmeldung({ organisationId, benutzerId, art, abgemeldet }) {
+      pruefe(
+        await client
+          .from('mail_abmeldung')
+          .upsert({ organisation_id: organisationId, benutzer_id: benutzerId, art, abgemeldet }, { onConflict: 'organisation_id,benutzer_id,art' }),
+        'mail_abmeldung speichern',
+      );
+    },
+    /** RPC mail_protokoll (security definer, nur ADM/SIF, maskiert MA-Hinweise). 42501 → RepositoryFehler. */
+    async listeMailProtokoll(org, filter) {
+      const seite = Math.max(filter.seite ?? 1, 1);
+      const daten = pruefe(
+        await client.rpc('mail_protokoll', {
+          p_org: org,
+          p_von: filter.von,
+          p_bis: filter.bis,
+          p_status: filter.status ?? null,
+          p_art: filter.art ?? null,
+          p_bereich: filter.bereichId ?? null,
+          p_limit: PROTOKOLL_PRO_SEITE,
+          p_offset: (seite - 1) * PROTOKOLL_PRO_SEITE,
+        }),
+        'mail_protokoll',
+      );
+      return zuProtokollRohdaten((daten ?? { gesamt: 0, versand: [], posten: [], letzter_lauf: null }) as ProtokollJson);
+    },
   };
 }

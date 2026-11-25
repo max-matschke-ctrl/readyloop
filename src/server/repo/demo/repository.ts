@@ -3,12 +3,26 @@ import { randomUUID } from 'node:crypto';
 import { anlassErledigtDurch } from '@/domain/anlass';
 import { mangelUebergangErlaubt } from '@/domain/maengel';
 import { imUebernahmeVerlauf } from '@/domain/nutzung';
-import type { Anlass, Geraet, GeraetToken, Id, Mangel, Nachweis, Uebernahme } from '@/domain/types';
+import {
+  PROTOKOLL_PRO_SEITE,
+  VERSAND_PROBLEME,
+  type AbbestellbareMailArt,
+  type Anlass,
+  type ErinnerungEinstellung,
+  type Geraet,
+  type GeraetToken,
+  type Id,
+  type Mangel,
+  type Nachweis,
+  type Uebernahme,
+} from '@/domain/types';
 import {
   SUCHE_MAX,
   type KurzAuswahl,
   type KurzRohdaten,
+  type ProtokollRohdaten,
   type Repository,
+  type WirksamerProtokollFilter,
   type StatusRohdaten,
   type TokenRohdaten,
   type UebernahmeVerlaufEintrag,
@@ -403,6 +417,88 @@ export class DemoRepository implements Repository {
     this.stand.tokens.push(kopie(token));
     this.stand.ereignisse.push(kopie(ereignis));
   }
+
+  // ------------------------------------------------------------ I3 (BE-25)
+  async listeErinnerungEinstellungen(organisationId: Id): Promise<ErinnerungEinstellung[]> {
+    return kopie(this.stand.erinnerungEinstellungen.filter((e) => e.organisationId === organisationId));
+  }
+
+  async speichereErinnerungEinstellung({ einstellung, ereignis }: Parameters<Repository['speichereErinnerungEinstellung']>[0]): Promise<void> {
+    const bereich = this.stand.bereiche.find((b) => b.id === einstellung.bereichId);
+    if (!bereich || bereich.organisationId !== einstellung.organisationId) throw new Error('Bereich gehört nicht zur Organisation');
+    const liste = this.stand.erinnerungEinstellungen;
+    const i = liste.findIndex((e) => e.bereichId === einstellung.bereichId);
+    if (i >= 0) liste[i] = kopie(einstellung);
+    else liste.push(kopie(einstellung));
+    this.stand.ereignisse.push(kopie(ereignis));
+  }
+
+  async listeEigeneAbmeldungen(organisationId: Id, benutzerId: Id): Promise<AbbestellbareMailArt[]> {
+    return this.stand.mailAbmeldungen
+      .filter((a) => a.organisationId === organisationId && a.benutzerId === benutzerId && a.abgemeldet)
+      .map((a) => a.art);
+  }
+
+  async setzeEigeneAbmeldung({ organisationId, benutzerId, art, abgemeldet, jetzt }: Parameters<Repository['setzeEigeneAbmeldung']>[0]): Promise<void> {
+    setzeAbmeldung(this.stand, { organisationId, benutzerId, art, abgemeldet, jetzt });
+  }
+
+  /** Demo: gefiltert und seitenweise, aber NICHT maskiert – das tut der Dienst (F-41). */
+  async listeMailProtokoll(organisationId: Id, filter: WirksamerProtokollFilter): Promise<ProtokollRohdaten> {
+    return protokollRohdaten(this.stand, organisationId, filter);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// I3-Hilfen (auch vom Demo-System-Repository genutzt)
+// ---------------------------------------------------------------------------
+
+export function setzeAbmeldung(
+  stand: DemoStand,
+  d: { organisationId: Id; benutzerId: Id; art: AbbestellbareMailArt; abgemeldet: boolean; jetzt: string },
+): void {
+  const vorhanden = stand.mailAbmeldungen.find((a) => a.organisationId === d.organisationId && a.benutzerId === d.benutzerId && a.art === d.art);
+  if (vorhanden) {
+    vorhanden.abgemeldet = d.abgemeldet;
+    vorhanden.geaendertAm = d.jetzt;
+  } else {
+    stand.mailAbmeldungen.push({ organisationId: d.organisationId, benutzerId: d.benutzerId, art: d.art, abgemeldet: d.abgemeldet, geaendertAm: d.jetzt });
+  }
+}
+
+/** Wie RPC mail_protokoll, ohne Maskierung. Bereichsfilter nur über Frist-/Prüfer-Posten (MA-Hinweise verraten keinen Bereich). */
+export function protokollRohdaten(stand: DemoStand, organisationId: Id, filter: WirksamerProtokollFilter): ProtokollRohdaten {
+  const seite = Math.max(filter.seite ?? 1, 1);
+  const auswahl = stand.mailVersand
+    .filter(
+      (v) =>
+        v.organisationId === organisationId &&
+        v.laufDatum >= filter.von &&
+        v.laufDatum <= filter.bis &&
+        (filter.status === undefined ||
+          (filter.status === 'probleme' ? VERSAND_PROBLEME.includes(v.status) : v.status === filter.status)) &&
+        (filter.art === undefined || v.art === filter.art) &&
+        (filter.bereichId === undefined ||
+          (v.art !== 'ma_hinweis' && stand.erinnerungPosten.some((p) => p.versandId === v.id && p.bereichId === filter.bereichId))),
+    )
+    .sort((a, b) => b.laufDatum.localeCompare(a.laufDatum) || b.erstelltAm.localeCompare(a.erstelltAm) || a.id.localeCompare(b.id));
+  const seitenVersand = auswahl.slice((seite - 1) * PROTOKOLL_PRO_SEITE, seite * PROTOKOLL_PRO_SEITE);
+  const ids = new Set(seitenVersand.map((v) => v.id));
+  const person = (benutzerId: Id | null) => {
+    if (benutzerId === null) return { empfaengerName: null, empfaengerRolle: null };
+    const m = stand.mitgliedschaften.find((x) => x.organisationId === organisationId && x.benutzerId === benutzerId);
+    const b = stand.benutzer.find((x) => x.id === benutzerId);
+    return { empfaengerName: b?.name ?? null, empfaengerRolle: m?.rolle ?? null };
+  };
+  const letzter = [...stand.erinnerungLaeufe].sort((a, b) => b.gestartetAm.localeCompare(a.gestartetAm))[0];
+  return kopie({
+    versand: seitenVersand.map((v) => ({ ...v, ...person(v.empfaengerBenutzerId) })),
+    posten: stand.erinnerungPosten
+      .filter((p) => ids.has(p.versandId) && p.art !== 'ma_hinweis')
+      .sort((a, b) => a.versandId.localeCompare(b.versandId) || a.schluessel.localeCompare(b.schluessel)),
+    gesamt: auswahl.length,
+    letzterLauf: letzter ? { laufDatum: letzter.laufDatum, status: letzter.status, beendetAm: letzter.beendetAm } : null,
+  });
 }
 
 export function erzeugeDemoRepository(heute: string): DemoRepository {
@@ -415,4 +511,9 @@ const SPEICHER = globalThis as typeof globalThis & { __readyloopDemoRepository?:
 export function demoRepository(heute: string): DemoRepository {
   SPEICHER.__readyloopDemoRepository ??= erzeugeDemoRepository(heute);
   return SPEICHER.__readyloopDemoRepository;
+}
+
+/** Rohzugriff für das Demo-System-Repository (I3, ohne Sitzung). Nur serverseitig. */
+export function demoStandVon(repo: DemoRepository): DemoStand {
+  return (repo as unknown as { stand: DemoStand }).stand;
 }

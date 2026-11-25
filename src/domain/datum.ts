@@ -73,3 +73,29 @@ export function formatDatum(datum: IsoDate): string {
   const { j, m, t } = zerlege(datum);
   return `${zweistellig(t)}.${zweistellig(m)}.${String(j).padStart(4, '0')}`;
 }
+
+// ---------- I3 (§9.4): Wochentage und ISO-Wochen ----------
+
+/** ISO-Wochentag: Mo = 1 … So = 7. */
+export function wochentag(datum: IsoDate): 1 | 2 | 3 | 4 | 5 | 6 | 7 {
+  const { j, m, t } = zerlege(datum);
+  const tag = new Date(Date.UTC(j, m - 1, t)).getUTCDay(); // So = 0
+  return (tag === 0 ? 7 : tag) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+}
+
+/** Mo–Fr (keine Feiertagslogik, Q-51). */
+export function istWerktag(datum: IsoDate): boolean {
+  return wochentag(datum) <= 5;
+}
+
+/** Montag der ISO-Woche, in der das Datum liegt. */
+export function isoWocheMontag(datum: IsoDate): IsoDate {
+  return addTage(datum, 1 - wochentag(datum));
+}
+
+/** ISO-Kalenderwoche 1–53 (Woche mit dem ersten Donnerstag des Jahres = KW 1). */
+export function isoKalenderwoche(datum: IsoDate): number {
+  const donnerstag = addTage(datum, 4 - wochentag(datum));
+  const jahr = zerlege(donnerstag).j;
+  return Math.floor(tageZwischen(baue(jahr, 1, 1), donnerstag) / 7) + 1;
+}

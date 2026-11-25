@@ -9,11 +9,16 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { can } from '@/domain/rechte';
 import {
+  abmeldenTokenSchema,
   anlassAufhebenSchema,
+  benachrichtigungSchema,
   anlassErfassenSchema,
   bereichSpeichernSchema,
   betriebsstatusSetzenSchema,
+  bereichIdSchema,
   demoRolleSchema,
+  erinnerungEinstellungSchema,
+  erinnerungslaufSchema,
   etikettErneuernSchema,
   fristFreigebenSchema,
   gbuDokumentSetzenSchema,
@@ -35,11 +40,15 @@ import {
 import type { Aktion, ActionState, Sitzung } from '@/domain/types';
 import * as auth from './auth';
 import * as dienste from './dienste';
+import * as erinnerungen from './dienste-erinnerungen';
 import type { DienstErgebnis } from './dienste-basis';
 import * as etiketten from './dienste-etiketten';
 import * as maengel from './dienste-maengel';
 import * as mitarbeiter from './dienste-mitarbeiter';
 import * as verwaltung from './dienste-verwaltung';
+import { fuehreErinnerungslaufAus } from './erinnerungen/lauf';
+import { holeSystemRepository, istTrockenlauf } from './erinnerungen/system';
+import { holeMailAdapter, mailModus } from './mail/index';
 import { sichererRuecksprung } from './pfade';
 import { RepositoryFehler } from './repo/supabase/mapping';
 import { DEMO_COOKIE, DEMO_COOKIE_OPTIONEN, ORG_COOKIE, ORG_COOKIE_OPTIONEN, heute, holeRepository, istDemoModus, leseSitzung } from './sitzung';
@@ -586,4 +595,132 @@ export async function mitarbeiterEinladen(prev: ActionState, formData: FormData)
   revalidatePath('/mitarbeiter');
   revalidatePath('/admin/mitglieder');
   return { status: 'ok', meldung: r.ergebnis.meldung, id: r.ergebnis.id };
+}
+
+// ---------------------------------------------------------------------------
+// Inkrement I3 – Erinnerungen (§9.8)
+// ---------------------------------------------------------------------------
+
+const UNGUELTIGER_LINK: ActionState = { status: 'fehler', meldung: 'Dieser Link ist nicht gültig.' };
+
+function revalidiereErinnerungen(bereichId: string) {
+  revalidatePath('/admin/erinnerungen');
+  revalidatePath(`/admin/erinnerungen/${bereichId}`);
+}
+
+async function mitAbfang(name: string, f: () => Promise<ActionState>): Promise<ActionState> {
+  try {
+    return await f();
+  } catch (e) {
+    if (e instanceof RepositoryFehler) return { status: 'fehler', meldung: e.meldung };
+    console.error(name, e);
+    return UNERWARTET;
+  }
+}
+
+/** erinnerung.einstellen. Felder: bereichId, staffel (mehrfach, leere ignoriert), eskalationVerantwortlicher, eskalationSifa,
+ *  eskalationAdmin, sifaInKopie (checkbox), sifaAuswahl, sifaEmpfaenger (mehrfach), adminAuswahl, adminEmpfaenger (mehrfach).
+ *  Auswahl nur aktive Mitglieder der Rolle (sonst feldfehler); 'alle' speichert null. */
+export async function erinnerungEinstellungSpeichern(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  const sitzung = await sitzungMitRecht('erinnerung.einstellen');
+  if (!sitzung) return KEIN_RECHT;
+  const geprueft = erinnerungEinstellungSchema.safeParse(
+    felder(
+      formData,
+      ['bereichId', 'eskalationVerantwortlicher', 'eskalationSifa', 'eskalationAdmin', 'sifaInKopie', 'sifaAuswahl', 'adminAuswahl'],
+      ['staffel', 'sifaEmpfaenger', 'adminEmpfaenger'],
+    ),
+  );
+  if (!geprueft.success) return validierungsfehler(geprueft.error);
+  const e = geprueft.data;
+  const ergebnis = await mitAbfang('erinnerungEinstellungSpeichern', async () =>
+    erinnerungen.speichereErinnerungEinstellung(sitzung, await holeRepository(sitzung), e, e.bereichId, new Date()),
+  );
+  if (ergebnis.status === 'ok') revalidiereErinnerungen(e.bereichId);
+  return ergebnis;
+}
+
+/** erinnerung.einstellen. Feld bereichId. Speichert standardEinstellung (Ereignis). */
+export async function erinnerungEinstellungZuruecksetzen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  const sitzung = await sitzungMitRecht('erinnerung.einstellen');
+  if (!sitzung) return KEIN_RECHT;
+  const geprueft = bereichIdSchema.safeParse(felder(formData, ['bereichId']));
+  if (!geprueft.success) return validierungsfehler(geprueft.error);
+  const { bereichId } = geprueft.data;
+  const ergebnis = await mitAbfang('erinnerungEinstellungZuruecksetzen', async () =>
+    erinnerungen.speichereErinnerungEinstellung(sitzung, await holeRepository(sitzung), 'standard', bereichId, new Date()),
+  );
+  if (ergebnis.status === 'ok') revalidiereErinnerungen(bereichId);
+  return ergebnis;
+}
+
+/** benachrichtigung.eigene + darfAbbestellen(rolle, art). Felder art, abgemeldet ('ja' | 'nein'). */
+export async function benachrichtigungSetzen(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  const sitzung = await sitzungMitRecht('benachrichtigung.eigene');
+  if (!sitzung) return KEIN_RECHT;
+  const geprueft = benachrichtigungSchema.safeParse(felder(formData, ['art', 'abgemeldet']));
+  if (!geprueft.success) return { status: 'fehler', meldung: 'Diese Mail kann nicht abbestellt werden.' };
+  const { art, abgemeldet } = geprueft.data;
+  const ergebnis = await mitAbfang('benachrichtigungSetzen', async () =>
+    erinnerungen.setzeBenachrichtigung(sitzung, await holeRepository(sitzung), art, abgemeldet, new Date()),
+  );
+  if (ergebnis.status === 'ok') revalidatePath('/einstellungen/benachrichtigungen');
+  return ergebnis;
+}
+
+/** Ohne Sitzung. Felder t, aktion ('abmelden' | 'anmelden'). Ungültig → 'Dieser Link ist nicht gültig.'. */
+export async function mailAbmeldenPerToken(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  const geprueft = abmeldenTokenSchema.safeParse(felder(formData, ['t', 'aktion']));
+  if (!geprueft.success) return UNGUELTIGER_LINK;
+  const { t, aktion } = geprueft.data;
+  return mitAbfang('mailAbmeldenPerToken', async () =>
+    erinnerungen.abmeldenPerToken(await holeSystemRepository(), t, aktion === 'abmelden', new Date()),
+  );
+}
+
+/** mail.vorschau + mailModus() === 'vorschau'. Feld heute (nur Demo-Modus berücksichtigt, sonst heute()).
+ *  Lauf mit ausloeser 'manuell', erzwingen = true, strikt nur für die Organisation der Sitzung.
+ *  Supabase-Modus: Trockenlauf (F-33) – keine Versand-/Postendatensätze, die Mails stehen nur in der Vorschau. */
+export async function erinnerungslaufStarten(prev: ActionState, formData: FormData): Promise<ActionState> {
+  void prev;
+  const sitzung = await sitzungMitRecht('mail.vorschau');
+  if (!sitzung) return KEIN_RECHT;
+  if (mailModus() !== 'vorschau') return { status: 'fehler', meldung: 'Nur im Vorschau-Modus verfügbar.' };
+  const geprueft = erinnerungslaufSchema.safeParse(felder(formData, ['heute']));
+  if (!geprueft.success) return validierungsfehler(geprueft.error);
+  const adapter = holeMailAdapter();
+  const trocken = istTrockenlauf(adapter);
+  const ergebnis = await mitAbfang('erinnerungslaufStarten', async (): Promise<ActionState> => {
+    const lauf = await fuehreErinnerungslaufAus(await holeSystemRepository(), adapter, {
+      heute: istDemoModus() && geprueft.data.heute ? geprueft.data.heute : heute(),
+      jetzt: new Date(),
+      ausloeser: 'manuell',
+      erzwingen: true,
+      organisationIds: [sitzung.organisation.id],
+      trockenlauf: trocken,
+    });
+    if (lauf.status === 'laeuft_bereits') return { status: 'fehler', meldung: 'Ein Erinnerungslauf läuft gerade. Bitte gleich erneut versuchen.' };
+    if (lauf.status === 'nicht_konfiguriert') return { status: 'fehler', meldung: 'Der Mailversand ist nicht eingerichtet.' };
+    if (lauf.status !== 'fertig' && lauf.status !== 'teilweise') return { status: 'fehler', meldung: 'Der Erinnerungslauf ist fehlgeschlagen.' };
+    const rest = lauf.status === 'teilweise' ? ' Zeitlimit erreicht – bitte erneut ausführen für die übrigen Mails.' : '';
+    if (trocken) {
+      return {
+        status: 'ok',
+        meldung: (lauf.mails > 0 ? `Vorschau erstellt: ${lauf.mails} Mails (nicht versendet, nicht protokolliert).` : 'Keine Mails fällig.') + rest,
+      };
+    }
+    return {
+      status: 'ok',
+      meldung: (lauf.mails > 0 ? `Lauf ausgeführt: ${lauf.mails} Mails in der Vorschau.` : 'Keine neuen Mails (bereits erinnert).') + rest,
+    };
+  });
+  if (ergebnis.status === 'ok') {
+    revalidatePath('/admin/mails');
+    revalidatePath('/erinnerungen/protokoll');
+  }
+  return ergebnis;
 }

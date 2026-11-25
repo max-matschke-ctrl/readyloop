@@ -151,6 +151,9 @@ function beschreibung(e: Ereignis, pruefartNamen: Map<Id, string>): { titel: str
       return { titel: d.zugeordnet === false ? 'Zuordnung gelöst' : titel, details };
     case 'etikett_erneuert':
       return { titel, details: [...details, 'alter Aufkleber ungültig'] };
+    // I3 (§6.14): ohne Geräte- und Statusbezug, erscheint nicht im Geräteverlauf; nur der Vollständigkeit halber.
+    case 'erinnerung_einstellung_gespeichert':
+      return { titel, details };
   }
 }
 

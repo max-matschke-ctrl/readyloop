@@ -246,9 +246,9 @@ describe('Service-Role-Schlüssel (F-8)', () => {
     const alle = [...dateien(path.join(wurzel, 'src')), path.join(wurzel, '.env.example')];
     for (const d of alle) expect(readFileSync(d, 'utf8'), d).not.toMatch(/NEXT_PUBLIC_[A-Z_]*SERVICE/);
   });
-  it('wird nur in src/server/supabase/admin.ts gelesen; admin.ts nirgends in src/app importiert', () => {
+  it('wird nur in supabase/admin.ts und (I3, F-43) supabase/system.ts gelesen; admin.ts nirgends in src/app importiert', () => {
     const treffer = dateien(path.join(wurzel, 'src')).filter((d) => readFileSync(d, 'utf8').includes('SUPABASE_SERVICE_ROLE_KEY'));
-    expect(treffer.map((d) => path.relative(wurzel, d))).toEqual(['src/server/supabase/admin.ts']);
+    expect(treffer.map((d) => path.relative(wurzel, d)).sort()).toEqual(['src/server/supabase/admin.ts', 'src/server/supabase/system.ts']);
     for (const d of dateien(path.join(wurzel, 'src/app'))) expect(readFileSync(d, 'utf8'), d).not.toMatch(/supabase\/admin/);
   });
 });

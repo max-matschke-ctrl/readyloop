@@ -4,8 +4,9 @@ import { PlaketteGlyph } from './PlaketteGlyph';
 /**
  * Öffentliche Kopfleiste (§6.1, I3M): gleiche Fläche und Höhe wie die App-Kopfleiste, nur Glyph und Wortmarke
  * (kein Link), rechts „Anmelden“ mit Rücksprung. Kein Betriebsname, kein Menü.
+ * I3: anmeldenHref = null blendet „Anmelden“ aus (/abmelden, §6.1).
  */
-export function OeffentlicheKopfleiste({ anmeldenHref = '/login' }: { anmeldenHref?: string }) {
+export function OeffentlicheKopfleiste({ anmeldenHref = '/login' }: { anmeldenHref?: string | null }) {
   return (
     <header className="bg-steel text-white [&_:focus-visible]:outline-white">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 md:px-6 xl:px-8">
@@ -13,12 +14,14 @@ export function OeffentlicheKopfleiste({ anmeldenHref = '/login' }: { anmeldenHr
           <PlaketteGlyph ton="weiss" groesse={24} />
           Readyloop
         </p>
-        <Link
-          href={anmeldenHref}
-          className="flex min-h-12 items-center px-2 text-base underline decoration-white/60 underline-offset-4 hover:decoration-white"
-        >
-          Anmelden
-        </Link>
+        {anmeldenHref !== null && (
+          <Link
+            href={anmeldenHref}
+            className="flex min-h-12 items-center px-2 text-base underline decoration-white/60 underline-offset-4 hover:decoration-white"
+          >
+            Anmelden
+          </Link>
+        )}
       </div>
     </header>
   );

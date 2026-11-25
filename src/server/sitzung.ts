@@ -1,7 +1,8 @@
 // Sitzung, Betriebsmodus und Repository-Auswahl (BE-6/BE-11). Nur serverseitig verwenden.
 import { cookies } from 'next/headers';
 import { heuteBerlin } from '@/domain/datum';
-import { DEMO_ROLLEN, type Betriebsmodus, type DemoRolle, type Sitzung } from '@/domain/types';
+import { DEMO_ROLLEN, type DemoRolle, type Sitzung } from '@/domain/types';
+import { betriebsmodus } from './betriebsmodus';
 import { sitzungFuerDemoRolle } from './dienste';
 import { demoRepository } from './repo/demo/repository';
 import type { Repository } from './repo/types';
@@ -17,17 +18,7 @@ export const DEMO_COOKIE_OPTIONEN = {
 } as const;
 export const ORG_COOKIE_OPTIONEN = DEMO_COOKIE_OPTIONEN;
 
-/**
- * F-8 (Q-9): 'supabase' bei URL und Anon-Key; 'demo', wenn beide fehlen und (NODE_ENV ≠ production oder
- * READYLOOP_DEMO = '1'); sonst 'unkonfiguriert' (auch bei nur einer der beiden Variablen).
- */
-export function betriebsmodus(): Betriebsmodus {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (url && key) return 'supabase';
-  if (!url && !key && (process.env.NODE_ENV !== 'production' || process.env.READYLOOP_DEMO === '1')) return 'demo';
-  return 'unkonfiguriert';
-}
+export { betriebsmodus };
 
 export function istDemoModus(): boolean {
   return betriebsmodus() === 'demo';

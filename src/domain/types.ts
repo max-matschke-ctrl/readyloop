@@ -1,4 +1,4 @@
-// Vertrag Inkrement 1 + 2 + I3M – siehe docs/backlog.md §3.1, §5.1 und §7.1
+// Vertrag Inkrement 1 + 2 + I3M + I3 – siehe docs/backlog.md §3.1, §5.1, §7.1 und §9.1
 
 export type Id = string; // UUID
 export type IsoDate = string; // 'YYYY-MM-DD'
@@ -209,6 +209,7 @@ export const EREIGNIS_TYPEN = [
   'mitglied_gespeichert',
   'zuordnung_geaendert',
   'etikett_erneuert',
+  'erinnerung_einstellung_gespeichert', // I3 (F-42)
 ] as const;
 export type EreignisTyp = (typeof EREIGNIS_TYPEN)[number];
 
@@ -229,6 +230,7 @@ export const EREIGNIS_LABEL: Record<EreignisTyp, string> = {
   mitglied_gespeichert: 'Mitglied gespeichert',
   zuordnung_geaendert: 'Zuordnung geändert',
   etikett_erneuert: 'Aufkleber erneuert',
+  erinnerung_einstellung_gespeichert: 'Erinnerungen eingestellt',
 };
 
 export const AKTIONEN = [
@@ -256,6 +258,10 @@ export const AKTIONEN = [
   'uebernahmen.lesen', // I3M: abgeschlossene Übernahmen, 90 Tage
   'etikett.verwalten', // I3M: drucken, erneuern
   'mitarbeiter.einladen', // I3M
+  'erinnerung.einstellen', // I3: Staffel, Eskalation, Empfänger je Bereich (F-39)
+  'erinnerung.protokoll', // I3: Versandprotokoll (F-41)
+  'mail.vorschau', // I3: /admin/mails, nur Mail-Modus 'vorschau' (F-37)
+  'benachrichtigung.eigene', // I3: eigene Mails ansehen, abbestellbare ab-/anbestellen (F-40)
 ] as const;
 export type Aktion = (typeof AKTIONEN)[number];
 
@@ -797,6 +803,308 @@ export interface GeraetNutzung {
   verlauf: Uebernahme[]; // nur uebernahmen.lesen: abgeschlossen, Person vorhanden, ≤ 90 Tage nach Ende, neueste zuerst; sonst []
   darfZuordnen: boolean; // geraet.zuordnen + Geltungsbereich
   etikett: { token: string; url: string } | null; // nur etikett.verwalten + Geltungsbereich
+}
+
+// ---------- Erinnerungen: Einstellungen (F-31, F-32, F-39) ----------
+
+export const ERINNERUNG_STAFFEL_STANDARD: readonly number[] = [90, 60, 30];
+export const STAFFEL_MAX_WERTE = 3;
+export const STAFFEL_MAX_TAGE = 365;
+export const ESKALATION_MAX_TAGE = 90;
+
+export const ESKALATIONS_EBENEN = ['verantwortlicher', 'sifa', 'admin'] as const;
+export type EskalationsEbene = (typeof ESKALATIONS_EBENEN)[number];
+
+export const ESKALATION_STANDARD: Readonly<Record<EskalationsEbene, number>> = { verantwortlicher: 0, sifa: 7, admin: 14 };
+
+export const ESKALATIONS_EBENE_LABEL: Record<EskalationsEbene, string> = {
+  verantwortlicher: 'Verantwortliche des Bereichs',
+  sifa: 'Sifa',
+  admin: 'Admin/Geschäftsführung',
+};
+
+export interface ErinnerungEinstellung {
+  organisationId: Id;
+  bereichId: Id;
+  staffelTage: number[]; // 1–3 Werte, je 1–365, verschieden, absteigend
+  eskalationTage: Record<EskalationsEbene, number>; // 0 ≤ verantwortlicher ≤ sifa ≤ admin ≤ 90
+  sifaInKopie: boolean;
+  sifaEmpfaengerIds: Id[] | null; // Benutzer-IDs; null = alle aktiven SIF
+  adminEmpfaengerIds: Id[] | null; // Benutzer-IDs; null = alle aktiven ADM
+  standard: boolean; // true = keine gespeicherte Zeile oder Werte = Standard
+  geaendertVon: Id | null;
+  geaendertVonName: string | null;
+  geaendertAm: IsoDateTime | null;
+}
+
+/** Stufe einer Fristerinnerung. Code: 'v{tage}' bzw. 'e_{ebene}' (stufeCode). */
+export type ErinnerungStufe = { art: 'vorlauf'; tage: number } | { art: 'eskalation'; ebene: EskalationsEbene };
+
+// ---------- Erinnerungen: Mails und Posten (F-30, F-33, F-38) ----------
+
+export const MAIL_ARTEN = ['frist_digest', 'pruefer_woche', 'ma_hinweis'] as const;
+export type MailArt = (typeof MAIL_ARTEN)[number];
+
+export const MAIL_ART_LABEL: Record<MailArt, string> = {
+  frist_digest: 'Fristen-Erinnerung',
+  pruefer_woche: 'Wochenübersicht für Prüfer',
+  ma_hinweis: 'Hinweis „Nicht verwenden“',
+};
+
+export const MAIL_ART_BESCHREIBUNG: Record<MailArt, string> = {
+  frist_digest: 'Vorlauf vor Fälligkeiten und Eskalation überfälliger Prüfungen in Ihren Bereichen.',
+  pruefer_woche: 'Montags eine Übersicht der Ihnen zugewiesenen fälligen Prüfungen.',
+  ma_hinweis: 'Nachricht, wenn ein Gerät, das Sie haben, nicht mehr verwendet werden darf.',
+};
+
+export const ABBESTELLBARE_MAIL_ARTEN = ['pruefer_woche', 'ma_hinweis'] as const;
+export type AbbestellbareMailArt = (typeof ABBESTELLBARE_MAIL_ARTEN)[number];
+
+/** F-30: Rollen sind je Organisation exklusiv → genau eine Mailart je Mitgliedschaft. */
+export const MAIL_ART_FUER_ROLLE: Record<Rolle, MailArt> = {
+  admin: 'frist_digest',
+  sifa: 'frist_digest',
+  verantwortlicher: 'frist_digest',
+  pruefer: 'pruefer_woche',
+  mitarbeiter: 'ma_hinweis',
+};
+
+export const PFLICHTMAIL_BEGRUENDUNG =
+  'Diese Erinnerung gehört zur Fristenüberwachung Ihres Betriebs (§ 3 Abs. 6, § 14 BetrSichV) und kann nicht abbestellt werden. Empfänger und Zeitpunkte legt der Admin je Bereich fest.';
+
+export const POSTEN_ARTEN = ['frist', 'pruefer_woche', 'ma_hinweis'] as const;
+export type PostenArt = (typeof POSTEN_ARTEN)[number];
+
+export const POSTEN_ROLLEN = ['zustaendig', 'kopie'] as const;
+export type PostenRolle = (typeof POSTEN_ROLLEN)[number];
+
+export const POSTEN_ROLLE_LABEL: Record<PostenRolle, string> = {
+  zustaendig: 'Sie sind zuständig',
+  kopie: 'Zur Kenntnis',
+};
+
+/** Gruppen der Sammelmail; Reihenfolge = Dringlichkeit absteigend (F-38). */
+export const DRINGLICHKEITEN = ['nicht_verwenden', 'ueberfaellig', 'heute_faellig', 'bald_faellig', 'vorlauf', 'ohne_termin'] as const;
+export type Dringlichkeit = (typeof DRINGLICHKEITEN)[number];
+
+export const DRINGLICHKEIT_LABEL: Record<Dringlichkeit, string> = {
+  nicht_verwenden: 'Nicht verwenden',
+  ueberfaellig: 'Überfällig',
+  heute_faellig: 'Heute fällig',
+  bald_faellig: 'In den nächsten 30 Tagen fällig',
+  vorlauf: 'Vorlauf',
+  ohne_termin: 'Ohne Termin',
+};
+
+/** Höchstens so viele Posten stehen einzeln in einer Mail (D-I3a M-10); gekappte gelten als erinnert (F-33, `inSumme`). */
+export const MAIL_MAX_POSTEN = 50;
+
+// ---------- Erinnerungen: Versand und Protokoll (F-36, F-41) ----------
+
+export const VERSAND_STATUS = ['vorbereitet', 'versendet', 'zugestellt', 'fehler', 'bounce', 'beschwerde', 'vorschau'] as const;
+export type VersandStatus = (typeof VERSAND_STATUS)[number];
+
+export const VERSAND_STATUS_LABEL: Record<VersandStatus, string> = {
+  vorbereitet: 'In Vorbereitung',
+  versendet: 'Versendet',
+  zugestellt: 'Zugestellt',
+  fehler: 'Fehler – nächster Werktag erneut',
+  bounce: 'Nicht zustellbar – E-Mail-Adresse prüfen',
+  beschwerde: 'Als Spam gemeldet',
+  vorschau: 'Nur Vorschau, nicht versendet',
+};
+
+/** F-33: Posten dieser Versände gelten als gesendet (Supabase-Modus). `vorschau` zählt hier bewusst NICHT: Im Supabase-Modus
+ *  ist die Vorschau ein Trockenlauf ohne Datensätze; Altbestände mit `vorschau` dürfen echte Mails nicht blockieren. */
+export const VERSAND_ERFOLGREICH: readonly VersandStatus[] = ['versendet', 'zugestellt', 'bounce', 'beschwerde'];
+/** F-33: nur Demo-Modus – dort ersetzt die Vorschau den Versand, `vorschau` zählt als erinnert. */
+export const VERSAND_ERFOLGREICH_DEMO: readonly VersandStatus[] = [...VERSAND_ERFOLGREICH, 'vorschau'];
+/** F-41: Filter „Probleme“; MA-Hinweise zeigen nur dann den Namen. */
+export const VERSAND_PROBLEME: readonly VersandStatus[] = ['fehler', 'bounce', 'beschwerde'];
+
+export const VERSAND_MAX_VERSUCHE = 3;
+export const MA_HINWEIS_AUFBEWAHRUNG_TAGE = 90;
+
+export const MAIL_FEHLER_CODES = ['netzwerk', 'rate_limit', 'anbieter_fehler', 'abgelehnt', 'ungueltige_adresse', 'konfiguration', 'abgebrochen'] as const;
+export type MailFehlerCode = (typeof MAIL_FEHLER_CODES)[number];
+
+export const MAIL_FEHLER_LABEL: Record<MailFehlerCode, string> = {
+  netzwerk: 'Versanddienst nicht erreichbar',
+  rate_limit: 'Versanddienst ausgelastet',
+  anbieter_fehler: 'Fehler beim Versanddienst',
+  abgelehnt: 'Vom Versanddienst abgelehnt',
+  ungueltige_adresse: 'E-Mail-Adresse ungültig',
+  konfiguration: 'Mailversand falsch eingerichtet',
+  abgebrochen: 'Erinnerungslauf abgebrochen',
+};
+
+export interface MailVersand {
+  id: Id;
+  organisationId: Id;
+  laufId: Id;
+  laufDatum: IsoDate;
+  art: MailArt;
+  empfaengerBenutzerId: Id | null; // null nach Pseudonymisierung (nur ma_hinweis)
+  status: VersandStatus;
+  versuche: number; // 0–3
+  anbieterId: string | null;
+  fehlerCode: MailFehlerCode | null;
+  postenAnzahl: number;
+  erstelltAm: IsoDateTime;
+  versendetAm: IsoDateTime | null;
+  statusAm: IsoDateTime;
+  // bewusst KEIN Betreff, KEIN Inhalt, KEINE E-Mail-Adresse (F-41)
+}
+
+export interface ErinnerungPosten {
+  id: Id;
+  organisationId: Id;
+  versandId: Id;
+  schluessel: string; // F-33
+  art: PostenArt;
+  stufe: string; // 'v90' | 'e_sifa' | … | 'woche' | 'nicht_verwenden'
+  geraetId: Id;
+  geraetPruefartId: Id | null; // null bei ma_hinweis
+  bereichId: Id;
+  bezugDatum: IsoDate | null; // frist: faelligAm; pruefer_woche: Montag der ISO-Woche; ma_hinweis: null
+  rolle: PostenRolle;
+  empfaengerBenutzerId: Id | null; // null nach Pseudonymisierung (nur ma_hinweis)
+  inSumme: boolean; // F-33: wegen MAIL_MAX_POSTEN nicht einzeln gezeigt, nur in Summe genannt; gilt trotzdem als erinnert
+  erstelltAm: IsoDateTime;
+}
+
+/** Kennzeichen im Versandprotokoll für Posten mit `inSumme` (F-33). */
+export const POSTEN_IN_SUMME_LABEL = 'in Summe genannt';
+
+export const LAUF_AUSLOESER = ['vercel_cron', 'pg_cron', 'manuell'] as const;
+export type LaufAusloeser = (typeof LAUF_AUSLOESER)[number];
+
+/** F-36: `teilweise` = Zeitbudget erschöpft, der nächste Auslöser (05:20 UTC) setzt fort. */
+export const LAUF_STATUS = ['laeuft', 'fertig', 'teilweise', 'fehler'] as const;
+export type LaufStatus = (typeof LAUF_STATUS)[number];
+
+export interface ErinnerungLauf {
+  id: Id;
+  laufDatum: IsoDate;
+  ausloeser: LaufAusloeser;
+  status: LaufStatus;
+  gestartetAm: IsoDateTime;
+  beendetAm: IsoDateTime | null;
+}
+
+/** F-37. */
+export type MailModus = 'resend' | 'vorschau' | 'aus';
+
+// ---------- Erinnerungen: Lesemodelle für die UI ----------
+
+export interface ErinnerungEinstellungAnsicht {
+  bereich: Bereich;
+  einstellung: ErinnerungEinstellung; // bei fehlender Zeile standardEinstellung(), standard = true
+  verantwortliche: PersonOption[]; // aktive VER des Bereichs (immer zuständig)
+  sifaOptionen: PersonOption[]; // aktive SIF der Organisation, alphabetisch
+  adminOptionen: PersonOption[]; // aktive ADM der Organisation, alphabetisch
+  warnungen: string[]; // z. B. 'Kein aktiver Verantwortlicher – Erinnerungen gehen an die Sifa.'
+}
+
+export interface EigeneBenachrichtigung {
+  art: MailArt;
+  label: string; // MAIL_ART_LABEL
+  beschreibung: string; // MAIL_ART_BESCHREIBUNG
+  abbestellbar: boolean;
+  abgemeldet: boolean; // immer false bei Pflicht
+  pflichtBegruendung: string | null; // PFLICHTMAIL_BEGRUENDUNG bei frist_digest
+}
+
+export interface BereichsRegel {
+  bereichName: string;
+  staffelTage: number[];
+  eskalationTage: Record<EskalationsEbene, number>;
+  sifaInKopie: boolean;
+  standard: boolean;
+}
+
+export interface EigeneBenachrichtigungen {
+  organisationName: string;
+  email: string;
+  rolle: Rolle;
+  benachrichtigung: EigeneBenachrichtigung; // genau eine (MAIL_ART_FUER_ROLLE)
+  bereichsRegeln: BereichsRegel[]; // ADM/SIF alle Bereiche, VER eigene, PRF/MA []
+  mailModus: MailModus;
+}
+
+export interface ProtokollFilter {
+  von?: IsoDate; // Default heute − 30
+  bis?: IsoDate; // Default heute
+  status?: VersandStatus | 'probleme';
+  art?: MailArt;
+  bereichId?: Id;
+  seite?: number; // ab 1
+}
+
+export const PROTOKOLL_PRO_SEITE = 50;
+
+export interface ProtokollPosten {
+  geraetId: Id;
+  geraetBezeichnung: string;
+  inventarnummer: string | null;
+  bereichName: string;
+  pruefartBezeichnung: string | null;
+  stufe: string;
+  stufeLabel: string; // stufeLabel()
+  faelligAm: IsoDate | null; // bezugDatum bei art 'frist'
+  rolle: PostenRolle;
+}
+
+export interface ProtokollEintrag {
+  versandId: Id;
+  laufDatum: IsoDate;
+  art: MailArt;
+  status: VersandStatus;
+  statusAm: IsoDateTime;
+  versuche: number;
+  fehlerCode: MailFehlerCode | null;
+  /** ma_hinweis: null außer bei Status in VERSAND_PROBLEME; null auch nach Pseudonymisierung oder unbekannter Person. */
+  empfaenger: { name: string; rolle: Rolle } | null;
+  postenAnzahl: number;
+  posten: ProtokollPosten[]; // ma_hinweis: immer []
+}
+
+export interface ProtokollSeite {
+  eintraege: ProtokollEintrag[]; // neueste zuerst (laufDatum, erstelltAm)
+  gesamt: number;
+  seite: number;
+  proSeite: number;
+  filter: Required<Pick<ProtokollFilter, 'von' | 'bis'>> & Omit<ProtokollFilter, 'von' | 'bis'>; // wirksame Werte
+  letzterLauf: { laufDatum: IsoDate; status: LaufStatus; beendetAm: IsoDateTime | null } | null;
+  mailModus: MailModus;
+}
+
+export interface VorschauMail {
+  id: Id;
+  erstelltAm: IsoDateTime;
+  laufDatum: IsoDate;
+  organisationId: Id; // Filter der Vorschau (nicht der Name – Namen sind nicht eindeutig)
+  organisationName: string;
+  art: MailArt;
+  an: string; // E-Mail-Adresse (nur im Prozessspeicher, nie in der DB)
+  betreff: string;
+  text: string;
+  html: string;
+  listUnsubscribe: string | null;
+}
+
+export interface MailVorschauSeite {
+  mails: VorschauMail[]; // neueste zuerst; FE zeigt nur Mails der aktuellen Organisation (BE filtert)
+  heute: IsoDate;
+  datumWaehlbar: boolean; // nur Demo-Modus
+}
+
+export interface AbmeldeSeite {
+  token: string;
+  organisationName: string;
+  art: AbbestellbareMailArt;
+  artLabel: string;
+  abgemeldet: boolean;
 }
 
 // ---------- Server Actions ----------

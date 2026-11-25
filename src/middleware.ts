@@ -1,5 +1,6 @@
-// Middleware (BE-12, BE-18): Session-Refresh im Modus supabase (F-8) und Kopfzeilen der öffentlichen QR-Seite (F-24).
-// Keine Zugriffsentscheidung hier – Rechte prüfen data.ts/actions.ts und RLS. /g/* wird nie auf /login umgeleitet.
+// Middleware (BE-12, BE-18, BE-26): Session-Refresh im Modus supabase (F-8) und Kopfzeilen der öffentlichen QR-Seite (F-24)
+// und der Abmeldeseite (F-40). Keine Zugriffsentscheidung hier – Rechte prüfen data.ts/actions.ts und RLS.
+// /g/*, /abmelden und /api/* werden nie auf /login umgeleitet.
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { setzeQrKopfzeilen } from './server/kopfzeilen';

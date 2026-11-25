@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ChevronDown, LogOut } from 'lucide-react';
+import { Bell, ChevronDown, LogOut } from 'lucide-react';
 import { can } from '@/domain/rechte';
 import { ROLLE_LABEL, type Sitzung } from '@/domain/types';
 import { abmelden } from '@/server/actions';
@@ -13,6 +13,7 @@ export type NavSchluessel =
   | 'meine_geraete'
   | 'suchen'
   | 'etiketten'
+  | 'erinnerungen'
   | 'mitarbeiter';
 
 interface Props {
@@ -26,6 +27,8 @@ interface Props {
  * Navigation nach Rechten ist nur Anzeige – die Seiten prüfen die Rechte serverseitig selbst.
  * I3M: Mitarbeiter „Meine Geräte“, „Gerät suchen“; „Etiketten“ bei etikett.verwalten; „Mitarbeiter“ bei
  * mitarbeiter.einladen ohne mitglied.verwalten (Admin lädt über die Verwaltung ein). Ziele mobil 48 px (§6.1).
+ * I3 (E-8): ein Punkt „Erinnerungen“ bei erinnerung.protokoll; Ziel ADM /admin/erinnerungen, SIF /erinnerungen/protokoll.
+ * Aktiv auf allen Unterseiten (Seiten übergeben aktiv="erinnerungen"). Menü: „Benachrichtigungen“ für alle Rollen.
  */
 export function AppHeader({ sitzung, aktiv }: Props) {
   const nav: { href: string; label: string; key: NavSchluessel }[] = [];
@@ -46,6 +49,13 @@ export function AppHeader({ sitzung, aktiv }: Props) {
   }
   if (can(sitzung.rolle, 'etikett.verwalten')) {
     nav.push({ href: '/etiketten', label: 'Etiketten', key: 'etiketten' });
+  }
+  if (can(sitzung.rolle, 'erinnerung.protokoll')) {
+    nav.push({
+      href: can(sitzung.rolle, 'erinnerung.einstellen') ? '/admin/erinnerungen' : '/erinnerungen/protokoll',
+      label: 'Erinnerungen',
+      key: 'erinnerungen',
+    });
   }
   if (can(sitzung.rolle, 'mitarbeiter.einladen') && !can(sitzung.rolle, 'mitglied.verwalten')) {
     nav.push({ href: '/mitarbeiter', label: 'Mitarbeiter', key: 'mitarbeiter' });
@@ -114,6 +124,15 @@ export function AppHeader({ sitzung, aktiv }: Props) {
               {mehrereOrganisationen && (
                 <Link href="/organisation" className="flex min-h-12 items-center rounded-feld px-3 hover:bg-steel-50">
                   Betrieb wechseln
+                </Link>
+              )}
+              {can(sitzung.rolle, 'benachrichtigung.eigene') && (
+                <Link
+                  href="/einstellungen/benachrichtigungen"
+                  className="flex min-h-12 items-center gap-2 rounded-feld px-3 hover:bg-steel-50"
+                >
+                  <Bell aria-hidden="true" size={16} strokeWidth={1.75} />
+                  Benachrichtigungen
                 </Link>
               )}
               <form action={abmelden}>

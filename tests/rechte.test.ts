@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { can, darfEinladen, darfVerschieben, imGeltungsbereich, istMeinGeraet } from '@/domain/rechte';
-import { AKTIONEN, EINLADBARE_ROLLEN, ROLLEN, type Aktion, type Rolle } from '@/domain/types';
+import { can, darfAbbestellen, darfEinladen, darfVerschieben, imGeltungsbereich, istMeinGeraet } from '@/domain/rechte';
+import {
+  ABBESTELLBARE_MAIL_ARTEN,
+  AKTIONEN,
+  EINLADBARE_ROLLEN,
+  MAIL_ART_FUER_ROLLE,
+  MAIL_ARTEN,
+  ROLLEN,
+  type Aktion,
+  type MailArt,
+  type Rolle,
+} from '@/domain/types';
 
-// requirements.md §6 (Rollenebene, Stand I3M) – vollständige Matrix Aktion × Rolle
+// requirements.md §6 (Rollenebene, Stand I3) – vollständige Matrix Aktion × Rolle
 const MATRIX: Record<Aktion, Record<Rolle, boolean>> = {
   'geraet.lesen':        { admin: true,  sifa: true,  verantwortlicher: true,  pruefer: true,  mitarbeiter: false },
   'geraet.anlegen':      { admin: true,  sifa: false, verantwortlicher: true,  pruefer: false, mitarbeiter: false },
@@ -28,6 +38,10 @@ const MATRIX: Record<Aktion, Record<Rolle, boolean>> = {
   'uebernahmen.lesen':   { admin: true,  sifa: false, verantwortlicher: false, pruefer: false, mitarbeiter: false },
   'etikett.verwalten':   { admin: true,  sifa: false, verantwortlicher: true,  pruefer: false, mitarbeiter: false },
   'mitarbeiter.einladen':{ admin: true,  sifa: false, verantwortlicher: true,  pruefer: false, mitarbeiter: false },
+  'erinnerung.einstellen':  { admin: true, sifa: false, verantwortlicher: false, pruefer: false, mitarbeiter: false },
+  'erinnerung.protokoll':   { admin: true, sifa: true,  verantwortlicher: false, pruefer: false, mitarbeiter: false },
+  'mail.vorschau':          { admin: true, sifa: false, verantwortlicher: false, pruefer: false, mitarbeiter: false },
+  'benachrichtigung.eigene':{ admin: true, sifa: true,  verantwortlicher: true,  pruefer: true,  mitarbeiter: true },
 };
 
 describe('can', () => {
@@ -115,5 +129,31 @@ describe('istMeinGeraet (F-22/F-23)', () => {
     expect(istMeinGeraet('u1', { zugeordnetAn: null }, { benutzerId: 'u2' })).toBe(false);
     expect(istMeinGeraet('u1', { zugeordnetAn: null }, null)).toBe(false);
     expect(istMeinGeraet('u1', { zugeordnetAn: null }, { benutzerId: null })).toBe(false);
+  });
+});
+
+describe('darfAbbestellen (F-40)', () => {
+  const erlaubt: Partial<Record<Rolle, MailArt>> = { pruefer: 'pruefer_woche', mitarbeiter: 'ma_hinweis' };
+  for (const rolle of ROLLEN) {
+    for (const art of MAIL_ARTEN) {
+      const erwartet = erlaubt[rolle] === art;
+      it(`${rolle} × ${art} = ${erwartet}`, () => {
+        expect(darfAbbestellen(rolle, art)).toBe(erwartet);
+      });
+    }
+  }
+  it('frist_digest ist für niemanden abbestellbar', () => {
+    for (const rolle of ROLLEN) expect(darfAbbestellen(rolle, 'frist_digest')).toBe(false);
+    expect(ABBESTELLBARE_MAIL_ARTEN).not.toContain('frist_digest');
+  });
+});
+
+describe('MAIL_ART_FUER_ROLLE (F-30)', () => {
+  it('deckt alle Rollen ab, genau eine Art je Rolle', () => {
+    expect(Object.keys(MAIL_ART_FUER_ROLLE).sort()).toEqual([...ROLLEN].sort());
+    for (const rolle of ROLLEN) expect(MAIL_ARTEN).toContain(MAIL_ART_FUER_ROLLE[rolle]);
+  });
+  it('ADM, SIF, VER erhalten die Pflichtmail', () => {
+    for (const r of ['admin', 'sifa', 'verantwortlicher'] as const) expect(MAIL_ART_FUER_ROLLE[r]).toBe('frist_digest');
   });
 });
