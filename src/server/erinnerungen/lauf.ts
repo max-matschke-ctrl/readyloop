@@ -25,8 +25,8 @@ import { renderMail } from '../mail/vorlagen';
 import type { ErinnerungsSystemRepository } from '../repo/types';
 import { planEingabeAus } from './laufdaten';
 
-/** F-36: Zeitbudget je Aufruf (Route maxDuration 60 s; Rest für die letzte Organisation inkl. Wiederholungen). */
-export const LAUF_BUDGET_MS = 45_000;
+/** F-36: Zeitbudget je Aufruf. Route maxDuration 60 s; ein Versand kann mit Wiederholungen bis 35 s dauern (3 × 10 s + 1 s + 4 s), daher 20 s Budget. */
+export const LAUF_BUDGET_MS = 20_000;
 
 export interface LaufOptionen {
   heute: IsoDate; // Europe/Berlin, injizierbar

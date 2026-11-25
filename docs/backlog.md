@@ -1,6 +1,6 @@
 # Backlog Readyloop
 
-Stand 23.11.2026 (I3M erledigt inkl. Review-Fixes, Commits 989f2ef, 5e4e748; offen FE-15a und Gates G-4/G-5. **I3 geplant:** Pakete §8, Vertrag §9, Branch `erinnerungen`) · Anforderungen: `docs/requirements.md` (IDs R-xx, P-xx, F-x, US-xx, Q-x)
+Stand 25.11.2026 (I3M erledigt inkl. Review-Fixes, Commits 989f2ef, 5e4e748. **I3 erledigt** auf Branch `erinnerungen`, Commits 900881a, a5672ba und FE-18a–FE-21; Pakete §8, Vertrag §9 auf Code-Stand nachgezogen. Offen: Gates G-4/G-5/G-6, FE-15a, Rest R-I3-1 in §8.0) · Anforderungen: `docs/requirements.md` (IDs R-xx, P-xx, F-x, US-xx, Q-x)
 
 ## 1. Inkremente
 
@@ -9,13 +9,13 @@ Stand 23.11.2026 (I3M erledigt inkl. Review-Fixes, Commits 989f2ef, 5e4e748; off
 | **I1** | Datenmodell + RLS, Domäne (Regel-Engine, Status, Rechte), Katalog-Entwurf, Büro-Web-App, Prüfer-Ansicht minimal, Demo-Modus | R-01, R-02 (Teil), R-04, R-05, R-08 (Teil), R-09 (Teil), R-16 (Teil), R-18 (Teil), R-19, R-22 (Teil), R-23, R-24 (Teil), R-28 (Teil), R-31 (Teil), R-40 (Entwurf), P-01–P-06 | lauffähige Demo ohne Datenbank, `npm run build` grün · **erledigt (auf main)** |
 | **I2** | Supabase-Betrieb: Supabase-Repository, Login E-Mail/Passwort, Verwaltung Bereiche/Mitglieder, Prüfer einladen/zuweisen, Mängel, Frist nach Ergebnis, Anlassprüfung, außer Betrieb, Gerät verschieben, Prüferqualifikation (Warnung), GBU-Verweis je Prüfart, Demo-Schutz (Q-9), pgTAP-Tests für RLS | R-06, R-07, R-08, R-10, R-11, R-12, R-22, R-24, R-28 | Pilotfähiges Büro mit echter DB · Pakete §4, Vertrag §5 |
 | **I3M** | **Mitarbeiter (nächstes Inkrement, vor I3):** Rolle MA in Demo und Login, Einladung durch ADM/VER, „Meine Geräte“, Übernahme/Rückgabe per QR-Link und Suche, Zuordnung personenbezogener Geräte, Mangel melden, öffentliche QR-Seite `/g/[token]`, QR-Etiketten mit Prüfplakette, Datensparsamkeit (90 Tage), responsive am Handy und am Büro-PC | R-03 (QR), R-09, R-12 (Meldung), R-20 (QR), R-38 (responsive), R-45, P-09; F-20–F-29; US-17, US-18, US-27–US-33 | Pakete §6, Vertrag §7. **Erledigt (Branch `mitarbeiter`, inkl. Review-Fixes `20261129000000_review_i3m.sql`)** außer FE-15a (wartet auf Freigabe Max zu Designsystem §9.7). Pilotnutzung erst nach Gate G-4; Supabase-Betrieb erst nach G-5 |
-| **I3** | **E-Mail-Erinnerungen:** Fälligkeitsjob mit Staffel 90/60/30 je Bereich, Eskalation VER → SIF → ADM/GF (0/7/14), Prüfer-Wochenübersicht, Hinweis „Nicht verwenden“ an MA, Sammelmail (1 je Empfänger und Tag), Idempotenz, Versandprotokoll mit Bounce-Status, Resend-Adapter + Mail-Vorschau, Auslöser Vercel Cron und `pg_cron`/`pg_net`, Einstellungen je Bereich, persönliche Abmeldung; Bugfix QR-Seite | R-16, R-17, R-24, R-45, P-10; F-30–F-43; US-34–US-43; Q-47–Q-60 | Pakete §8, Vertrag §9. Echter Versand erst nach Gate G-6 |
+| **I3** | **E-Mail-Erinnerungen:** Fälligkeitsjob mit Staffel 90/60/30 je Bereich, Eskalation VER → SIF → ADM/GF (0/7/14), Prüfer-Wochenübersicht, Hinweis „Nicht verwenden“ an MA, Sammelmail (1 je Empfänger und Tag), Idempotenz, Versandprotokoll mit Bounce-Status, Resend-Adapter + Mail-Vorschau, Auslöser Vercel Cron und `pg_cron`/`pg_net`, Einstellungen je Bereich, persönliche Abmeldung; Bugfix QR-Seite | R-16, R-17, R-24, R-45, P-10; F-30–F-43; US-34–US-43; Q-47–Q-60 | Pakete §8, Vertrag §9. **Erledigt (Branch `erinnerungen`, Commits 900881a, a5672ba, FE-18a–FE-21)**; Stand siehe §8.0. Supabase-Betrieb erst nach G-5, echter Versand erst nach Gate G-6 |
 | I4 | Export (Excel, PDF, ZIP zum Stichtag), Excel/CSV-Import mit Vorschau, Aufbewahrungs-Nachfrist, Ausmustern (löst Zuordnung/Übernahme, Q-46), Kategorie ändern (Q-45) | R-25, R-27, R-02 | |
 | I5 | NFC (gleicher Token wie QR), PWA-Manifest, Offline-Lesen, Foto zum Mangel | R-03 (NFC), R-20 (NFC), R-21, R-38 (PWA) | |
 | I6 | KI-Import (Excel/PDF/Typenschild) hinter Adapter, Sammelupload Prüfdienstleister, Import Prüfgeräte-Dateien | R-28, R-29, R-43 | |
 | I7 | Should/Could-Rest: überwachungsbedürftige Anlagen, ISO-Berichte, Kontrollen, Elektro-Messwerte, API, Mehrsprachigkeit | R-13, R-14, R-15, R-26, R-33, R-41 | |
 
-Pilot-Gates G-1 bis G-5 siehe `docs/requirements.md` §4.
+Pilot-Gates G-1 bis G-6 siehe `docs/requirements.md` §4.
 
 ## 2. Inkrement 1 – Pakete (erledigt, auf main)
 
@@ -2792,6 +2792,28 @@ export function sichererRuecksprung(wert: unknown, standard: string): string;
 
 Fachregeln F-30 bis F-43, User Stories US-34 bis US-43, Rechte-Matrix (I3-Zeilen), RLS I3, Datenkatalog §6a, offene Fragen Q-47 bis Q-60, Gate G-6: `docs/requirements.md`. Vertrag: §9 unten.
 
+### 8.0 Stand 25.11.2026: erledigt
+
+Alle Pakete erledigt: BE-21 bis BE-28, BE-24b, D-I3 (D-I3a in `docs/design/mail-vorlagen.md`), FE-17, FE-18a, FE-18b, FE-19, FE-20, FE-21 (Branch `erinnerungen`, Commits 900881a, a5672ba). QA-4 läuft ohne Supabase und ohne Resend; der Supabase-Durchlauf, `supabase test db` und der echte Resend-Versand gehören zu den Gates.
+
+Gegenüber der Planung geändert (Code ist maßgeblich, Pakete und §9 unten sind nachgezogen):
+
+| # | Änderung | Wo im Code | Regel |
+|---|---|---|---|
+| 1 | `MAIL_MAX_POSTEN` 100 → **50** (Mailgröße unter Gmails Kürzungsgrenze); Paket BE-24b | `src/domain/types.ts`, `src/server/mail/vorlagen.ts` | F-38 |
+| 2 | Gekappte Posten (ab Platz 51) werden **mitgebucht**, Feld `ErinnerungPosten.inSumme` bzw. Spalte `erinnerung_posten.in_summe`; Kennzeichen `POSTEN_IN_SUMME_LABEL` = „in Summe genannt“; `kappePosten()` in der Domäne | `src/domain/erinnerungen.ts`, `src/server/erinnerungen/lauf.ts`, System-RPC `erinnerung_versand_reservieren` | F-33 |
+| 3 | Navigation: **ein** Hauptpunkt „Erinnerungen“ (ADM → `/admin/erinnerungen`, SIF → `/erinnerungen/protokoll`) mit Untertabs `ErinnerungenNav` statt drei Hauptpunkten (designsystem §10 E-8); FE-18 geteilt in FE-18a/FE-18b | `src/components/AppHeader.tsx`, `src/components/ErinnerungenNav.tsx` | – |
+| 4 | Ungültiger Abmeldelink als eigene 404-Seite; `OeffentlicheKopfleiste` ohne „Anmelden“ (`anmeldenHref={null}`) | `src/app/abmelden/not-found.tsx` | F-40 |
+| 5 | Laufstatus **`teilweise`**: Zeitbudget 20 s je Aufruf (`LAUF_BUDGET_MS`), Prüfung vor jeder Organisation und vor jeder Reservierung; Fortsetzungs-Auslöser **05:20 UTC** (zweiter Eintrag in `vercel.json`, `pg_cron`-Job `readyloop_erinnerungen_fortsetzung`); Organisationen ohne heutigen Versand zuerst (`listeOrganisationIds(heute)`); hängende `vorbereitet`-Versände → `fehler`/`abgebrochen` | `lauf.ts`, `vercel.json`, Migration I3, `supabase/tests/cron_erinnerungen.test.sql` | F-36 |
+| 6 | Vorschau im Supabase-Modus = **Trockenlauf** (kein Lauf-Datensatz, keine Reservierung, kein Status; `istTrockenlauf()`); `vorschau` zählt nur im Demo-Modus als erinnert (`VERSAND_ERFOLGREICH_DEMO`); Vorschau filtert nach `organisationId`; manueller Lauf nur für die Organisation der Sitzung | `src/server/erinnerungen/system.ts`, `routen.ts`, `src/server/mail/vorschau.ts` | F-33, F-37 |
+| 7 | `CRON_SECRET` kürzer als 32 Zeichen → 503 `nicht_konfiguriert` (`CRON_SECRET_MIN_LAENGE`) | `src/server/erinnerungen/routen.ts` | F-36 |
+| 8 | `NEXT_PUBLIC_SITE_URL` Pflicht in Produktion (Supabase und `NODE_ENV = production`): fehlt sie, 503 `nicht_konfiguriert` vor jedem Schreibzugriff (`mailSiteUrl()` liefert null) | `src/server/mail/index.ts`, `routen.ts`, `lauf.ts`, `.env.example` | F-36 |
+
+Offen nach I3:
+- **Gates** G-5 (Migrationen inkl. I3 gegen echte Supabase, pgTAP) und G-6 (Resend, Domain, Secrets, `pg_cron` + `pg_net`, Probelauf) – `requirements.md` §4. G-4 vor dem ersten eingeladenen MA.
+- **R-I3-1 Kennzeichen „in Summe genannt“ im Versandprotokoll anzeigen** (BE + FE, klein): `in_summe` wird gespeichert, aber `ProtokollPosten` hat noch kein Feld `inSumme`, und `ProtokollTabelle` zeigt das Kennzeichen nicht; `POSTEN_IN_SUMME_LABEL` ist ungenutzt. BE: `ProtokollPosten.inSumme: boolean` (Demo-Dienst und RPC `mail_protokoll`), FE: Zusatz „in Summe genannt“ in der Spalte „Erinnerung“ (Tabelle und Liste). Vorschlag Default: als erstes Paket der nächsten Runde, BE vor FE. Bis dahin sieht das Protokoll diese Posten wie einzeln gezeigte.
+- FE-15a (wartet auf Freigabe Max zu designsystem §9.7); Anhang A `mail-vorlagen.md` (Supabase-Auth-Vorlagen Einladung/Passwort) als eigenes kleines Paket vor G-5 entscheiden.
+
 Nicht in I3: SMS, Push, Kalender-Export (ICS), Terminbuchung, Mail bei gemeldeten Mängeln/Anlässen (Q-50), Mail bei Einladung bekannter Konten (Q-56), Protokoll-Export, „erneut senden“-Knopf (Q-60). **Keine neuen Abhängigkeiten:** Resend über `fetch`, HMAC und Svix-Signatur über `node:crypto`, HTML-Mail als String-Vorlage (kein React Email).
 
 ### Dateibesitz
@@ -2803,7 +2825,7 @@ Nicht in I3: SMS, Push, Kalender-Export (ICS), Terminbuchung, Mail bei gemeldete
 | designer | `docs/design/**` |
 | niemand ohne Absprache | `package.json` + Lockfile (keine neuen Pakete in I3), `tsconfig.json`, `next.config.*`, `eslint.config.*`, `src/app/globals.css` |
 
-FE-Pakete haben untereinander keine gemeinsamen Dateien; `src/components/AppHeader.tsx` schreibt nur FE-18 (alle neuen Navigationseinträge auf einmal), `VersandStatusBadge` schreibt nur FE-20 (FE-21 importiert). `AppHeader.tsx` gehört auch zu Designsystem-Paketen in `docs/design/umsetzung.md`: FE-18 erst starten, wenn dort keine Arbeit an der Datei offen ist. FE-17 (Bugfix) berührt nur `src/components/TokenAktionen.tsx` und kann sofort und parallel zu allem laufen. Innerhalb von backend-dev laufen BE-22 bis BE-26 und BE-28 nacheinander (gemeinsame Dateien `repo/**`, `data.ts`, `actions.ts`); BE-27 (nur `supabase/**`, `tests/migration.test.ts`, `tests/sql/**`) parallel ab BE-21.
+FE-Pakete haben untereinander keine gemeinsamen Dateien; `src/components/AppHeader.tsx` und `src/components/ErinnerungenNav.tsx` schreibt nur FE-18a (FE-20 und FE-21 importieren `ErinnerungenNav`), `VersandStatusBadge` schreibt nur FE-20 (FE-21 importiert). `AppHeader.tsx` gehört auch zu Designsystem-Paketen in `docs/design/umsetzung.md`: FE-18a erst starten, wenn dort keine Arbeit an der Datei offen ist. FE-17 (Bugfix) berührt nur `src/components/TokenAktionen.tsx` und kann sofort und parallel zu allem laufen. Innerhalb von backend-dev laufen BE-22 bis BE-26 und BE-28 nacheinander (gemeinsame Dateien `repo/**`, `data.ts`, `actions.ts`); BE-27 (nur `supabase/**`, `tests/migration.test.ts`, `tests/sql/**`) parallel ab BE-21.
 
 ### Designer zuerst (D-I3)
 
@@ -2813,7 +2835,7 @@ Der designer liefert in `docs/design/designsystem.md` (neue Abschnitte §8.x „
 |---|---|---|
 | **BE-24 Mail-Vorlagen** | **ja (D-I3a, zuerst)** | HTML-Mail-Layout für alle drei Arten: Tabellenlayout, nur Inline-Styles, max. 600 px, Systemschrift-Fallback (keine Webfonts), Farben Steel/Moss/Ochre/Brick stets mit Text, **Prüfplakette als Text-Badge** (kein SVG, kein Bild – Mailprogramme blocken beides), dunkler Modus lesbar; Kopf mit Betrieb, Gruppenüberschriften je Dringlichkeit, Postenzeile (Gerät, Inventarnummer, Bereich, Prüfart, fällig am, Frist-Zeile mit Quelle/Stufe/Fundstelle, Rolle, Hinweise, Link-Button), Entwurfshinweis, Fußzeile Pflicht bzw. Abbestellen; Regeln für den Textteil (Zeilenlänge, Trenner); Betreffmuster. Liefert die Vorlage als annotiertes HTML-Gerüst mit Platzhaltern, damit BE-24 sie 1:1 übernimmt |
 | FE-17 Bugfix QR-Seite | nein | – (nur Knopf ausblenden) |
-| **FE-18 Einstellungen je Bereich + Navigation** | **ja** | Übersicht `/admin/erinnerungen` (je Bereich Zusammenfassung „Vorlauf 90/60/30 · Eskalation 0/7/14 · Sifa in Kopie“, Kennzeichen „Standard“/„Angepasst am … von …“, Warnungen); Formular `/admin/erinnerungen/[bereichId]` (Staffel als 3 Zahlfelder, Eskalationskette als sichtbare Kette VER → SIF → ADM mit Tagen, Empfängerwahl „alle aktiven“/„Auswahl“ mit Checkboxen, VER-Liste nur lesend, „Auf Standard zurücksetzen“ als Sekundäraktion); Navigationseinträge |
+| **FE-18a/FE-18b Navigation, Übersicht, Einstellungen je Bereich** | **ja** | Navigation: ein Hauptpunkt „Erinnerungen“ mit Untertabs (§6.26, E-8). Übersicht `/admin/erinnerungen` (je Bereich Zusammenfassung „Vorlauf 90/60/30 · Eskalation 0/7/14 · Sifa in Kopie“, Kennzeichen „Standard“/„Angepasst am … von …“, Warnungen); Formular `/admin/erinnerungen/[bereichId]` (Staffel als 3 Zahlfelder, Eskalationskette als sichtbare Kette VER → SIF → ADM mit Tagen, Empfängerwahl „alle aktiven“/„Auswahl“ mit Checkboxen, VER-Liste nur lesend, „Auf Standard zurücksetzen“ als Sekundäraktion); Navigationseinträge |
 | **FE-19 Benachrichtigungen + Abmeldeseite** | **ja** | `/einstellungen/benachrichtigungen`: Karte je Mailart – Pflicht mit Schloss-Symbol und Begründungstext, abbestellbar mit Schalter (als Formular-Button, ohne JS nutzbar); lesende Übersicht der Bereichsregeln (SIF/VER/ADM); öffentliche Seite `/abmelden` (Muster wie QR-Seite, nur Wortmarke, ein Satz, ein Button, Bestätigung, ungültiger Link) |
 | **FE-20 Versandprotokoll** | **ja** | Filterleiste (Zeitraum, Status inkl. „Probleme“, Art, Bereich), Tabelle ab `lg`/Karten am Handy, `VersandStatusBadge` (Text + Farbe + Symbol), aufklappbare Posten (Disclosure, ohne JS), maskierte MA-Zeile, „Letzter Lauf“, Leerzustand, Paginierung |
 | **FE-21 Mail-Vorschau** | **ja (klein)** | Liste der Vorschau-Mails (Empfänger, Art, Betreff, Zeit), Vorschau im Iframe in Mailbreite, Umschalter HTML/Text, Box „Kopfzeilen“ (An, Betreff, List-Unsubscribe), Formular „Erinnerungslauf jetzt ausführen“ (Datum nur Demo), Banner „Nur Vorschau – nichts wird versendet“ |
@@ -2824,12 +2846,14 @@ Der designer liefert in `docs/design/designsystem.md` (neue Abschnitte §8.x „
 BE-21 ──┬── BE-22 ── BE-23 ── BE-24* ── BE-25 ── BE-26 ──┬── BE-28 ──┐
         └── BE-27 ───────────────────────────────────────┘           │
 D-I3a (Mail) ──► BE-24*                                               ├── QA-4
-D-I3 (Seiten) ──┬── FE-18 ── FE-19 ── FE-20 ── FE-21 ─────────────────┘
-BE-21 ──────────┘   (FE kompiliert gegen Stubs ab BE-21, Daten ab BE-26)
+D-I3 (Seiten) ──┬── FE-18a ── FE-18b ──┬── FE-19 ──────────────────────┤
+BE-21 ──────────┘                       └── FE-20 ── FE-21 ─────────────┘
+                    (FE kompiliert gegen Stubs ab BE-21, Daten ab BE-26)
 FE-17 (Bugfix, sofort, unabhängig) ───────────────────────────────────┘
+BE-24 ── BE-24b (parallel zu FE) ─────────────────────────────────────┘
 ```
 
-\* BE-24 darf den Textteil vor D-I3a bauen; der HTML-Teil und die Abnahme brauchen D-I3a.
+\* BE-24 darf den Textteil vor D-I3a bauen; der HTML-Teil und die Abnahme brauchen D-I3a. FE-19 und FE-20 haben keine gemeinsamen Dateien und durften parallel laufen.
 
 | Paket | Besitzer | Inhalt | Hängt ab von |
 |---|---|---|---|
@@ -2837,15 +2861,17 @@ FE-17 (Bugfix, sofort, unabhängig) ──────────────�
 | BE-22 | backend-dev | Domäne: `erinnerungen.ts` (Stufen, Plan, Schlüssel, Zustandskennung), `datum.ts` (Wochentag, ISO-Woche) + Tests | BE-21 |
 | BE-23 | backend-dev | Mail-Infrastruktur: Modus, Resend-Adapter, Vorschau-Adapter, Abmelde-Token, Svix-Prüfung + Tests | BE-21 |
 | BE-24 | backend-dev | Mail-Vorlagen (Betreff, Text, HTML, Kopfzeilen) + Tests | BE-22, BE-23, **D-I3a** |
+| BE-24b | backend-dev | Mail-Größe: `MAIL_MAX_POSTEN` 50, schlankere Postenzeile, Kappungszeile und Gruppenkopf „{gezeigt} von {gesamt}“ (`docs/design/umsetzung.md` BE-24b) | BE-24 |
 | BE-25 | backend-dev | Lauf-Dienst, Laufdaten, Session-Dienste I3, Demo-System-Repository, Demo-Repository I3, Demo-Daten + Tests | BE-24 |
 | BE-26 | backend-dev | `data.ts`, `actions.ts`, Routen Cron/Abmelden/Webhook, Kopfzeilen `/abmelden`, `vercel.json`, `.env.example` + Tests | BE-25 |
 | BE-27 | backend-dev | Migration I3: Tabellen, RLS, Trigger, RPCs, `pg_cron` + `pg_net`, Pseudonymisierung, pgTAP, statischer Test | BE-21 |
 | BE-28 | backend-dev | Supabase-Repository I3, Supabase-System-Repository, `system.ts` (Service-Role), Mapping + Tests, statischer Service-Role-Test | BE-26, BE-27 |
 | D-I3 | designer | D-I3a Mail-Vorlagen (zuerst), dann Seitenmuster FE-18 bis FE-21 | – |
 | FE-17 | frontend-dev | Bugfix QR-Seite: „Anmelden und übernehmen“ nur ohne Übernahme-Hinweis | – |
-| FE-18 | frontend-dev | `/admin/erinnerungen`, `/admin/erinnerungen/[bereichId]`, Navigation I3 in `AppHeader` | BE-21, D-I3 |
-| FE-19 | frontend-dev | `/einstellungen/benachrichtigungen`, `/abmelden` | FE-18 |
-| FE-20 | frontend-dev | `/erinnerungen/protokoll`, `VersandStatusBadge` | FE-18 |
+| FE-18a | frontend-dev | Navigation I3 in `AppHeader` (ein Punkt „Erinnerungen“, Menü „Benachrichtigungen“), Untertabs `ErinnerungenNav`, Übersicht `/admin/erinnerungen` | BE-21, D-I3 |
+| FE-18b | frontend-dev | `/admin/erinnerungen/[bereichId]` (Formular, Eskalationskette, Empfängerwahl) | FE-18a |
+| FE-19 | frontend-dev | `/einstellungen/benachrichtigungen`, `/abmelden` inkl. 404-Seite für ungültige Links | FE-18b |
+| FE-20 | frontend-dev | `/erinnerungen/protokoll`, `VersandStatusBadge` | FE-18b |
 | FE-21 | frontend-dev | `/admin/mails` (Vorschau, Lauf auslösen) | FE-20 |
 | QA-4 | test-runner | typecheck, lint, test, build (ohne Env, Dummy-Env); Demo-Durchlauf I3 | alle |
 
@@ -2903,9 +2929,15 @@ Dateien: `src/server/mail/vorlagen.ts`, `tests/mail-vorlagen.test.ts`.
 - Betreff: `frist_digest` „Readyloop · {Betrieb}: {n} überfällig, {m} heute fällig, {k} demnächst“ (Nullteile entfallen; nur Vorlauf: „{k} Prüfungen demnächst fällig“); `pruefer_woche` „Readyloop · {Betrieb}: {n} Prüfungen fällig (KW {ww})“; `ma_hinweis` „Readyloop · Nicht verwenden: {Bezeichnung}“ bzw. „Readyloop · {n} Ihrer Geräte nicht verwenden“.
 - Frist-Zeile über `fristText(frist)`: „{monate} Monate · {FRIST_QUELLE_LABEL} · Stufe {stufe} · {fundstelle}“; `frist === null` → „Frist über GBU festlegen“. `ma_hinweis` ohne Frist-Zeile.
 - Kopfzeilen: abbestellbar → `List-Unsubscribe: <{oneClickUrl}>`, `List-Unsubscribe-Post: List-Unsubscribe=One-Click`; Pflicht → keine. Immer `X-Readyloop-Art: {art}` (kein Personenbezug).
-- `MAIL_MAX_POSTEN` Kappung mit Satz „… und {n} weitere in Readyloop“; Entwurfshinweis nach F-38; Fußzeile Pflicht `PFLICHTMAIL_BEGRUENDUNG` bzw. Abmeldelink.
+- `MAIL_MAX_POSTEN` Kappung über `kappePosten()` (nach BE-24b: 50, Kappungszeile „… und {n} weitere Prüfungen – in Readyloop ansehen“, F-38); Entwurfshinweis nach F-38; Fußzeile Pflicht `PFLICHTMAIL_BEGRUENDUNG` bzw. Abmeldelink.
 
-Abnahme (Fixtures aus BE-22): Gruppenreihenfolge im Text; Frist-Zeile enthält „Stufe B“ und Fundstelle; Posten ohne Frist → „Frist über GBU festlegen“; kein Name aus `digest.empfaenger.name` oder einer Fixture-Person in Betreff/Text/HTML; Bezeichnung `<script>alert(1)</script>` erscheint escaped; Betreff mit `\r\n` in der Bezeichnung einzeilig; Pflichtmail ohne `List-Unsubscribe`, Prüfer- und MA-Mail mit beiden Kopfzeilen; 130 Posten → 100 + Satz; Entwurfshinweis genau dann, wenn ein Posten `katalogEntwurf` hat; HTML enthält kein `<img`, `<script`, `<link`, `http://`; Snapshot-Test je Art (Text und HTML).
+Abnahme (Fixtures aus BE-22): Gruppenreihenfolge im Text; Frist-Zeile enthält „Stufe B“ und Fundstelle; Posten ohne Frist → „Frist über GBU festlegen“; kein Name aus `digest.empfaenger.name` oder einer Fixture-Person in Betreff/Text/HTML; Bezeichnung `<script>alert(1)</script>` erscheint escaped; Betreff mit `\r\n` in der Bezeichnung einzeilig; Pflichtmail ohne `List-Unsubscribe`, Prüfer- und MA-Mail mit beiden Kopfzeilen; 130 Posten → 50 + Kappungszeile (Stand nach BE-24b); Entwurfshinweis genau dann, wenn ein Posten `katalogEntwurf` hat; HTML enthält kein `<img`, `<script`, `<link`, `http://`; Snapshot-Test je Art (Text und HTML).
+
+### BE-24b Mail-Größe (erledigt)
+
+Dateien und Inhalt: `docs/design/umsetzung.md` Abschnitt BE-24b. Vertragsänderung: `MAIL_MAX_POSTEN = 50` (§9.1). Entscheidung zur Frage des designers dort: gekappte Posten werden **gebucht** (F-33, `inSumme`, umgesetzt in BE-25/BE-27/BE-28).
+
+Abnahme: `mail-vorlagen.md` §10 Nr. 4 a–d, 5, 10 grün (100 Posten → 50 Zeilen, HTML < 95 000 Byte; Grenzfälle 50/51; Gruppenkopf „Vorlauf (20 von 70)“).
 
 ### BE-25 Lauf, Dienste, Demo
 
@@ -2913,11 +2945,13 @@ Dateien: `src/server/erinnerungen/lauf.ts`, `src/server/erinnerungen/laufdaten.t
 
 - `planEingabeAus(laufDaten, heute)`: Status je Prüfart mit `berechneStatusImKontext`, `anlassErledigtDurch`, `gesamtStatus`, `nutzungAus` (wie `dienste-basis`, keine zweite Statuslogik); `frist` als `OeffentlicheFrist`; `katalogEntwurf` = `katalogSchluessel` gesetzt und kein `freigegeben`-Eintrag dieses Schlüssels; Halter = `zugeordnetAn` (aktives MA-Mitglied) und `benutzerId` offener Übernahmen; `zustandsKennung` aus §9.4; nur aktive Mitglieder mit E-Mail.
 - `fuehreErinnerungslaufAus` nach F-36: `adapter === null` → `nicht_konfiguriert` ohne Schreibzugriff; kein Werktag und nicht `erzwingen` → `kein_werktag`; `starteLauf`; je Organisation `holeLaufDaten` → `planEingabeAus` → `planeErinnerungen` → je Digest `MailVersand` (Status `vorbereitet`, `versuche` 0) + `ErinnerungPosten` reservieren (Konflikt → überspringen) → `renderMail` → senden mit bis zu 3 Versuchen (Wartezeit über `opt.warte`, Default 1 s/4 s) → `setzeVersandStatus` (`versendet` bzw. `vorschau` im Vorschau-Modus, sonst `fehler` mit Code). Fehler je Organisation werden gezählt, Lauf läuft weiter; am Ende `beendeLauf('fertig')`, bei unerwarteter Ausnahme `fehler`. Anschließend `pseudonymisiereMaHinweise(jetzt)` (Demo; Supabase No-op).
+- **Nachgezogen (Code-Stand):** `mailSiteUrl() === null` → `nicht_konfiguriert` vor jedem Schreibzugriff. Zeitbudget `LAUF_BUDGET_MS` = 45 000 (injizierbar `budgetMs`, `uhr`), geprüft vor jeder Organisation und vor jeder Reservierung; erschöpft → `beendeLauf('teilweise')`, Ergebnis `teilweise`. `listeOrganisationIds(heute)` liefert Organisationen ohne heutigen Versand zuerst. Versand reserviert **alle** Posten des Digests; Posten nach `kappePosten()` mit `inSumme = true` (F-33). `trockenlauf` (Vorschau im Supabase-Modus, `istTrockenlauf(adapter)`): kein `starteLauf`, keine Reservierung, kein `setzeVersandStatus`, keine Pseudonymisierung. Der manuelle Lauf übergibt `organisationIds = [sitzung.organisation.id]`.
 - `dienste-erinnerungen.ts` (§9.9): Einstellungen lesen/speichern (ADM; Validierung der Auswahl gegen aktive Mitglieder der Rolle; Ereignis mit `alt`/`neu`), eigene Benachrichtigungen (Rolle → eine Art, `bereichsRegeln` nach Rolle), Abmeldung setzen (`darfAbbestellen`), Protokoll (Recht `erinnerung.protokoll`, Maskierung F-41 **im Dienst** – Supabase zusätzlich im RPC –, Namen über Mitgliedschaften, Posten mit Gerät/Prüfart/Bereich-Namen), Vorschau (`mail.vorschau` + Modus `vorschau`), Abmeldeseite per Token.
 - Demo-Daten (Ergänzung, Statusverteilung unverändert): Bereich Produktion mit gespeicherter Einstellung Staffel 60/30/14, Eskalation 0/3/10, Sifa in Kopie aus, ADM-Auswahl = Demo-Admin, geändert von Demo-Admin vor 5 Tagen; Protokoll-Beispiele: gestern `frist_digest` an VER Lager `zugestellt` mit 2 Posten; letzter Montag `pruefer_woche` an den Demo-Prüfer `bounce`; ein `ma_hinweis` an Aylin von vor 10 Tagen `versendet` (für die Maskierung).
 
 Abnahme (Demo-Repository, `heute` injiziert, `warte` sofort):
 - Erster Lauf (Werktag) → `fertig`, je (Organisation, Empfänger) höchstens ein Versand; Jonas erhält `ma_hinweis` mit L-008; zweiter Lauf am selben Tag → `bereits_gelaufen`; mit `erzwingen` → `mails = 0`.
+- Budget erschöpft (Uhr injiziert) → `teilweise`, kein Versand im Status `vorbereitet`; Folgeaufruf am selben Datum setzt fort, keine Doppelmail. 51 Posten an einen Empfänger → ein Versand mit 51 Posten, der 51. mit `inSumme = true`; Folgetag keine Mail zu diesen Stufen. Trockenlauf → Protokoll unverändert, Vorschau-Speicher gefüllt.
 - Samstag → `kein_werktag`; Adapter null → `nicht_konfiguriert`, Protokoll unverändert.
 - Adapter: zweimal `rate_limit`, dann ok → `versendet`, `versuche = 3`; dreimal `anbieter_fehler` → `fehler`; Folgetag → dieselben Posten in neuer Sammelmail; `ungueltige_adresse` → ein Versuch, `fehler`.
 - Lauf über zwei Organisationen; eine wirft beim Lesen → andere wird trotzdem versendet, `fehler ≥ 1`, Status `fertig`.
@@ -2932,10 +2966,11 @@ Abnahme (Demo-Repository, `heute` injiziert, `warte` sofort):
 Dateien: `src/server/data.ts`, `src/server/actions.ts`, `src/app/api/cron/erinnerungen/route.ts`, `src/app/api/mail/abmelden/route.ts`, `src/app/api/mail/webhook/route.ts`, `src/server/kopfzeilen.ts` + `src/middleware.ts` (Pfad `/abmelden` mit `QR_KOPFZEILEN`), `vercel.json`, `.env.example`, `tests/actions-i3.test.ts`, `tests/routen-i3.test.ts`.
 
 - Funktionen §9.7/§9.8; Routen §9.10. Alle Routen `export const dynamic = 'force-dynamic'`, `runtime = 'nodejs'`; Cron-Route `maxDuration = 60`.
-- `vercel.json`: `{ "crons": [{ "path": "/api/cron/erinnerungen", "schedule": "0 5 * * 1-5" }] }` (bestehenden Inhalt erhalten).
-- `.env.example`: `CRON_SECRET`, `RESEND_API_KEY`, `MAIL_ABSENDER` (z. B. `Readyloop <erinnerung@mail.example.de>`), `MAIL_ANTWORT_AN` (optional), `MAIL_ABMELDE_SECRET` (≥ 32 Zeichen), `RESEND_WEBHOOK_SECRET`, jeweils mit Kommentar; Hinweis, dass Vercel `CRON_SECRET` selbst als Bearer sendet.
+- `vercel.json` (Code-Stand): zwei Einträge auf `/api/cron/erinnerungen`, `"0 5 * * 1-5"` und `"20 5 * * 1-5"` (Fortsetzung nach `teilweise`, F-36).
+- Cron-Route (Code-Stand, `src/server/erinnerungen/routen.ts`): `CRON_SECRET` fehlt oder < 32 Zeichen (`CRON_SECRET_MIN_LAENGE`) → 503; Modus `aus` → 503; `mailSiteUrl() === null` (Produktion ohne `NEXT_PUBLIC_SITE_URL`) → 503; `teilweise` → 200.
+- `.env.example`: `NEXT_PUBLIC_SITE_URL` (Pflicht in Produktion), `CRON_SECRET` (≥ 32 Zeichen), `RESEND_API_KEY`, `MAIL_ABSENDER` (z. B. `Readyloop <erinnerung@mail.example.de>`), `MAIL_ANTWORT_AN` (optional), `MAIL_ABMELDE_SECRET` (≥ 32 Zeichen), `RESEND_WEBHOOK_SECRET`, jeweils mit Kommentar; Hinweis, dass Vercel `CRON_SECRET` selbst als Bearer sendet.
 
-Abnahme: Cron-Route ohne `CRON_SECRET` → 503; falscher/fehlender Bearer → 401 (Body ohne Details); richtig → 200 mit `LaufErgebnis` (nur Zahlen); `?heute=2026-11-30` wirkt im Demo-Modus, wird bei `NODE_ENV=production` mit Supabase ignoriert; GET und POST gleich. Abmelde-Route: gültiger Token → 200 und abgemeldet; ungültig → 400; GET → 405. Webhook: gültige Signatur + `email.bounced` → Status `bounce`; ungültige Signatur → 401; unbekannte Anbieter-ID → 200 ohne Änderung. Actions prüfen Recht und liefern `feldfehler` mit Formularfeldnamen. `npm run build` ohne Env grün; `/abmelden` und `/api/*` ohne Login-Weiterleitung.
+Abnahme: Cron-Route ohne `CRON_SECRET` oder mit 31 Zeichen → 503; gültiger Bearer, `NODE_ENV=production` + Supabase ohne `NEXT_PUBLIC_SITE_URL` → 503, nichts geschrieben; falscher/fehlender Bearer → 401 (Body ohne Details); richtig → 200 mit `LaufErgebnis` (nur Zahlen); `?heute=2026-11-30` wirkt im Demo-Modus, wird bei `NODE_ENV=production` mit Supabase ignoriert; GET und POST gleich. Abmelde-Route: gültiger Token → 200 und abgemeldet; ungültig → 400; GET → 405. Webhook: gültige Signatur + `email.bounced` → Status `bounce`; ungültige Signatur → 401; unbekannte Anbieter-ID → 200 ohne Änderung. Actions prüfen Recht und liefern `feldfehler` mit Formularfeldnamen. `npm run build` ohne Env grün; `/abmelden` und `/api/*` ohne Login-Weiterleitung.
 
 ### BE-27 Migration I3
 
@@ -2955,6 +2990,7 @@ Inhalt:
 - Pseudonymisierung: `app.mail_pseudonymisieren()` setzt für `art = 'ma_hinweis'` und `erstellt_am < now() - interval '90 days'` den Empfänger in `mail_versand` und `erinnerung_posten` auf null (`pseudonymisiert_am = now()`); `pg_cron`-Job `readyloop_mail_pseudonymisieren` `20 1,2 * * *` UTC, ausgeführt nur in Stunde 03 Europe/Berlin (Muster wie F-27).
 - Auslöser: `app.erinnerungen_ausloesen()` (security definer) liest `readyloop_cron_url` und `readyloop_cron_secret` aus `vault.decrypted_secrets`; fehlt eines → `raise warning 'READYLOOP F-36: Vault-Secrets fehlen …'` und Ende; sonst `net.http_post(url, body := '{"ausloeser":"pg_cron"}', headers := Authorization Bearer + Content-Type, timeout_milliseconds := 55000)`. `pg_cron`-Job `readyloop_erinnerungen` `0 5 * * 1-5`. Fehlen `pg_cron` oder `pg_net` im Supabase-Kontext → `raise warning 'READYLOOP F-36: …'` mit Anleitung (Erweiterungen aktivieren, Vault-Secrets anlegen), außerhalb Supabase `notice`.
 - `ereignis.typ`-Check um `erinnerung_einstellung_gespeichert` erweitern.
+- **Nachgezogen (Code-Stand):** `erinnerung_lauf.status` inkl. `teilweise`; `erinnerung_posten.in_summe boolean` (über `erinnerung_versand_reservieren` geschrieben, unveränderlich); `mail_versand.fehler_code` inkl. `abgebrochen` (Lauf-Start setzt `vorbereitet`-Versände nicht mehr laufender Läufe auf `fehler`/`abgebrochen`); zweiter `pg_cron`-Job `readyloop_erinnerungen_fortsetzung` `20 5 * * 1-5` (geprüft in `cron_erinnerungen.test.sql`).
 
 Abnahme: `tests/migration.test.ts`: RLS an auf allen fünf Tabellen; keine Policy für `authenticated` auf `mail_versand`, `erinnerung_posten`, `erinnerung_lauf`; keine neue `for delete`-Policy; jede neue Funktion mit `revoke execute … from public, anon`; System-RPCs zusätzlich `from authenticated` und `grant … to service_role`; `grant execute` an `anon` weiterhin genau einmal; alle Enum-Werte aus `types.ts` (`MAIL_ARTEN`, `VERSAND_STATUS`, `MAIL_FEHLER_CODES`, `LAUF_AUSLOESER`, `POSTEN_ARTEN`, `POSTEN_ROLLEN`, neuer Ereignistyp) stehen in Checks. SQL-Szenario `tests/sql/rls-szenario-i3.sql` (mit `RL_TEST_PG`): VER liest eigene Bereichs-Einstellung, nicht fremde; SIF schreibt Einstellung → Fehler; ADM speichert → Ereignis; MA liest eigene Abmeldung, nicht fremde; `authenticated` liest `mail_versand` direkt → 0 Zeilen; `mail_protokoll` als VER → 42501, als SIF maskiert MA-Hinweise; zweite Reservierung gleicher Empfänger/Tag → false; Posten-UPDATE `schluessel` → Fehler; Status `zugestellt → vorbereitet` → Fehler; DELETE auf `mail_versand` → Fehler (auch Service). pgTAP `rls_inkrement3.test.sql` deckt dieselben Fälle (Ausführung Gate G-5/G-6); `cron_erinnerungen.test.sql`: `pg_cron` und `pg_net` installiert, Jobs `readyloop_erinnerungen` (`0 5 * * 1-5`) und `readyloop_mail_pseudonymisieren` (`20 1,2 * * *`) aktiv.
 
@@ -2980,22 +3016,24 @@ Datei: `src/components/TokenAktionen.tsx` (nur dieser).
 
 Abnahme: US-43 im Demo-Modus (`demoL001xxxxxxxxxxxxxx` ohne Knopf, `demoL002xxxxxxxxxxxxxx` mit Knopf); typecheck/lint grün; angemeldete Ansichten unverändert.
 
-### FE-18 Einstellungen je Bereich + Navigation (Design zuerst)
+### FE-18a/FE-18b Einstellungen je Bereich + Navigation (Design zuerst, erledigt)
 
-Dateien: `src/app/admin/erinnerungen/page.tsx`, `src/app/admin/erinnerungen/[bereichId]/page.tsx`, `src/components/{ErinnerungUebersicht,ErinnerungEinstellungForm,EskalationsKette}.tsx`, `src/components/AppHeader.tsx`.
+Geteilt nach `docs/design/umsetzung.md` (Abnahmen dort):
+- **FE-18a** – `src/components/AppHeader.tsx`, neu `src/components/ErinnerungenNav.tsx`, `src/app/admin/erinnerungen/page.tsx`, neu `src/components/ErinnerungUebersicht.tsx`.
+- **FE-18b** – `src/app/admin/erinnerungen/[bereichId]/page.tsx`, neu `src/components/{ErinnerungEinstellungForm,EskalationsKette,EmpfaengerWahl}.tsx`.
 
 - Übersicht: `listeErinnerungEinstellungen()`; je Bereich Zusammenfassung, „Standard“ bzw. „Angepasst am {Datum} von {Name}“, Warnungen, Link „Bearbeiten“. Bei `mailModus() === 'aus'` Hinweis „Mailversand ist nicht eingerichtet.“
 - Formular: `holeErinnerungEinstellung(bereichId)`, `null` → `notFound()`; Felder nach §9.8 `erinnerungEinstellungSpeichern` (Feldnamen exakt); drei Zahlfelder `staffel` (leere werden ignoriert); Eskalation drei Zahlfelder; Checkbox `sifaInKopie`; Radio `sifaAuswahl`/`adminAuswahl` + Checkboxen `sifaEmpfaenger`/`adminEmpfaenger` aus `sifaOptionen`/`adminOptionen`; VER des Bereichs als Liste (nicht wählbar) mit Satz „Verantwortliche des Bereichs erhalten Erinnerungen immer.“; zweites Formular „Auf Standard zurücksetzen“ (`erinnerungEinstellungZuruecksetzen`). Feldfehler am Feld.
-- Navigation (`AppHeader`): ADM „Erinnerungen“ → `/admin/erinnerungen` (bei `erinnerung.einstellen`); ADM/SIF „Versandprotokoll“ → `/erinnerungen/protokoll` (bei `erinnerung.protokoll`); ADM „Mail-Vorschau“ → `/admin/mails` (bei `mail.vorschau` und `mailModus() === 'vorschau'`); alle Rollen im Benutzermenü „Benachrichtigungen“ → `/einstellungen/benachrichtigungen`.
+- Navigation (`AppHeader`, designsystem §10 E-8 – ersetzt die ursprünglich geplanten drei Hauptpunkte): **ein** Hauptpunkt „Erinnerungen“ bei `erinnerung.protokoll` (ADM, SIF), Ziel ADM (`erinnerung.einstellen`) `/admin/erinnerungen`, sonst `/erinnerungen/protokoll`; Position nach „Etiketten“, vor „Verwaltung“; aktiv auf allen Unterseiten (`aktiv="erinnerungen"`). Untertabs `ErinnerungenNav` (Props `aktiv`, `zeigeEinstellungen`, `zeigeVorschau`): „Einstellungen je Bereich“ (`erinnerung.einstellen`), „Versandprotokoll“, „Mail-Vorschau“ (`mail.vorschau` und `mailModus() === 'vorschau'`); bei nur einem Tab (SIF) keine Tab-Zeile. Alle Rollen im Benutzermenü „Benachrichtigungen“ → `/einstellungen/benachrichtigungen` (bei `benachrichtigung.eigene`).
 
-Abnahme: US-39 im Demo-Modus; ohne JavaScript speicherbar; 360 px und 1280 px ohne horizontales Scrollen; Navigation je Rolle wie oben.
+Abnahme: US-39 im Demo-Modus; ohne JavaScript speicherbar; 360 px und 1280 px ohne horizontales Scrollen; Navigation je Rolle wie oben (VER, PRF, MA ohne „Erinnerungen“).
 
 ### FE-19 Benachrichtigungen und Abmeldeseite (Design zuerst)
 
-Dateien: `src/app/einstellungen/benachrichtigungen/page.tsx`, `src/app/abmelden/page.tsx`, `src/components/{BenachrichtigungKarte,AbmeldenForm,BereichsRegelnListe}.tsx`.
+Dateien: `src/app/einstellungen/benachrichtigungen/page.tsx`, `src/app/abmelden/page.tsx`, `src/app/abmelden/not-found.tsx` (ungültiger Link), `src/components/{BenachrichtigungKarte,AbmeldenForm,BereichsRegelnListe}.tsx`, `src/components/OeffentlicheKopfleiste.tsx` (Prop `anmeldenHref?: string | null`, `null` = kein „Anmelden“; QR-Seite unverändert).
 
 - `/einstellungen/benachrichtigungen`: `erfordereSitzung('benachrichtigung.eigene')`, `holeEigeneBenachrichtigungen()`; Karte der einen Mailart: Pflicht → Begründung, kein Schalter; abbestellbar → Status „Aktiv“/„Abbestellt“ und Button (`benachrichtigungSetzen`, Felder `art`, `abgemeldet` = `ja`/`nein`); E-Mail-Adresse anzeigen mit Satz „Adresse ändern: über den Admin.“; `bereichsRegeln` als Liste (nur wenn nicht leer).
-- `/abmelden?t=`: ohne Sitzung; `holeAbmeldeSeite(t)`; `null` → „Dieser Link ist nicht gültig.“ (HTTP 404 über `notFound()`); sonst Satz mit Art und Betrieb, Button „Abbestellen“ bzw. „Wieder erhalten“ (`mailAbmeldenPerToken`, Felder `t`, `aktion`), danach Bestätigung. `generateMetadata`: `robots: { index: false, follow: false }`. Header wie QR-Seite ohne Sitzung (nur Wortmarke).
+- `/abmelden?t=`: ohne Sitzung; `holeAbmeldeSeite(t)`; `null` → `notFound()` → `abmelden/not-found.tsx`: „Dieser Link ist nicht gültig.“ (HTTP 404, Leer-Plakette „!“, Link „Anmelden“ → `/login?next=/einstellungen/benachrichtigungen`, Kopfleiste ohne „Anmelden“); sonst Satz mit Art und Betrieb, Button „Abbestellen“ bzw. „Wieder erhalten“ (`mailAbmeldenPerToken`, Felder `t`, `aktion`), danach Bestätigung. `generateMetadata`: `robots: { index: false, follow: false }`. Header wie QR-Seite ohne Sitzung (nur Wortmarke).
 
 Abnahme: US-40 im Demo-Modus (Abmelde-Link aus der Mail-Vorschau öffnen); GET der Seite ändert nichts; ohne JavaScript nutzbar; Touch-Ziele ≥ 48 px.
 
@@ -3005,6 +3043,8 @@ Dateien: `src/app/erinnerungen/protokoll/page.tsx`, `src/components/{ProtokollFi
 
 - `erfordereSitzung('erinnerung.protokoll')`; `searchParams` → `protokollFilterSchema.safeParse` (ungültig → Defaults); `listeMailProtokoll(filter)`; Filter als GET-Formular (stehen in der URL); Bereichsauswahl aus `listeBereiche()`; Tabelle/Karten nach Design; Posten als `<details>`; MA-Zeile „Mitarbeiter/in“ ohne Posten; `VersandStatusBadge` (Props `{ status: VersandStatus }`, Text aus `VERSAND_STATUS_LABEL`); Fehlercode-Text aus `MAIL_FEHLER_LABEL`; Paginierung über `seite`; „Letzter Lauf“ oben. Keine Spalte, Sortierung oder Filter nach Person.
 
+Untertabs über `ErinnerungenNav` (FE-18a, `aktiv="protokoll"`). „Letzter Lauf“ kennt auch `teilweise` (§9.1 `LAUF_STATUS`). Kennzeichen „in Summe genannt“ je Posten: noch offen (R-I3-1, §8.0).
+
 Abnahme: US-41 im Demo-Modus (Seed-Daten BE-25); VER/PRF/MA → 404.
 
 ### FE-21 Mail-Vorschau (Design zuerst)
@@ -3013,7 +3053,9 @@ Dateien: `src/app/admin/mails/page.tsx`, `src/components/{MailVorschauListe,Mail
 
 - `erfordereSitzung('mail.vorschau')`; `holeMailVorschau()` (liefert `notFound()` außerhalb Modus `vorschau`); Formular „Erinnerungslauf jetzt ausführen“ (`erinnerungslaufStarten`, Feld `heute` nur bei `datumWaehlbar`); Liste; Auswahl per `?mail={id}`; `MailVorschauRahmen` rendert `html` in `<iframe sandbox="" srcDoc=…>` (kein `allow-scripts`, kein `allow-same-origin`) und `text` in `<pre>`; Kopfzeilen-Box mit An, Betreff, List-Unsubscribe (als Text, nicht als Link).
 
-Abnahme: US-42 (Vorschau-Teil) im Demo-Modus: Lauf mit Datum Mo 30.11.2026 erzeugt Mails für VER, SIF, ADM (falls eskaliert), Prüfer und Jonas; erneuter Lauf meldet „Keine neuen Mails (bereits erinnert)“.
+- Untertabs über `ErinnerungenNav` (`aktiv="vorschau"`). Im Supabase-Modus (Modus `vorschau` bei `NODE_ENV ≠ production` ohne Resend-Variablen) ist der Lauf ein **Trockenlauf** (F-33): nichts im Protokoll, beliebig wiederholbar, nur Organisation der Sitzung.
+
+Abnahme: US-42 (Vorschau-Teil) im Demo-Modus: Lauf mit Datum Mo 30.11.2026 erzeugt Mails für VER, SIF, ADM (falls eskaliert), Prüfer und Jonas; erneuter Lauf meldet „Keine neuen Mails (bereits erinnert)“. Supabase-Modus: wiederholter Lauf zeigt erneut dieselben Mails, Protokoll bleibt leer (mit G-5 prüfen).
 
 ### QA-4
 
@@ -3181,7 +3223,8 @@ export const DRINGLICHKEIT_LABEL: Record<Dringlichkeit, string> = {
   ohne_termin: 'Ohne Termin',
 };
 
-export const MAIL_MAX_POSTEN = 100;
+// GEÄNDERT (BE-24b): 100 → 50. Kappung über kappePosten() (§9.4); gekappte Posten werden mit inSumme gebucht (F-33).
+export const MAIL_MAX_POSTEN = 50;
 
 // ---------- Erinnerungen: Versand und Protokoll (F-36, F-41) ----------
 
@@ -3198,15 +3241,19 @@ export const VERSAND_STATUS_LABEL: Record<VersandStatus, string> = {
   vorschau: 'Nur Vorschau, nicht versendet',
 };
 
-/** F-33: Posten dieser Versände gelten als gesendet. */
-export const VERSAND_ERFOLGREICH: readonly VersandStatus[] = ['versendet', 'zugestellt', 'bounce', 'beschwerde', 'vorschau'];
+/** GEÄNDERT: F-33 – Posten dieser Versände gelten als gesendet (Supabase-Modus). `vorschau` zählt NICHT
+ *  (Vorschau im Supabase-Modus = Trockenlauf ohne Datensätze). */
+export const VERSAND_ERFOLGREICH: readonly VersandStatus[] = ['versendet', 'zugestellt', 'bounce', 'beschwerde'];
+/** NEU: F-33 – nur Demo-Modus, dort ersetzt die Vorschau den Versand. */
+export const VERSAND_ERFOLGREICH_DEMO: readonly VersandStatus[] = [...VERSAND_ERFOLGREICH, 'vorschau'];
 /** F-41: Filter „Probleme“; MA-Hinweise zeigen nur dann den Namen. */
 export const VERSAND_PROBLEME: readonly VersandStatus[] = ['fehler', 'bounce', 'beschwerde'];
 
 export const VERSAND_MAX_VERSUCHE = 3;
 export const MA_HINWEIS_AUFBEWAHRUNG_TAGE = 90;
 
-export const MAIL_FEHLER_CODES = ['netzwerk', 'rate_limit', 'anbieter_fehler', 'abgelehnt', 'ungueltige_adresse', 'konfiguration'] as const;
+// GEÄNDERT: + 'abgebrochen' (F-36: vorbereitet in einem abgebrochenen Lauf), Label 'Erinnerungslauf abgebrochen'
+export const MAIL_FEHLER_CODES = ['netzwerk', 'rate_limit', 'anbieter_fehler', 'abgelehnt', 'ungueltige_adresse', 'konfiguration', 'abgebrochen'] as const;
 export type MailFehlerCode = (typeof MAIL_FEHLER_CODES)[number];
 
 export const MAIL_FEHLER_LABEL: Record<MailFehlerCode, string> = {
@@ -3216,6 +3263,7 @@ export const MAIL_FEHLER_LABEL: Record<MailFehlerCode, string> = {
   abgelehnt: 'Vom Versanddienst abgelehnt',
   ungueltige_adresse: 'E-Mail-Adresse ungültig',
   konfiguration: 'Mailversand falsch eingerichtet',
+  abgebrochen: 'Erinnerungslauf abgebrochen',
 };
 
 export interface MailVersand {
@@ -3249,13 +3297,18 @@ export interface ErinnerungPosten {
   bezugDatum: IsoDate | null; // frist: faelligAm; pruefer_woche: Montag der ISO-Woche; ma_hinweis: null
   rolle: PostenRolle;
   empfaengerBenutzerId: Id | null; // null nach Pseudonymisierung (nur ma_hinweis)
+  inSumme: boolean; // NEU (F-33): wegen MAIL_MAX_POSTEN nicht einzeln gezeigt, nur in Summe genannt; gilt trotzdem als erinnert
   erstelltAm: IsoDateTime;
 }
+
+/** NEU: Kennzeichen im Versandprotokoll für Posten mit inSumme (F-33). Anzeige noch offen (R-I3-1, §8.0). */
+export const POSTEN_IN_SUMME_LABEL = 'in Summe genannt';
 
 export const LAUF_AUSLOESER = ['vercel_cron', 'pg_cron', 'manuell'] as const;
 export type LaufAusloeser = (typeof LAUF_AUSLOESER)[number];
 
-export const LAUF_STATUS = ['laeuft', 'fertig', 'fehler'] as const;
+/** GEÄNDERT (F-36): + 'teilweise' = Zeitbudget erschöpft, der nächste Auslöser (05:20 UTC) setzt fort. */
+export const LAUF_STATUS = ['laeuft', 'fertig', 'teilweise', 'fehler'] as const;
 export type LaufStatus = (typeof LAUF_STATUS)[number];
 
 export interface ErinnerungLauf {
@@ -3358,6 +3411,7 @@ export interface VorschauMail {
   id: Id;
   erstelltAm: IsoDateTime;
   laufDatum: IsoDate;
+  organisationId: Id; // NEU: Filter der Vorschau (nicht der Name – Namen sind nicht eindeutig)
   organisationName: string;
   art: MailArt;
   an: string; // E-Mail-Adresse (nur im Prozessspeicher, nie in der DB)
@@ -3620,6 +3674,9 @@ export interface DigestPlan {
 
 /** F-30 bis F-35. Deterministisch; höchstens ein Digest je Empfänger; Digests nach benutzerId sortiert; ohne Posten kein Digest. */
 export function planeErinnerungen(eingabe: PlanEingabe): DigestPlan[];
+
+/** NEU (BE-24b, F-33): die ersten max Posten (Digest-Reihenfolge) einzeln, der Rest nur in Summe; beide gelten als erinnert. */
+export function kappePosten<T>(posten: readonly T[], max?: number /* Default MAIL_MAX_POSTEN */): { einzeln: T[]; inSumme: T[] };
 ```
 
 ### 9.5 `src/server/mail/**` (neu)
@@ -3642,6 +3699,7 @@ export type MailSendeErgebnis =
   | { ok: false; fehlerCode: MailFehlerCode; wiederholbar: boolean };
 
 export interface MailMeta {
+  organisationId: Id; // NEU: Vorschau-Filter nach ID
   organisationName: string;
   art: MailArt;
   laufDatum: IsoDate;
@@ -3656,6 +3714,9 @@ export interface MailAdapter {
 export function mailModus(): MailModus; // F-37
 export function holeMailAdapter(): MailAdapter | null; // null bei 'aus'
 export function siteUrl(): string; // NEXT_PUBLIC_SITE_URL ohne abschließenden '/', Default 'http://localhost:3000'
+/** NEU (F-36): Basis-URL für Links in Mails. null im Produktionsmodus (Supabase und NODE_ENV = production) ohne
+ *  NEXT_PUBLIC_SITE_URL → Route und Lauf antworten nicht_konfiguriert. Demo und NODE_ENV ≠ production: wie siteUrl(). */
+export function mailSiteUrl(): string | null;
 
 // src/server/mail/resend.ts
 export function resendAdapter(opt: {
@@ -3669,7 +3730,7 @@ export function resendAdapter(opt: {
 // src/server/mail/vorschau.ts
 export const VORSCHAU_MAX = 200;
 export function vorschauAdapter(): MailAdapter;
-export function listeVorschauMails(organisationName?: string): VorschauMail[]; // neueste zuerst
+export function listeVorschauMails(organisationId?: Id): VorschauMail[]; // GEÄNDERT: Filter nach ID; neueste zuerst
 export function leereVorschau(): void; // nur Tests
 
 // src/server/mail/abmelden.ts
@@ -3749,13 +3810,14 @@ export interface LaufDaten {
 
 /** Ohne Benutzersitzung (F-43). Demo: In-Memory über alle Organisationen. Supabase: Service-Role-Client (system.ts). */
 export interface ErinnerungsSystemRepository {
-  /** Organisationen mit mindestens einer aktiven Mitgliedschaft, nach ID sortiert. */
-  listeOrganisationIds(): Promise<Id[]>;
+  /** GEÄNDERT (F-36): Organisationen mit mindestens einer aktiven Mitgliedschaft; zuerst die ohne Versand am Datum heute,
+   *  dann die übrigen, jeweils nach ID. */
+  listeOrganisationIds(heute: IsoDate): Promise<Id[]>;
   holeLaufDaten(organisationId: Id, heute: IsoDate): Promise<LaufDaten>;
   starteLauf(daten: { laufDatum: IsoDate; ausloeser: LaufAusloeser; erzwingen: boolean; jetzt: IsoDateTime }): Promise<
     { ergebnis: 'gestartet'; lauf: ErinnerungLauf } | { ergebnis: 'bereits_gelaufen' } | { ergebnis: 'laeuft' }
   >;
-  beendeLauf(daten: { laufId: Id; status: 'fertig' | 'fehler'; jetzt: IsoDateTime }): Promise<void>;
+  beendeLauf(daten: { laufId: Id; status: 'fertig' | 'teilweise' | 'fehler'; jetzt: IsoDateTime }): Promise<void>; // GEÄNDERT: + teilweise
   /** Atomar Versand + Posten. false bei Konflikt (Organisation, Empfänger, Datum) – dann nichts geschrieben. */
   reserviereVersand(daten: { versand: MailVersand; posten: ErinnerungPosten[] }): Promise<boolean>;
   setzeVersandStatus(daten: {
@@ -3843,14 +3905,20 @@ export interface LaufOptionen {
   jetzt: Date;
   ausloeser: LaufAusloeser;
   erzwingen?: boolean; // ignoriert „bereits gelaufen“ und kein_werktag; Idempotenz bleibt
-  organisationIds?: Id[]; // Tests
+  organisationIds?: Id[]; // manueller Lauf: genau die Organisation der Sitzung; Tests
+  trockenlauf?: boolean; // NEU (F-33): kein Lauf-Datensatz, keine Reservierung, kein Status; nur Rendern in den Vorschau-Adapter
+  budgetMs?: number; // NEU (F-36): Default LAUF_BUDGET_MS
+  uhr?: () => number; // NEU: Default Date.now; Tests
   warte?: (ms: number) => Promise<void>; // Default setTimeout; Tests sofort
 }
-export type LaufErgebnisStatus = 'fertig' | 'bereits_gelaufen' | 'laeuft_bereits' | 'kein_werktag' | 'nicht_konfiguriert' | 'fehler';
+export const LAUF_BUDGET_MS = 45_000; // NEU (F-36); Route maxDuration 60 s
+export const WARTEZEITEN_MS = [1_000, 4_000] as const;
+// GEÄNDERT: + 'teilweise' (Budget erschöpft, HTTP 200)
+export type LaufErgebnisStatus = 'fertig' | 'teilweise' | 'bereits_gelaufen' | 'laeuft_bereits' | 'kein_werktag' | 'nicht_konfiguriert' | 'fehler';
 export interface LaufErgebnis {
   status: LaufErgebnisStatus;
-  laufId: Id | null;
-  organisationen: number;
+  laufId: Id | null; // null im Trockenlauf
+  organisationen: number; // vollständig bearbeitet
   mails: number; // erfolgreich (inkl. vorschau)
   fehler: number; // Versände mit Status fehler + Organisationen mit Lesefehler
 }
@@ -3862,6 +3930,19 @@ export async function fuehreErinnerungslaufAus(
 
 // src/server/erinnerungen/laufdaten.ts
 export function planEingabeAus(daten: LaufDaten, heute: IsoDate): PlanEingabe;
+
+// src/server/erinnerungen/system.ts – NEU
+/** F-33: true im Supabase-Modus mit Vorschau-Adapter (Trockenlauf); im Demo-Modus false. */
+export function istTrockenlauf(adapter: MailAdapter | null): boolean;
+
+// src/server/erinnerungen/routen.ts – NEU (Logik der Routen ohne Next-Abhängigkeit)
+export const CRON_SECRET_MIN_LAENGE = 32;
+export function bearerGueltig(kopfzeile: string | null, secret: string): boolean; // SHA-256 beider Seiten, timingSafeEqual
+export function ausloeserAus(request: Request): Promise<LaufAusloeser>;
+export function heuteFuerLauf(url: URL, jetzt: Date): string;
+export function cronErinnerungen(request: Request): Promise<Response>;
+export function oneClickAbmelden(request: Request): Promise<Response>;
+export function resendWebhook(request: Request): Promise<Response>; // Body > 256 KB → 413
 
 // src/server/dienste-erinnerungen.ts (Muster wie übrige Dienste: (sitzung, repo, …))
 export async function listeErinnerungEinstellungen(sitzung: Sitzung, repo: Repository): Promise<ErinnerungEinstellungAnsicht[]>;
@@ -3878,12 +3959,13 @@ export async function abmeldenPerToken(system: ErinnerungsSystemRepository, toke
 
 | Route | Besitzer | Zugriff |
 |---|---|---|
-| `GET`/`POST /api/cron/erinnerungen` | BE (BE-26) | `Authorization: Bearer {CRON_SECRET}` (zeitkonstant); 503 ohne Secret oder Modus `aus`; 401 falsch; 200 `LaufErgebnis` (`fertig`, `bereits_gelaufen`, `laeuft_bereits`, `kein_werktag`), 500 bei `fehler`. Auslöser: Kopfzeile `user-agent` enthält `vercel-cron` → `vercel_cron`, Body `{"ausloeser":"pg_cron"}` → `pg_cron`, sonst `manuell`. `?heute=` nur Demo oder `NODE_ENV ≠ production` |
+| `GET`/`POST /api/cron/erinnerungen` | BE (BE-26) | `Authorization: Bearer {CRON_SECRET}` (zeitkonstant); 503 ohne Secret oder Secret < 32 Zeichen; 401 falsch; danach 503 bei Modus `aus` oder fehlender `NEXT_PUBLIC_SITE_URL` im Produktionsmodus; 200 `LaufErgebnis` (`fertig`, `teilweise`, `bereits_gelaufen`, `laeuft_bereits`, `kein_werktag`), 500 bei `fehler`. Zeitpläne `0 5 * * 1-5` und `20 5 * * 1-5` UTC (Vercel und `pg_cron`). Vorschau-Adapter im Supabase-Modus → Trockenlauf. Auslöser: Kopfzeile `user-agent` enthält `vercel-cron` → `vercel_cron`, Body `{"ausloeser":"pg_cron"}` → `pg_cron`, sonst `manuell`. `?heute=` nur Demo oder `NODE_ENV ≠ production` |
 | `POST /api/mail/abmelden?t=` | BE (BE-26) | öffentlich, One-Click (RFC 8058); 200 / 400; GET → 405 |
 | `POST /api/mail/webhook` | BE (BE-26) | öffentlich, Svix-Signatur mit `RESEND_WEBHOOK_SECRET` (fehlt → 503); 401 bei falscher Signatur; 200 sonst |
-| `/admin/erinnerungen`, `/admin/erinnerungen/[bereichId]` | FE (FE-18) | `erinnerung.einstellen` |
+| `/admin/erinnerungen` | FE (FE-18a) | `erinnerung.einstellen` |
+| `/admin/erinnerungen/[bereichId]` | FE (FE-18b) | `erinnerung.einstellen` |
 | `/einstellungen/benachrichtigungen` | FE (FE-19) | `benachrichtigung.eigene` |
-| `/abmelden?t=` | FE (FE-19) | öffentlich; Kopfzeilen wie `/g/*` (Middleware, BE-26) |
+| `/abmelden?t=` | FE (FE-19) | öffentlich; Kopfzeilen wie `/g/*` (Middleware, BE-26); ungültiger Token → `abmelden/not-found.tsx` (404) |
 | `/erinnerungen/protokoll` | FE (FE-20) | `erinnerung.protokoll` |
 | `/admin/mails` | FE (FE-21) | `mail.vorschau` + Modus `vorschau` |
 | `/g/[token]` | FE (FE-17) | unverändert öffentlich; nur Knopf-Logik (US-43) |
@@ -3892,13 +3974,13 @@ export async function abmeldenPerToken(system: ErinnerungsSystemRepository, toke
 
 | Variable | Pflicht für | Hinweis |
 |---|---|---|
-| `CRON_SECRET` | Cron-Route | ≥ 32 Zeichen; Vercel sendet es selbst als Bearer; gleicher Wert im Vault-Secret `readyloop_cron_secret` |
+| `CRON_SECRET` | Cron-Route | ≥ 32 Zeichen (kürzer → 503 `nicht_konfiguriert`); Vercel sendet es selbst als Bearer; gleicher Wert im Vault-Secret `readyloop_cron_secret` |
 | `RESEND_API_KEY`, `MAIL_ABSENDER` | Modus `resend` | Absender mit verifizierter Domain (G-6) |
 | `MAIL_ANTWORT_AN` | optional | `reply_to` |
 | `MAIL_ABMELDE_SECRET` | Modus `resend` | ≥ 32 Zeichen; Wechsel macht alte Abmeldelinks ungültig |
 | `RESEND_WEBHOOK_SECRET` | Webhook | `whsec_…` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Lauf/Abmelden/Webhook im Modus supabase | bereits vorhanden (Einladungen); Nutzung nach F-43 |
-| `NEXT_PUBLIC_SITE_URL` | Links in Mails | bereits vorhanden |
+| `NEXT_PUBLIC_SITE_URL` | Links in Mails | bereits vorhanden; **Pflicht in Produktion** (Supabase und `NODE_ENV = production`): fehlt sie, verweigert der Lauf mit 503 `nicht_konfiguriert`; Demo/Entwicklung Default `http://localhost:3000` |
 
 ## 10. Spätere Inkremente (Pakete grob)
 
