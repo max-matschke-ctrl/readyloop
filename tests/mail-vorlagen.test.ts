@@ -11,7 +11,7 @@ import {
   type PlanPruefart,
   type PostenPlan,
 } from '@/domain/erinnerungen';
-import { PFLICHTMAIL_BEGRUENDUNG, type FristStatus, type StatusErgebnis } from '@/domain/types';
+import { MAIL_MAX_POSTEN, PFLICHTMAIL_BEGRUENDUNG, type FristStatus, type StatusErgebnis } from '@/domain/types';
 import { escapeHtml, fristText, renderMail, type MailKontext } from '@/server/mail/vorlagen';
 
 const HEUTE = '2026-11-30'; // Montag, KW 49
@@ -177,6 +177,24 @@ describe('frist_digest (VER Lager)', () => {
     expect(mail.html).toContain(`href="${SITE}/geraete"`);
     expect(mail.text).toContain(`Öffnen:   ${SITE}/geraete/g-001`);
   });
+  it('§10 Nr. 10: je Posten genau ein <a>, Text = Gerätename, href = siteUrl + pfad; kein „Geräteakte öffnen“', () => {
+    const d = digest('u-ver');
+    const zeilen = mail.html.split('<td width="56"').slice(1).map((z) => z.split('</tr>')[0]);
+    expect(zeilen).toHaveLength(d.posten.length);
+    zeilen.forEach((z, i) => {
+      const links = [...z.matchAll(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g)];
+      expect(links).toHaveLength(1);
+      expect(links[0][1]).toBe(escapeHtml(SITE + d.posten[i].pfad));
+      expect(links[0][2]).toBe(escapeHtml(d.posten[i].geraetBezeichnung));
+    });
+    expect(mail.html).not.toContain('Geräteakte öffnen');
+  });
+  it('§5.6: Plakette Datum ohne height/padding-top/color, Zeichen-Variante color nur bei vor_nutzung_pruefen', () => {
+    expect(mail.html).not.toContain('height:35px');
+    expect(mail.html).not.toContain('padding-top:5px');
+    expect(mail.html).toMatch(/<div style="width:40px;padding:5px 0;border:2px solid #a6452f;border-radius:50%;background:#f9ece8;text-align:center;font-size:13px;line-height:15px;font-weight:700">10<br>2026<\/div>/);
+    expect(mail.html).toContain('line-height:40px;font-weight:700;color:#a6452f">!</div>');
+  });
 });
 
 describe('Eskalation im Betreff (D-I3a §6.1)', () => {
@@ -222,6 +240,8 @@ describe('pruefer_woche', () => {
   });
   it('kein Postenlink, Fuß mit Abmeldeseite (nicht One-Click)', () => {
     expect(mail.html).not.toContain('Geräteakte öffnen');
+    for (const z of mail.html.split('<td width="56"').slice(1).map((x) => x.split('</tr>')[0])) expect(z).not.toContain('<a ');
+    expect(mail.html).toMatch(/border:2px dashed #7c8797;[^"]*font-weight:700">GBU<\/div>/);
     expect(mail.html).toContain(`href="${SITE}/abmelden?t=tok.sig"`);
     expect(mail.text).toContain(`Diese Mails abbestellen:\n${SITE}/abmelden?t=tok.sig`);
     expect(mail.text).not.toContain('/api/mail/abmelden');
@@ -287,6 +307,18 @@ describe('Datenschutz und Sicherheit', () => {
       expect(html.indexOf('display:none')).toBeLessThan(html.indexOf('<table'));
     }
   });
+  it('Textteil: Zeilen über 72 Zeichen sind nur URL-Zeilen (URL allein oder hinter „Öffnen:“), auch die Abmelde-URL', () => {
+    const langerToken = `${'a'.repeat(120)}.${'b'.repeat(43)}`;
+    for (const d of PLAN) {
+      const abmeldung = d.abbestellbar ? { seitenUrl: `${SITE}/abmelden?t=${langerToken}`, oneClickUrl: `${SITE}/api/mail/abmelden?t=${langerToken}` } : null;
+      const { text } = render(d, { abmeldung });
+      for (const zeile of text.split('\n')) {
+        if (zeile.length > 72) expect(zeile, zeile).toMatch(/^(?: {2}Öffnen: {3})?https:\/\/\S+$/);
+        if (zeile.includes('://')) expect(zeile, zeile).toMatch(/^(?: {2}Öffnen: {3})?https:\/\/\S+$/);
+      }
+      if (abmeldung) expect(text).toContain(`Diese Mails abbestellen:\n${abmeldung.seitenUrl}\n`);
+    }
+  });
   it('Textteil: keine Zeile über 72 Zeichen außer mit URL', () => {
     const lang = eingabe({
       pruefarten: Array.from({ length: 5 }, (_, i) =>
@@ -332,31 +364,85 @@ describe('Kappung und Größe', () => {
     }));
   const d = (n: number, lang = false): DigestPlan => ({ art: 'frist_digest', empfaenger: VER, posten: posten(n, lang), abbestellbar: false });
 
-  it('130 Posten → 100 in der Mail + Satz „… und 30 weitere in Readyloop“; Zusammenfassung mit voller Zahl', () => {
-    const mail = render(d(130));
-    expect((mail.html.match(/<td width="56"/g) ?? []).length).toBe(100);
-    expect(mail.html).toContain('… und 30 weitere in Readyloop.');
-    expect(mail.text).toContain('… und 30 weitere in Readyloop.');
-    expect(mail.html).toContain('<b style="font-size:20px;line-height:24px">130</b>');
-    expect(mail.html).toContain('In den nächsten 30 Tagen fällig (100)');
-    expect(mail.betreff).toBe(`Readyloop · ${BETRIEB}: 130 Prüfungen demnächst fällig`);
+  const gemischt = (ueberfaellig: number, vorlauf: number): DigestPlan => ({
+    ...d(0, true),
+    posten: [
+      ...posten(ueberfaellig, true).map((p, i) => ({ ...p, schluessel: `u${i}`, dringlichkeit: 'ueberfaellig' as const, status: 'ueberfaellig' as const, restTage: -5, faelligAm: '2026-11-25' })),
+      ...posten(vorlauf, true).map((p, i) => ({ ...p, schluessel: `v${i}`, dringlichkeit: 'vorlauf' as const, status: 'ok' as const, restTage: 60, faelligAm: '2027-01-29' })),
+    ],
+  });
+  const zeilenAnzahl = (html: string) => (html.match(/<td width="56"/g) ?? []).length;
+
+  it('Vertrag: MAIL_MAX_POSTEN = 50', () => {
+    expect(MAIL_MAX_POSTEN).toBe(50);
+  });
+  it('§10 Nr. 4a: 100 lange Posten → 50 Zeilen, Kappungszeile, volle Zahlen oben, HTML < 95 000 Byte', () => {
+    const mail = render(d(100, true));
+    const bytes = Buffer.byteLength(mail.html, 'utf8');
+    expect(zeilenAnzahl(mail.html)).toBe(50);
+    expect(mail.html).toContain(
+      `<b>… und 50 weitere Prüfungen</b> – <a href="${SITE}/geraete" style="color:#2c3646">in Readyloop ansehen</a>`,
+    );
+    expect(mail.text).toContain(`… und 50 weitere Prüfungen – in Readyloop ansehen:\n${SITE}/geraete\n`);
+    expect(mail.html).toContain('<b style="font-size:20px;line-height:24px">100</b>');
+    expect(mail.betreff).toBe(`Readyloop · ${BETRIEB}: 100 Prüfungen demnächst fällig`);
+    expect(mail.html).toContain('Diese Mail zeigt die 50 dringlichsten von 100.');
+    expect(bytes).toBeLessThan(95_000);
+    expect(bytes).toBeLessThan(60_000); // Ziel M-5
+  });
+  it('§10 Nr. 4b: je Postenzeile ≤ 1 000 Byte (frist_digest) bzw. ≤ 850 Byte (pruefer_woche)', () => {
+    const groesse = (n: number, art: DigestPlan['art']) =>
+      Buffer.byteLength(render({ ...d(n, true), art, empfaenger: art === 'pruefer_woche' ? PRF : VER }).html, 'utf8');
+    expect(groesse(50, 'frist_digest') - groesse(49, 'frist_digest')).toBeLessThanOrEqual(1_000);
+    expect(groesse(50, 'pruefer_woche') - groesse(49, 'pruefer_woche')).toBeLessThanOrEqual(850);
+  });
+  it('§10 Nr. 4c: 50 Posten ohne Kappung; 51 → „… und 1 weitere Prüfung“ und Satz in der Einleitung', () => {
+    const fuenfzig = render(d(50));
+    expect(zeilenAnzahl(fuenfzig.html)).toBe(50);
+    expect(fuenfzig.html).not.toContain('weitere Prüfung');
+    expect(fuenfzig.html).not.toContain('Diese Mail zeigt');
+    expect(fuenfzig.text).not.toContain('Diese Mail zeigt');
+    const einundfuenfzig = render(d(51));
+    expect(zeilenAnzahl(einundfuenfzig.html)).toBe(50);
+    expect(einundfuenfzig.html).toContain('<b>… und 1 weitere Prüfung</b> – ');
+    expect(einundfuenfzig.text).toContain('… und 1 weitere Prüfung – in Readyloop ansehen:');
+    expect(einundfuenfzig.html).toContain('Die dringlichsten stehen oben. Diese Mail zeigt die 50 dringlichsten von 51.</p>');
+    expect(einundfuenfzig.text.replace(/\s+/g, ' ')).toContain('Die dringlichsten stehen oben. Diese Mail zeigt die 50 dringlichsten von 51.');
+  });
+  it('§10 Nr. 4d: 30 überfällig + 70 Vorlauf → „Überfällig (30)“ und „Vorlauf (20 von 70)“ in HTML und Text', () => {
+    const mail = render(gemischt(30, 70));
+    expect(mail.html).toContain('✕ Überfällig (30)</h2>');
+    expect(mail.html).toContain('✓ Vorlauf (20 von 70)</h2>');
+    for (const titel of ['✕ Überfällig (30)', '✓ Vorlauf (20 von 70)']) expect(mail.text).toContain(`\n${titel}\n${'='.repeat(titel.length)}\n`);
+    expect(mail.html).toContain('<b style="font-size:20px;line-height:24px">70</b>');
+  });
+  it('Gruppe, die ganz gekappt ist, entfällt (§5.5)', () => {
+    const mail = render(gemischt(50, 5));
+    expect(mail.html).not.toContain('Vorlauf (');
+    expect(mail.html).toContain('… und 5 weitere Prüfungen');
+  });
+  it('ma_hinweis: Kappung mit „Gerät/Geräte“ und „Diese Mail zeigt 50 von N.“', () => {
+    const ma = (n: number): DigestPlan => ({
+      art: 'ma_hinweis',
+      empfaenger: JONAS,
+      abbestellbar: true,
+      posten: posten(n).map((p, i) => ({ ...p, art: 'ma_hinweis', dringlichkeit: 'nicht_verwenden', status: null, frist: null, hinweise: ['Überfällig'], pfad: '/meine-geraete', schluessel: `ma${i}` })),
+    });
+    const eins = render(ma(51));
+    expect(eins.html).toContain('<b>… und 1 weitere Gerät</b>');
+    expect(eins.html).toContain(`<a href="${SITE}/meine-geraete" style="color:#2c3646">in Readyloop ansehen</a>`);
+    expect(eins.html).toContain('dürfen ab sofort nicht benutzt werden. Diese Mail zeigt 50 von 51.');
+    expect(render(ma(53)).text).toContain('… und 3 weitere Geräte – in Readyloop ansehen:');
   });
   it('ohne Kappung kein Satz; ohne Entwurf kein Entwurfshinweis', () => {
     const mail = render(d(3));
-    expect(mail.html).not.toContain('weitere in Readyloop');
+    expect(mail.html).not.toContain('in Readyloop ansehen');
     expect(mail.html).not.toContain('Prüfkatalog im Entwurf');
     expect(mail.text).not.toContain('Prüfkatalog im Entwurf');
   });
   it('Entwurfshinweis zählt Prüfarten (Plural)', () => {
     const p = posten(3).map((x) => ({ ...x, katalogEntwurf: true }));
     expect(render({ ...d(0), posten: p }).html).toContain('für 3 Prüfarten dieser Mail');
-  });
-  // OFFEN (an designer gemeldet): Das Gerüst aus D-I3a §5.8 ergibt mit der Fixture aus §10.4 rund 980 Byte je Posten,
-  // bei 100 Posten ≈ 103 000 Byte – über dem Budget M-5 (95 000) und über der Gmail-Kürzung (≈ 102 KB).
-  // Laut D-I3a §10.4 wird nicht still gekürzt. it.fails kippt auf rot, sobald das Budget erreicht ist → dann auf it umstellen.
-  it.fails('100 Posten mit langen Werten → HTML < 95 000 Byte (M-5) – offen, Rückmeldung designer', () => {
-    const { html } = render(d(100, true));
-    expect(Buffer.byteLength(html, 'utf8')).toBeLessThan(95_000);
   });
   it('Größe wächst linear: 10 Posten mit langen Werten < 16 000 Byte', () => {
     expect(Buffer.byteLength(render(d(10, true)).html, 'utf8')).toBeLessThan(16_000);

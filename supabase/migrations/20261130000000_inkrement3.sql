@@ -140,6 +140,8 @@ create table public.erinnerung_posten (
   bezug_datum date,
   rolle text not null check (rolle in ('zustaendig', 'kopie')),
   empfaenger_benutzer_id uuid references auth.users (id),
+  -- F-33 (BE-24b): wegen MAIL_MAX_POSTEN nicht einzeln in der Mail, nur in Summe genannt; gilt trotzdem als erinnert.
+  in_summe boolean not null default false,
   erstellt_am timestamptz not null default now(),
   unique (versand_id, schluessel),
   foreign key (versand_id, organisation_id) references public.mail_versand (id, organisation_id),
@@ -417,7 +419,7 @@ $$;
 
 -- F-36: Versand und Posten in EINER Transaktion; Konflikt (Organisation, Empfänger, Datum) → false, nichts geschrieben.
 -- p_versand: { id, organisation_id, lauf_id, lauf_datum, art, empfaenger_benutzer_id }
--- p_posten:  [{ id, schluessel, art, stufe, geraet_id, geraet_pruefart_id, bereich_id, bezug_datum, rolle }]
+-- p_posten:  [{ id, schluessel, art, stufe, geraet_id, geraet_pruefart_id, bereich_id, bezug_datum, rolle, in_summe }]
 -- Organisation und Empfänger der Posten kommen immer aus dem Versand (keine Mischung über Mandanten).
 create or replace function public.erinnerung_versand_reservieren(p_versand jsonb, p_posten jsonb)
 returns boolean language plpgsql security definer set search_path = public, pg_temp as $$
@@ -452,10 +454,10 @@ begin
   end if;
 
   insert into public.erinnerung_posten (id, organisation_id, versand_id, schluessel, art, stufe, geraet_id,
-    geraet_pruefart_id, bereich_id, bezug_datum, rolle, empfaenger_benutzer_id)
+    geraet_pruefart_id, bereich_id, bezug_datum, rolle, empfaenger_benutzer_id, in_summe)
   select coalesce((e ->> 'id')::uuid, gen_random_uuid()), v_org, v_id, e ->> 'schluessel', e ->> 'art', e ->> 'stufe',
     (e ->> 'geraet_id')::uuid, (e ->> 'geraet_pruefart_id')::uuid, (e ->> 'bereich_id')::uuid,
-    (e ->> 'bezug_datum')::date, e ->> 'rolle', v_empf
+    (e ->> 'bezug_datum')::date, e ->> 'rolle', v_empf, coalesce((e ->> 'in_summe')::boolean, false)
   from jsonb_array_elements(p_posten) e;
   return true;
 end;
@@ -564,7 +566,7 @@ begin
       'id', p.id, 'organisation_id', p.organisation_id, 'versand_id', p.versand_id, 'schluessel', p.schluessel,
       'art', p.art, 'stufe', p.stufe, 'geraet_id', p.geraet_id, 'geraet_pruefart_id', p.geraet_pruefart_id,
       'bereich_id', p.bereich_id, 'bezug_datum', p.bezug_datum, 'rolle', p.rolle,
-      'empfaenger_benutzer_id', p.empfaenger_benutzer_id, 'erstellt_am', p.erstellt_am)
+      'empfaenger_benutzer_id', p.empfaenger_benutzer_id, 'in_summe', p.in_summe, 'erstellt_am', p.erstellt_am)
       order by p.versand_id, p.schluessel), '[]'::jsonb)
   into v_posten
   from public.erinnerung_posten p

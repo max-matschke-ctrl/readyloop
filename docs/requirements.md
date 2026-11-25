@@ -285,6 +285,7 @@ Rangfolge aller Stufen (dringlicher rechts): `v{größtes s}` < … < `v{kleinst
 - Posten-Schlüssel (eindeutig je Versand): `frist:{geraetPruefartId}:{stufe}:{faelligAm}:{empfaengerId}` · `pruefer:{geraetPruefartId}:woche:{MontagDerIsoWoche}:{empfaengerId}` · `ma:{geraetId}:{zustandsKennung}:{empfaengerId}`.
 - „Erfolgreich“ = Versandstatus `versendet`, `zugestellt`, `bounce`, `beschwerde` oder `vorschau` (`VERSAND_ERFOLGREICH`). Bounce und Beschwerde zählen als versendet, damit nicht täglich an eine tote Adresse nachgesendet wird; das Protokoll zeigt das Problem (F-41).
 - Ist ein Empfänger für denselben Posten zuständig und in Kopie, erhält er ihn einmal als zuständig.
+- Kappung (`MAIL_MAX_POSTEN` = 50): Posten ab Platz 51 der Sammelmail stehen nicht einzeln in der Mail, sondern nur in Summe („… und {n} weitere Prüfungen – in Readyloop ansehen“). Sie gelten trotzdem als erinnert: Sie werden mit demselben Versand wie gesendet protokolliert, mit dem Kennzeichen „in Summe genannt“ (`inSumme`), und zählen für diese Regel wie einzeln gezeigte Posten. So entsteht am Folgetag keine zweite Mail zur selben Stufe.
 - Bereich ohne aktiven VER: zuständig wird die SIF (Auswahl oder alle), ohne aktive SIF die ADM-Auswahl; Posten-Hinweis „Bereich ohne Verantwortlichen“. Gilt für Vorlauf und `e_verantwortlicher`.
 - Ausgewählte SIF/ADM, die nicht mehr aktiv sind, werden ignoriert; bleibt niemand übrig, gelten alle aktiven der Rolle, und die Einstellungsseite warnt.
 

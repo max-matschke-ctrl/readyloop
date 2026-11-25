@@ -649,7 +649,7 @@ export function erzeugeDemoStand(heute: IsoDate): DemoStand {
               ? postenSchluessel({ art: 'pruefer_woche', geraetPruefartId: pa!, montag: p.bezug!, empfaengerId: empfaenger })
               : postenSchluessel({ art: 'ma_hinweis', geraetId: g.id, zustandsKennung: p.kennung!, empfaengerId: empfaenger }),
         art: p.art, stufe: p.stufe, geraetId: g.id, geraetPruefartId: pa, bereichId: g.bereichId, bezugDatum: p.bezug, rolle: p.rolle,
-        empfaengerBenutzerId: empfaenger, erstelltAm: zeit(datum, '06:00'),
+        empfaengerBenutzerId: empfaenger, inSumme: false, erstelltAm: zeit(datum, '06:00'),
       });
     }
   };

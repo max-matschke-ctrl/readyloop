@@ -774,6 +774,7 @@ export interface ErinnerungPostenZeile {
   bezug_datum: string | null;
   rolle: ErinnerungPosten['rolle'];
   empfaenger_benutzer_id: string | null;
+  in_summe?: boolean | null; // fehlt bei älteren Antworten → false
   erstellt_am: string;
 }
 export interface ErinnerungLaufZeile {
@@ -796,7 +797,7 @@ export const SPALTEN_I3 = {
   einstellung:
     'bereich_id, organisation_id, staffel_tage, eskalation_verantwortlicher, eskalation_sifa, eskalation_admin, sifa_in_kopie, sifa_empfaenger, admin_empfaenger, geaendert_von, geaendert_von_name, geaendert_am',
   posten:
-    'id, organisation_id, versand_id, schluessel, art, stufe, geraet_id, geraet_pruefart_id, bereich_id, bezug_datum, rolle, empfaenger_benutzer_id, erstellt_am',
+    'id, organisation_id, versand_id, schluessel, art, stufe, geraet_id, geraet_pruefart_id, bereich_id, bezug_datum, rolle, empfaenger_benutzer_id, in_summe, erstellt_am',
 } as const;
 
 export function zuErinnerungEinstellung(z: ErinnerungEinstellungZeile): ErinnerungEinstellung {
@@ -878,6 +879,7 @@ export const zuErinnerungPosten = (z: ErinnerungPostenZeile): ErinnerungPosten =
   bezugDatum: datumOderNull(z.bezug_datum),
   rolle: z.rolle,
   empfaengerBenutzerId: z.empfaenger_benutzer_id,
+  inSumme: z.in_summe === true,
   erstelltAm: isoZeit(z.erstellt_am),
 });
 export const vonErinnerungPosten = (p: ErinnerungPosten): ErinnerungPostenZeile => ({
@@ -893,6 +895,7 @@ export const vonErinnerungPosten = (p: ErinnerungPosten): ErinnerungPostenZeile 
   bezug_datum: p.bezugDatum,
   rolle: p.rolle,
   empfaenger_benutzer_id: p.empfaengerBenutzerId,
+  in_summe: p.inSumme,
   erstellt_am: p.erstelltAm,
 });
 

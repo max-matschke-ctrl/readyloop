@@ -896,7 +896,8 @@ export const DRINGLICHKEIT_LABEL: Record<Dringlichkeit, string> = {
   ohne_termin: 'Ohne Termin',
 };
 
-export const MAIL_MAX_POSTEN = 100;
+/** Höchstens so viele Posten stehen einzeln in einer Mail (D-I3a M-10); gekappte gelten als erinnert (F-33, `inSumme`). */
+export const MAIL_MAX_POSTEN = 50;
 
 // ---------- Erinnerungen: Versand und Protokoll (F-36, F-41) ----------
 
@@ -964,8 +965,12 @@ export interface ErinnerungPosten {
   bezugDatum: IsoDate | null; // frist: faelligAm; pruefer_woche: Montag der ISO-Woche; ma_hinweis: null
   rolle: PostenRolle;
   empfaengerBenutzerId: Id | null; // null nach Pseudonymisierung (nur ma_hinweis)
+  inSumme: boolean; // F-33: wegen MAIL_MAX_POSTEN nicht einzeln gezeigt, nur in Summe genannt; gilt trotzdem als erinnert
   erstelltAm: IsoDateTime;
 }
+
+/** Kennzeichen im Versandprotokoll für Posten mit `inSumme` (F-33). */
+export const POSTEN_IN_SUMME_LABEL = 'in Summe genannt';
 
 export const LAUF_AUSLOESER = ['vercel_cron', 'pg_cron', 'manuell'] as const;
 export type LaufAusloeser = (typeof LAUF_AUSLOESER)[number];

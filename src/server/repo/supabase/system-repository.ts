@@ -191,6 +191,7 @@ export function supabaseSystemRepository(client: SupabaseClient): ErinnerungsSys
             bereich_id: z.bereich_id,
             bezug_datum: z.bezug_datum,
             rolle: z.rolle,
+            in_summe: z.in_summe,
           };
         }),
       });

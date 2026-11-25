@@ -1,7 +1,7 @@
 // BE-25: Erinnerungslauf mit Demo-System-Repository – „heute“ injiziert, Wartezeiten sofort (F-30 bis F-36, F-41).
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { addTage } from '@/domain/datum';
-import type { MailFehlerCode } from '@/domain/types';
+import { MAIL_MAX_POSTEN, type MailFehlerCode } from '@/domain/types';
 import { fuehreErinnerungslaufAus, WARTEZEITEN_MS, type LaufOptionen } from '@/server/erinnerungen/lauf';
 import { planEingabeAus } from '@/server/erinnerungen/laufdaten';
 import type { GerenderteMail, MailAdapter, MailMeta, MailSendeErgebnis } from '@/server/mail/types';
@@ -119,6 +119,47 @@ describe('fuehreErinnerungslaufAus', () => {
       const alte = stand.erinnerungPosten.filter((p) => p.empfaengerBenutzerId === v.empfaengerBenutzerId && p.versandId !== v.id).map((p) => p.schluessel);
       expect(neue.filter((s) => alte.includes(s))).toEqual([]);
     }
+  });
+
+  it('F-33 Kappung: Posten ab Platz 51 werden „in Summe genannt“ gebucht und kommen am Folgetag nicht erneut', async () => {
+    // Vorlauf-Posten von Marco am Montag suchen und die Prüfart 60-mal klonen (gleiche Fälligkeit, gleiche Stufe am Dienstag)
+    const probeStand = erzeugeDemoStand(MONTAG);
+    await fuehreErinnerungslaufAus(new DemoSystemRepository(probeStand), skriptAdapter().adapter, opt(MONTAG));
+    const montagsVersand = probeStand.mailVersand.find((v) => v.empfaengerBenutzerId === B.marco && v.laufDatum === MONTAG)!;
+    const vorlage = probeStand.erinnerungPosten.find((p) => p.versandId === montagsVersand.id && p.art === 'frist' && p.stufe.startsWith('v'))!;
+    expect(vorlage).toBeDefined();
+    const g = stand.geraete.find((x) => x.id === vorlage.geraetId)!;
+    const pa = stand.pruefarten.find((x) => x.id === vorlage.geraetPruefartId)!;
+    for (let i = 1; i <= 60; i++) {
+      const gid = `${g.id.slice(0, -4)}${String(9000 + i)}`;
+      const paid = `${pa.id.slice(0, -4)}${String(9000 + i)}`;
+      stand.geraete.push({ ...structuredClone(g), id: gid, inventarnummer: g.inventarnummer ? `${g.inventarnummer}-K${i}` : null });
+      stand.pruefarten.push({ ...structuredClone(pa), id: paid, geraetId: gid });
+      for (const n of stand.nachweise.filter((x) => x.geraetPruefartId === pa.id)) {
+        stand.nachweise.push({ ...structuredClone(n), id: `${n.id.slice(0, -4)}${String(9000 + i)}`, geraetId: gid, geraetPruefartId: paid });
+      }
+    }
+
+    const { adapter, gesendet } = skriptAdapter();
+    await fuehreErinnerungslaufAus(repo, adapter, opt(MONTAG));
+    const montag = versandVon(B.marco, MONTAG)[0];
+    const posten = stand.erinnerungPosten.filter((p) => p.versandId === montag.id);
+    expect(posten.length).toBeGreaterThan(MAIL_MAX_POSTEN);
+    expect(montag.postenAnzahl).toBe(posten.length);
+    const inSumme = posten.filter((p) => p.inSumme);
+    expect(inSumme).toHaveLength(posten.length - MAIL_MAX_POSTEN);
+    expect(posten.slice(0, MAIL_MAX_POSTEN).every((p) => !p.inSumme)).toBe(true); // Reihenfolge des Digests
+    const mail = gesendet.find((x) => x.mail.an === email(B.marco))!.mail;
+    expect(mail.text).toContain(`… und ${inSumme.length} weitere`);
+    expect((mail.html.match(/<td width="56"/g) ?? []).length).toBe(MAIL_MAX_POSTEN);
+
+    const zweit = skriptAdapter();
+    await fuehreErinnerungslaufAus(repo, zweit.adapter, opt(DIENSTAG));
+    const dienstagsSchluessel = new Set(
+      versandVon(B.marco, DIENSTAG).flatMap((v) => stand.erinnerungPosten.filter((p) => p.versandId === v.id).map((p) => p.schluessel)),
+    );
+    for (const p of inSumme) expect(dienstagsSchluessel.has(p.schluessel), p.schluessel).toBe(false);
+    expect(versandVon(B.marco, DIENSTAG)).toEqual([]); // keine Doppelmail: alle Montags-Posten bleiben in ihrer Stufe
   });
 
   it('Samstag → kein_werktag ohne Schreibzugriff; mit erzwingen läuft er', async () => {
@@ -260,7 +301,7 @@ describe('DemoSystemRepository: Webhook und Statusübergänge', () => {
     });
     const posten = (versandId: string) => [{
       id: `${versandId}-p`, organisationId: DEMO_ORG_ID, versandId, schluessel: 'k', art: 'frist' as const, stufe: 'v30', geraetId: g.id,
-      geraetPruefartId: 'x', bereichId: g.bereichId, bezugDatum: MONTAG, rolle: 'zustaendig' as const, empfaengerBenutzerId: B.marco, erstelltAm: '',
+      geraetPruefartId: 'x', bereichId: g.bereichId, bezugDatum: MONTAG, rolle: 'zustaendig' as const, empfaengerBenutzerId: B.marco, inSumme: false, erstelltAm: '',
     }];
     expect(await repo.reserviereVersand({ versand: versand('a'), posten: posten('a') })).toBe(true);
     expect(await repo.reserviereVersand({ versand: versand('b'), posten: posten('b') })).toBe(false);

@@ -3,7 +3,7 @@
 // Ein Fehler bei einer Organisation oder einem Empfänger bricht den Lauf nicht ab.
 import { randomUUID } from 'node:crypto';
 import { istWerktag } from '@/domain/datum';
-import { planeErinnerungen, type DigestPlan } from '@/domain/erinnerungen';
+import { kappePosten, planeErinnerungen, type DigestPlan } from '@/domain/erinnerungen';
 import {
   VERSAND_MAX_VERSUCHE,
   type ErinnerungPosten,
@@ -73,6 +73,8 @@ async function sendeMitWiederholung(
 
 function versandAus(digest: DigestPlan, organisationId: Id, laufId: Id, heute: IsoDate, jetzt: string): { versand: MailVersand; posten: ErinnerungPosten[] } {
   const id = randomUUID();
+  // F-33: auch die gekappten Posten (nur in Summe genannt) werden gebucht – sonst käme am Folgetag eine zweite Mail.
+  const { einzeln } = kappePosten(digest.posten);
   return {
     versand: {
       id,
@@ -90,7 +92,7 @@ function versandAus(digest: DigestPlan, organisationId: Id, laufId: Id, heute: I
       versendetAm: null,
       statusAm: jetzt,
     },
-    posten: digest.posten.map((p) => ({
+    posten: digest.posten.map((p, i) => ({
       id: randomUUID(),
       organisationId,
       versandId: id,
@@ -103,6 +105,7 @@ function versandAus(digest: DigestPlan, organisationId: Id, laufId: Id, heute: I
       bezugDatum: p.bezugDatum,
       rolle: p.rolle,
       empfaengerBenutzerId: digest.empfaenger.benutzerId,
+      inSumme: i >= einzeln.length,
       erstelltAm: jetzt,
     })),
   };

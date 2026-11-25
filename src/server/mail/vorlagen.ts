@@ -2,7 +2,7 @@
 // HTML als String-Vorlage (kein React Email), nur Inline-Styles, keine externen Ressourcen, keine Zeilenumbrüche.
 // Keine Personennamen: digest.empfaenger.name wird hier bewusst nie gelesen (F-38).
 import { formatDatum, isoKalenderwoche } from '@/domain/datum';
-import type { DigestPlan, PostenPlan } from '@/domain/erinnerungen';
+import { kappePosten, type DigestPlan, type PostenPlan } from '@/domain/erinnerungen';
 import {
   DRINGLICHKEIT_LABEL,
   DRINGLICHKEITEN,
@@ -214,18 +214,40 @@ function vorschauzeile(digest: DigestPlan, betrieb: string, kw: number): string 
   return kuerze(einzeilig(text), VORSCHAU_MAX);
 }
 
-function einleitung(digest: DigestPlan, betrieb: string): string {
+function einleitung(digest: DigestPlan, betrieb: string, gekappt: boolean): string {
   const n = digest.posten.length;
+  let text: string;
   switch (digest.art) {
     case 'frist_digest':
-      return `diese Prüfungen bei ${betrieb} brauchen Aufmerksamkeit. Die dringlichsten stehen oben.`;
+      text = `diese Prüfungen bei ${betrieb} brauchen Aufmerksamkeit. Die dringlichsten stehen oben.`;
+      break;
     case 'pruefer_woche':
-      return `diese Prüfungen sind Ihnen bei ${betrieb} zugewiesen und fällig oder noch ohne Termin.`;
+      text = `diese Prüfungen sind Ihnen bei ${betrieb} zugewiesen und fällig oder noch ohne Termin.`;
+      break;
     case 'ma_hinweis':
-      return n === 1
-        ? 'ein Gerät, das Sie haben, darf ab sofort nicht benutzt werden.'
-        : `${n} Geräte, die Sie haben, dürfen ab sofort nicht benutzt werden.`;
+      text =
+        n === 1
+          ? 'ein Gerät, das Sie haben, darf ab sofort nicht benutzt werden.'
+          : `${n} Geräte, die Sie haben, dürfen ab sofort nicht benutzt werden.`;
+      break;
   }
+  if (!gekappt) return text;
+  // D-I3a §6.3: Zahl aus MAIL_MAX_POSTEN, N = volle Anzahl
+  return digest.art === 'ma_hinweis'
+    ? `${text} Diese Mail zeigt ${MAIL_MAX_POSTEN} von ${n}.`
+    : `${text} Diese Mail zeigt die ${MAIL_MAX_POSTEN} dringlichsten von ${n}.`;
+}
+
+/** D-I3a §5.10: „… und {n} weitere Prüfung(en)“ bzw. „Gerät(e)“ in der MA-Mail. */
+function weitereText(art: MailArt, n: number): string {
+  const wort = art === 'ma_hinweis' ? (n === 1 ? 'Gerät' : 'Geräte') : n === 1 ? 'Prüfung' : 'Prüfungen';
+  return `… und ${n} weitere ${wort}`;
+}
+
+/** D-I3a §5.5: „{gezeigt}“ bzw. bei Teilkappung „{gezeigt} von {gesamt}“. */
+function gruppenTitel(d: Dringlichkeit, gezeigt: number, gesamt: number): string {
+  const anzahl = gezeigt < gesamt ? `${gezeigt} von ${gesamt}` : `${gezeigt}`;
+  return `${GRUPPE[d].symbol} ${DRINGLICHKEIT_LABEL[d]} (${anzahl})`;
 }
 
 function kopfzeile(art: MailArt, laufDatum: IsoDate, kw: number): string {
@@ -250,10 +272,11 @@ function plakette(p: PostenPlan): string {
   const datum = (f: string, r: string) =>
     p.faelligAm === null
       ? null
-      : `<div style="width:40px;height:35px;padding-top:5px;border:2px solid ${r};border-radius:50%;background:${f};text-align:center;font-size:13px;line-height:15px;font-weight:700;color:${FARBE.ink}">${p.faelligAm.slice(5, 7)}<br>${p.faelligAm.slice(0, 4)}</div>`;
-  const zeichen = (linienart: string, r: string, f: string, groesse: string, farbe: string, z: string) =>
-    `<div style="width:40px;height:40px;border:2px ${linienart} ${r};border-radius:50%;background:${f};text-align:center;font-size:${groesse};line-height:40px;font-weight:700;color:${farbe}">${z}</div>`;
-  const unbekannt = () => zeichen('solid', FARBE.steel, FARBE.steel50, '20px', FARBE.ink, '?');
+      : `<div style="width:40px;padding:5px 0;border:2px solid ${r};border-radius:50%;background:${f};text-align:center;font-size:13px;line-height:15px;font-weight:700">${p.faelligAm.slice(5, 7)}<br>${p.faelligAm.slice(0, 4)}</div>`;
+  // D-I3a §5.6: Textfarbe erbt ink; eigene Farbe nur bei vor_nutzung_pruefen (farbe ≠ null)
+  const zeichen = (linienart: string, r: string, f: string, groesse: string, farbe: string | null, z: string) =>
+    `<div style="width:40px;height:40px;border:2px ${linienart} ${r};border-radius:50%;background:${f};text-align:center;font-size:${groesse};line-height:40px;font-weight:700${farbe ? `;color:${farbe}` : ''}">${z}</div>`;
+  const unbekannt = () => zeichen('solid', FARBE.steel, FARBE.steel50, '20px', null, '?');
   switch (status) {
     case 'ok':
       return datum(FARBE.moss50, FARBE.moss) ?? unbekannt();
@@ -266,7 +289,7 @@ function plakette(p: PostenPlan): string {
     case 'unbekannt':
       return unbekannt();
     case 'gbu':
-      return zeichen('dashed', FARBE.steel400, FARBE.white, '13px', FARBE.ink, 'GBU');
+      return zeichen('dashed', FARBE.steel400, FARBE.white, '13px', null, 'GBU');
   }
 }
 
@@ -290,9 +313,14 @@ function postenHtml(p: PostenPlan, art: MailArt, siteUrl: string): string {
   const rahmen = `border-top:1px solid ${FARBE.steel200}`;
   const inv = p.inventarnummer ? `<span class="m">${e(p.inventarnummer)}</span> · ` : '';
   const status = p.status ?? 'unbekannt';
+  // D-I3a §5.8/M-6: in frist_digest ist der Gerätename der einzige Link des Postens; pruefer_woche ohne Link (§5.9)
+  const name =
+    art === 'frist_digest'
+      ? `<a href="${e(siteUrl + p.pfad)}" style="font-size:16px;line-height:24px;font-weight:700;color:${FARBE.steel800}">${e(p.geraetBezeichnung)}</a>`
+      : `<b style="font-size:16px;line-height:24px">${e(p.geraetBezeichnung)}</b>`;
   const kopf =
     `<tr><td width="56" valign="top" style="padding:12px 12px 12px 0;${rahmen}">${plakette(p)}</td>` +
-    `<td valign="top" style="padding:12px 0;${rahmen}"><b style="font-size:16px;line-height:24px">${e(p.geraetBezeichnung)}</b><br>` +
+    `<td valign="top" style="padding:12px 0;${rahmen}">${name}<br>` +
     `${inv}${e(p.bereichName)} · ${e(p.pruefartBezeichnung ?? '')}<br>` +
     `<b>${e(statusZeile(status))}</b> · ${e(faelligText(p))}<br>` +
     `<span style="color:${FARBE.steel}">${e(fristZeile(p))}</span>`;
@@ -301,15 +329,15 @@ function postenHtml(p: PostenPlan, art: MailArt, siteUrl: string): string {
     return `${kopf}${p.hinweise.length > 0 ? `<br>${p.hinweise.map(e).join(' · ')}` : ''}</td></tr>`;
   }
   const rolle = p.rolle === 'zustaendig' ? `<b>${e(POSTEN_ROLLE_LABEL.zustaendig)}</b>` : e(POSTEN_ROLLE_LABEL[p.rolle]);
-  return `${kopf}<br>${rolle}${hinweise}<br><a href="${e(siteUrl + p.pfad)}" style="color:${FARBE.steel800}">Geräteakte öffnen</a></td></tr>`;
+  return `${kopf}<br>${rolle}${hinweise}</td></tr>`;
 }
 
-function gruppenHtml(gezeigt: PostenPlan[], art: MailArt, siteUrl: string): string {
+function gruppenHtml(gezeigt: PostenPlan[], gesamt: Map<Dringlichkeit, number>, art: MailArt, siteUrl: string): string {
   return gruppiere(gezeigt)
     .map(
       (g) =>
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td colspan="2" height="28" style="font-size:0;line-height:0">&nbsp;</td></tr>` +
-        `<tr><td colspan="2" style="border-left:4px solid ${GRUPPE[g.d].linie};padding:2px 0 2px 12px"><h2 style="margin:0;font-size:18px;line-height:24px;font-weight:700;color:${FARBE.ink}">${GRUPPE[g.d].symbol} ${e(DRINGLICHKEIT_LABEL[g.d])} (${g.posten.length})</h2></td></tr>` +
+        `<tr><td colspan="2" style="border-left:4px solid ${GRUPPE[g.d].linie};padding:2px 0 2px 12px"><h2 style="margin:0;font-size:18px;line-height:24px;font-weight:700;color:${FARBE.ink}">${e(gruppenTitel(g.d, g.posten.length, gesamt.get(g.d) ?? g.posten.length))}</h2></td></tr>` +
         `<tr><td colspan="2" height="8" style="font-size:0;line-height:0">&nbsp;</td></tr>` +
         g.posten.map((p) => postenHtml(p, art, siteUrl)).join('') +
         `</table>`,
@@ -408,8 +436,10 @@ export function renderMail(digest: DigestPlan, kontext: MailKontext): Pick<Geren
   const site = kontext.siteUrl.replace(/\/+$/, '');
   const kw = isoKalenderwoche(kontext.laufDatum);
   const betreff = betreffFuer(digest, betrieb, kw);
-  const gezeigt = digest.posten.slice(0, MAIL_MAX_POSTEN);
-  const weitere = digest.posten.length - gezeigt.length;
+  const { einzeln: gezeigt, inSumme } = kappePosten(digest.posten);
+  const weitere = inSumme.length;
+  const gesamtJeGruppe = zaehle(digest.posten);
+  const intro = einleitung(digest, betrieb, weitere > 0);
   const knopf = BUTTON[art];
   const knopfUrl = `${site}${knopf.pfad}`;
   const benachrichtigungenUrl = `${site}/einstellungen/benachrichtigungen`;
@@ -428,13 +458,13 @@ export function renderMail(digest: DigestPlan, kontext: MailKontext): Pick<Geren
     : `${e(PFLICHTMAIL_BEGRUENDUNG)} ${linkFuss(benachrichtigungenUrl, 'Ihre Benachrichtigungen')}`;
   const inhalt = [
     absatz('Guten Tag,', 12),
-    absatz(einleitung(digest, betrieb), 16),
+    absatz(intro, 16),
     art === 'ma_hinweis' ? maBandHtml(digest.posten.length) : zusammenfassungHtml(digest.posten),
     button(knopf.text, knopfUrl),
     art === 'frist_digest' ? `<p style="margin:16px 0 0;font-size:14px;line-height:20px;color:${FARBE.steel}">${e(ROLLENERKLAERUNG)}</p>` : '',
-    art === 'ma_hinweis' ? maGeraeteHtml(gezeigt) : gruppenHtml(gezeigt, art, site),
+    art === 'ma_hinweis' ? maGeraeteHtml(gezeigt) : gruppenHtml(gezeigt, gesamtJeGruppe, art, site),
     weitere > 0
-      ? `<p style="margin:20px 0 0;font-size:16px;line-height:24px"><b>… und ${weitere} weitere in Readyloop.</b> <a href="${e(knopfUrl)}" style="color:${FARBE.steel800}">Alle anzeigen</a></p>`
+      ? `<p style="margin:20px 0 0;font-size:16px;line-height:24px"><b>${e(weitereText(art, weitere))}</b> – <a href="${e(knopfUrl)}" style="color:${FARBE.steel800}">in Readyloop ansehen</a></p>`
       : '',
     entwurf.size > 0
       ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${ABSTAND(24)}<tr><td bgcolor="${FARBE.steel50}" style="background:${FARBE.steel50};border-left:4px solid ${FARBE.steel};padding:12px 16px;font-size:14px;line-height:20px"><b>i&nbsp; Prüfkatalog im Entwurf</b><br>${e(entwurfsText(entwurf.size))}</td></tr></table>`
@@ -463,7 +493,7 @@ export function renderMail(digest: DigestPlan, kontext: MailKontext): Pick<Geren
   ].join('');
 
   // ---- Text
-  const t: string[] = [...umbrechen(`Readyloop · ${betrieb}`), kopfzeile(art, kontext.laufDatum, kw), '', 'Guten Tag,', '', ...umbrechen(einleitung(digest, betrieb)), ''];
+  const t: string[] = [...umbrechen(`Readyloop · ${betrieb}`), kopfzeile(art, kontext.laufDatum, kw), '', 'Guten Tag,', '', ...umbrechen(intro), ''];
   if (art === 'ma_hinweis') {
     const n = digest.posten.length;
     t.push(n === 1 ? '✕ NICHT VERWENDEN' : `✕ ${n} GERÄTE NICHT VERWENDEN`, MA_BAND_UNTERZEILE, '');
@@ -479,12 +509,12 @@ export function renderMail(digest: DigestPlan, kontext: MailKontext): Pick<Geren
     t.push('', ...umbrechen(MA_STAND));
   } else {
     for (const g of gruppiere(gezeigt)) {
-      const titel = `${GRUPPE[g.d].symbol} ${DRINGLICHKEIT_LABEL[g.d]} (${g.posten.length})`;
+      const titel = gruppenTitel(g.d, g.posten.length, gesamtJeGruppe.get(g.d) ?? g.posten.length);
       t.push('', '', titel, '='.repeat(titel.length));
       for (const p of g.posten) t.push('', ...postenText(p, art, site));
     }
   }
-  if (weitere > 0) t.push('', `… und ${weitere} weitere in Readyloop.`, 'Alle anzeigen:', knopfUrl);
+  if (weitere > 0) t.push('', ...umbrechen(`${weitereText(art, weitere)} – in Readyloop ansehen:`), knopfUrl);
   if (entwurf.size > 0) t.push('', 'i  Prüfkatalog im Entwurf', ...umbrechen(entwurfsText(entwurf.size)));
   t.push('', '-'.repeat(TEXT_BREITE), ...umbrechen(grund));
   if (digest.abbestellbar) {

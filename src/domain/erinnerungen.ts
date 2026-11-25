@@ -9,6 +9,7 @@ import {
   ESKALATION_STANDARD,
   ESKALATIONS_EBENEN,
   MAIL_ART_FUER_ROLLE,
+  MAIL_MAX_POSTEN,
   STAFFEL_MAX_TAGE,
   type AbbestellbareMailArt,
   type Betriebsstatus,
@@ -299,6 +300,14 @@ export function vergleichePosten(a: PostenPlan, b: PostenPlan): number {
     textVergleich(a.pruefartBezeichnung, b.pruefartBezeichnung) ||
     vergleich(a.schluessel, b.schluessel)
   );
+}
+
+/**
+ * Kappung der Sammelmail (D-I3a M-10, F-33): die ersten MAIL_MAX_POSTEN Posten (Reihenfolge des Digests, also die
+ * dringlichsten) stehen einzeln in der Mail, der Rest wird nur in Summe genannt. Beide Teile gelten als erinnert.
+ */
+export function kappePosten<T>(posten: readonly T[], max: number = MAIL_MAX_POSTEN): { einzeln: T[]; inSumme: T[] } {
+  return { einzeln: posten.slice(0, max), inSumme: posten.slice(max) };
 }
 
 /** Ausgewählte aktive Personen; nicht mehr aktive werden ignoriert; leer → alle aktiven der Rolle (F-33). */
