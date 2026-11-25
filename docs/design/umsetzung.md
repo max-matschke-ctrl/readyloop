@@ -1,4 +1,4 @@
-# Umsetzung des Designsystems – Pakete für frontend-dev (Stand 23.11.2026, ergänzt um I3M und I3)
+# Umsetzung des Designsystems – Pakete für frontend-dev (Stand 25.11.2026, ergänzt um I3M, I3 und BE-24b)
 
 Grundlage: `designsystem.md` (Paragrafen in Klammern), `skills-empfehlung.md`.
 Jedes Paket ist für **einen** Lauf geschnitten. Reihenfolge: P1 → P2 → P3a → (P3b) → P4a → P4b → P4c → P5a → P5b → P5c → P6 → P7a/P7b/P7c.
@@ -328,7 +328,7 @@ FE-11 (Backlog, vorher) ── FE-12 ──┬── FE-13
 
 ---
 
-## I3 – E-Mail-Erinnerungen (Stand 23.11.2026)
+## I3 – E-Mail-Erinnerungen (Stand 23.11.2026, BE-24b ergänzt 25.11.2026)
 
 Gestaltet das Paket D-I3 aus `docs/backlog.md` §8 („Designer zuerst“). Paketnamen, Dateien und Vertrag aus dem Backlog bleiben; hier kommen Gestaltung, zusätzliche Dateien und Abnahmekriterien dazu. Bei Widersprüchen gilt für **Aussehen und Verhalten** dieses Dokument bzw. `mail-vorlagen.md`, für **Daten, Rechte und Texte aus dem Vertrag** der Backlog.
 
@@ -336,12 +336,13 @@ Neue Designsystem-Abschnitte: Leitsatz 9 (§1), §2.4 (Hex in Mails), §5.3 Text
 
 ### Reihenfolge und Parallelität
 ```
-D-I3a (erledigt: mail-vorlagen.md) ──► BE-24 (backend-dev)
+D-I3a (erledigt: mail-vorlagen.md) ──► BE-24 (backend-dev) ──► BE-24b (backend-dev, Mail-Größe)
 FE-17 (Bugfix, sofort, ohne Design)
 BE-21 ── FE-18a ── FE-18b ──┬── FE-19
                             └── FE-20 ── FE-21
 ```
 - FE-19 und FE-20 haben keine gemeinsamen Dateien und dürfen parallel laufen.
+- BE-24b ändert nur `src/server/mail/` und eine Konstante in `src/domain/types.ts`; es läuft parallel zu allen FE-Paketen. FE-21 zeigt danach automatisch die neue Postenzeile.
 - `ErinnerungenNav.tsx` schreibt nur FE-18a; FE-20 und FE-21 importieren es. `VersandStatusBadge.tsx` schreibt nur FE-20; FE-21 importiert es.
 - `AppHeader.tsx` ändert nur FE-18a (Backlog: erst starten, wenn dort keine Designsystem-Arbeit offen ist).
 - **Kein I3-Paket ändert `src/app/globals.css`** (Backlog §8 Dateibesitz). Es reichen die vorhandenen Tokens und Klassen; `.btn-halle` (48 px) aus FE-12 für die 48-px-Buttons.
@@ -358,11 +359,44 @@ BE-21 ── FE-18a ── FE-18b ──┬── FE-19
 ---
 
 ### D-I3a Mail-Vorlagen (designer, erledigt) → Übergabe an BE-24
-**Liefergegenstand:** `docs/design/mail-vorlagen.md` (Entscheidungen M-1 bis M-9, Inline-Werte, Gerüst, Bausteine, Texte, Textteil, Abnahme §10, Abweichungen §11, Anhang Einladung/Reset).
-**Abnahme durch den designer nach BE-24:**
+**Liefergegenstand:** `docs/design/mail-vorlagen.md` (Entscheidungen M-1 bis M-10, Inline-Werte, Gerüst, Bausteine, Texte, Textteil, Abnahme §10, Abweichungen §11, Anhang Einladung/Reset).
+**Abnahme durch den designer nach BE-24 und BE-24b:**
 - Snapshot-HTML je Mailart in einem Browser bei 600 px und 360 px angesehen: Kopf, Zusammenfassung, Button, Gruppen, Text-Plakette, Fuß wie spezifiziert.
 - Spätestens in FE-21 die drei Mailarten in `/admin/mails` geprüft (HTML und Text).
 - Ergebnis als kurze Notiz an backend-dev; Abweichungen nur als neue Entscheidung in `designsystem.md` §10.
+
+### BE-24b Mail-Größe: Obergrenze 50 Posten und schlankere Postenzeile (backend-dev)
+**Anlass:** Größentest aus BE-24 rot und als `it.fails` markiert: Postenzeile ≈ 980 Byte, 100 Posten ≈ 103 KB, über dem Budget von 95 KB und über Gmails Kürzungsgrenze von etwa 102 KB.
+**Entscheidung designer (25.11.2026):** beides, aber die Obergrenze ist der eigentliche Hebel. Das Markup wird nur dort verschlankt, wo es nichts kostet (≈ 50 Byte je Posten). Klassen im `<style>`-Block gibt es für Posten **nicht**, weil die Gmail-Apps mit GMX-, WEB.DE- oder T-Online-Konten `<style>` ignorieren und dort Plakettenkreis und Trennlinien wegfielen (`mail-vorlagen.md` M-10).
+**Grundlage:** `mail-vorlagen.md` M-5, M-6, M-10, §5.5, §5.6, §5.8, §5.10, §6.3, §8.4, §10 Nr. 4, 5 und 10, §11.
+**Dateien:**
+- `src/domain/types.ts`: **nur** `MAIL_MAX_POSTEN` von 100 auf 50. Das ist eine Vertragsänderung; der requirements-engineer zieht Backlog §9 nach (siehe unten).
+- `src/server/mail/vorlagen.ts`
+- Tests zu BE-24 in `src/server/mail/` (Größe, Snapshots, Kappung)
+
+**Inhalt:**
+1. `MAIL_MAX_POSTEN = 50`. Die bestehende Kappung (`slice(0, MAIL_MAX_POSTEN)` nach Sortierung) bleibt.
+2. Plakette Variante Datum: `height:35px;padding-top:5px` wird zu `padding:5px 0`, `color:#1e2328` entfällt. Variante Zeichen: `color` nur noch bei `vor_nutzung_pruefen` (§5.6).
+3. Postenzeile `frist_digest`: Der Gerätename wird zum Link (`<a href="{siteUrl}{pfad}" style="font-size:16px;line-height:24px;font-weight:700;color:#2c3646">`), die Zeile `<br><a …>Geräteakte öffnen</a>` entfällt (§5.8). `pruefer_woche` bleibt ohne Link (§5.9). Der Textteil behält die Zeile `Öffnen:` (§8 Regel 7).
+4. Gruppenkopf: `({gezeigt})` bzw. bei Teilkappung `({gezeigt} von {gesamt})`, in HTML und Textteil (§5.5, §8.4). `gesamt` = Posten dieser Dringlichkeit vor der Kappung.
+5. Kappungszeile neu: „… und {n} weitere Prüfung(en) – in Readyloop ansehen“ mit dem Link auf „in Readyloop ansehen“ (§5.10); `ma_hinweis` mit „Gerät/Geräte“. Textteil nach §8.4.
+6. Einleitung: bei Kappung angehängter Satz „Diese Mail zeigt die 50 dringlichsten von {N}.“ (`ma_hinweis`: „Diese Mail zeigt 50 von {N}.“), Zahl aus `MAIL_MAX_POSTEN` (§6.3). Gilt für HTML und Text.
+7. `it.fails` aus dem Größentest entfernen und den Test nach §10 Nr. 4 a–d neu fassen.
+
+**Nicht ändern:** Sortierung, Betreff, Vorschauzeile, Zusammenfassung (volle Zahlen), Farben, Abstände, Gerüst, MA-Gerätezeile, `<style>`-Block (bleibt nur `.m`), Kopfzeilen.
+
+**Abnahme:**
+- `mail-vorlagen.md` §10 Nr. 4 a–d grün: 100 Posten → 50 Zeilen, `Buffer.byteLength(html, 'utf8') < 95_000`, erwartet ≈ 52 000 (Ziel < 60 000); je Postenzeile ≤ 1 000 Byte (`frist_digest`) bzw. ≤ 850 Byte (`pruefer_woche`); Grenzfälle 50 und 51; Gruppenkopf „Vorlauf (20 von 70)“.
+- §10 Nr. 5: kein `\n`, kein `#c8902e`, `<style>` nur mit `.m`.
+- §10 Nr. 10: in `frist_digest` genau ein `<a>` je Posten mit dem Gerätenamen als Text; „Geräteakte öffnen“ kommt im HTML nicht vor; `pruefer_woche` ohne `<a>` in Postenzeilen.
+- Plakette sieht im Browser bei 600 px unverändert aus (44 × 44 px, rund, zwei Zeilen zentriert); Snapshot-Diff zeigt nur die beschriebenen Änderungen.
+- Textteil: Regel §10 Nr. 8 (72 Zeichen) gilt weiter, auch für die neue Kappungszeile und den Satz in der Einleitung.
+- `npm run typecheck`, `lint`, `test`, `build` grün.
+
+**Vor dem Merge zu klären (requirements-engineer, F-33):** Werden die gekappten Posten (Platz 51 und folgende) als „gesendet“ gebucht?
+- Gebucht: Die Empfänger bekommen für diese Stufe keine Mail mehr, die Posten stehen nur in der Zusammenfassung und in der App.
+- Nicht gebucht: Sie erscheinen im nächsten Lauf erneut, bleiben aber bei dauerhaft mehr als 50 Posten immer hinten und werden womöglich nie gezeigt.
+Der Designer hat keine Präferenz, die über die Gestaltung hinausgeht. Die Entscheidung gehört in F-33 und muss im Test von backend-dev sichtbar sein. Bis zur Entscheidung bleibt das bisherige Verhalten von BE-24.
 
 ### FE-17 Bugfix QR-Seite (ohne Design)
 Unverändert nach Backlog. Gestaltung: §8.12 Hinweis I3 (kein Zusatztext).
@@ -441,7 +475,7 @@ Unverändert nach Backlog. Gestaltung: §8.12 Hinweis I3 (kein Zusatztext).
 - Gemeinsam mit dem designer: Abnahme D-I3a an den echten Vorschau-Mails (siehe oben).
 
 ### Offene Abhängigkeiten I3
-- **backend-dev:** BE-24 nach `mail-vorlagen.md`, inklusive Abnahme §10 dort. Fragen zur Gestaltung an den designer, nicht still abweichen.
-- **requirements-engineer:** im Backlog nachziehen: (1) `mail-vorlagen.md` §11 (Textlink statt Link-Button je Posten, Betreff mit „nicht verwenden“ und „Eskalation – “, „Prüfart/Prüfarten“, Betriebsname kürzen); (2) FE-18 mit einem Navigationspunkt und `ErinnerungenNav` statt drei Hauptpunkten (§10 E-8), Aufteilung FE-18a/FE-18b, neue Datei `EmpfaengerWahl.tsx`; (3) FE-19 zusätzlich `src/app/abmelden/not-found.tsx` und die Prop an `OeffentlicheKopfleiste.tsx`; (4) Anhang A in `mail-vorlagen.md` (deutsche Vorlagen für Einladung und Passwort-Reset in Supabase Auth) als eigenes kleines Paket nach I3 entscheiden.
+- **backend-dev:** BE-24 nach `mail-vorlagen.md`, inklusive Abnahme §10 dort; danach BE-24b. Fragen zur Gestaltung an den designer, nicht still abweichen.
+- **requirements-engineer:** im Backlog nachziehen: (1) `mail-vorlagen.md` §11 (Gerätename als Link statt Link-Button je Posten, Betreff mit „nicht verwenden“ und „Eskalation – “, „Prüfart/Prüfarten“, Betriebsname kürzen); (2) FE-18 mit einem Navigationspunkt und `ErinnerungenNav` statt drei Hauptpunkten (§10 E-8), Aufteilung FE-18a/FE-18b, neue Datei `EmpfaengerWahl.tsx`; (3) FE-19 zusätzlich `src/app/abmelden/not-found.tsx` und die Prop an `OeffentlicheKopfleiste.tsx`; (4) Anhang A in `mail-vorlagen.md` (deutsche Vorlagen für Einladung und Passwort-Reset in Supabase Auth) als eigenes kleines Paket nach I3 entscheiden; (5) **neu 25.11.:** BE-24b als Paket aufnehmen, `MAIL_MAX_POSTEN = 50` in Backlog §9 und F-38 eintragen, F-33 um die Buchung gekappter Posten ergänzen (siehe BE-24b).
 - **Max:** §9.8 zur Kenntnis (Text-Plakette in Mails ohne Monatssegmente). §9.7 (Etikett) bleibt offen.
-- **Gate G-6:** manuelle Mail-Client-Prüfung nach `mail-vorlagen.md` §10 (Classic und neues Outlook, Outlook.com, Gmail Web/Android/iOS, Apple Mail iOS, GMX, WEB.DE, Thunderbird; hell und dunkel).
+- **Gate G-6:** manuelle Mail-Client-Prüfung nach `mail-vorlagen.md` §10 (Classic und neues Outlook, Outlook.com, Gmail Web/Android/iOS, Gmail-App Android mit GMX- oder WEB.DE-Konto, Apple Mail iOS, GMX, WEB.DE, Thunderbird; hell und dunkel), dabei eine Mail mit 50 Posten: nicht gekürzt.

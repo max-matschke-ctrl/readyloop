@@ -1,7 +1,9 @@
-# Readyloop – Mail-Vorlagen (D-I3a, Stand 23.11.2026)
+# Readyloop – Mail-Vorlagen (D-I3a, Stand 23.11.2026, geändert 25.11.2026 durch BE-24b)
 
 Für backend-dev, Paket **BE-24** (`src/server/mail/vorlagen.ts`). Diese Datei legt Aufbau, Texte, Farben und Abstände der drei Mailarten fest. Sie gilt zusammen mit F-38 (`docs/requirements.md`) und dem Vertrag `docs/backlog.md` §9. Wo diese Datei und der Backlog-Text von BE-24 voneinander abweichen, steht das in §11 mit Begründung; diese Abweichungen gelten.
 Grundlage Gestaltung: `corporate-design.md`, `designsystem.md` (§2 Farben, §5 Plakette, §6.17 Nutzungsband, §12 E-Mails).
+
+**Änderung 25.11.2026 (BE-24b, Anlass: Größentest BE-24 rot, 100 Posten ≈ 103 KB):** M-5 und M-6 neu gefasst, M-10 neu. Geändert: §5.5 (Gruppenkopf bei Kappung), §5.6 (Plakette schlanker), §5.8 (Gerätename ist der Link), §5.10 (Kappungszeile), §6.3 (Satz bei Kappung), §8.4 (Kappung im Textteil), §10 Nr. 4, §11. Umsetzung: Paket BE-24b in `umsetzung.md`.
 
 ---
 
@@ -13,11 +15,12 @@ Grundlage Gestaltung: `corporate-design.md`, `designsystem.md` (§2 Farben, §5 
 | M-2 | Klassisches Outlook (Word-Engine) bekommt **keine VML**. Dort wird die Plakette eckig, der Button bleibt rechteckig und voll klickbar (Rahmen-Technik). | Classic Outlook kann kein `border-radius` und braucht dafür VML ([Noble Desktop](https://www.nobledesktop.com/learn/html-email/bulletproof-buttons-in-outlook)). Das neue Outlook rendert wie ein Browser, Classic Outlook bleibt aber bis mindestens 2027 bei vielen Firmenkunden ([Really Good Emails](https://reallygoodemails.com/school/blog/classic-vs-new-outlook-rendering-changes)). VML in jeder Postenzeile würde die Mail aufblähen (siehe M-5). Eine eckige Plakette mit Monat/Jahr und Statustext daneben ist weiterhin eindeutig. |
 | M-3 | **Einspaltig, max. 600 px, ohne Media Queries.** Posten = zweispaltige Tabellenzeile (Plakette 56 px, Text). | Auf dem Handy sind 56 px + Text auch ohne Umbruch lesbar. Keine Media Queries heißt: nichts kann kaputtgehen, wenn ein Client `<style>` entfernt. |
 | M-4 | **Systemschriften**, kein Webfont. Stapel Sans `-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif`; für Classic Outlook ein MSO-Block mit `'Segoe UI',Arial`. Mono nur für die Inventarnummer, als Klasse `m` (Verbesserung, kein Muss). | Im Classic Outlook führt eine unbekannte erste Schrift im Stapel zu Times New Roman ([Really Good Emails](https://reallygoodemails.com/school/blog/classic-vs-new-outlook-rendering-changes)). |
-| M-5 | **Größenbudget:** HTML ≤ 95 000 Byte (UTF-8) bei 100 Posten mit langen Werten, Ziel ≤ 85 000. Keine Einrückung und keine Zeilenumbrüche im erzeugten HTML. Symbole als UTF-8-Zeichen, nicht als Entities. | Gmail kürzt Mails ab etwa 102 KB HTML und blendet den Rest hinter „[Nachricht gekürzt]“ aus, auch die Abmeldezeile ([Email on Acid](https://www.emailonacid.com/blog/article/email-development/gmail-email-clipping/)). Deshalb stehen Zusammenfassung und Hauptbutton **oben**. |
-| M-6 | **Je Posten ein Textlink** („Geräteakte öffnen“), **ein** Hauptbutton je Mail. In der Prüfer-Mail gar kein Postenlink (alle Posten führen auf `/pruefer`). | Leitsatz 5 (eine Hauptaktion). 100 Buttons würden das Budget M-5 sprengen. Der Backlog nennt „Link-Button“ je Posten, siehe §11. |
+| M-5 | **Größenbudget (neu 25.11.):** HTML **≤ 95 000 Byte** (UTF-8) bei voller Kappung, also `MAIL_MAX_POSTEN` = **50** Posten mit langen Werten; **Ziel ≤ 60 000**. Richtwert je Postenzeile mit langen Werten: `frist_digest` **≈ 930 Byte**, `pruefer_woche` **≈ 760 Byte**, Gerüst mit Zusammenfassung, Button, Gruppenköpfen und Fuß ≈ 5–6 KB. Erwartung bei 50 Posten: **≈ 52 000 Byte**. Keine Einrückung und keine Zeilenumbrüche im erzeugten HTML. Symbole als UTF-8-Zeichen, nicht als Entities. | Gmail kürzt Mails ab etwa 102 KB HTML und blendet den Rest hinter „[Nachricht gekürzt]“ aus, auch die Abmeldezeile ([Email on Acid](https://www.emailonacid.com/blog/article/email-development/gmail-email-clipping/)). Deshalb stehen Zusammenfassung und Hauptbutton **oben**. Messung backend-dev (25.11.): alte Postenzeile ≈ 980 Byte, 100 Posten ≈ 103 KB. Rund die Hälfte einer Zeile sind Daten und die absolute URL; Verschlanken des Markups allein bringt nur ≈ 5 % (siehe M-10). |
+| M-6 | **Je Posten ein Link: der Gerätename** (16/24 fett, steel-800, unterstrichen) führt zur Geräteakte. Keine eigene Zeile „Geräteakte öffnen“ mehr (geändert 25.11.). **Ein** Hauptbutton je Mail. In der Prüfer-Mail gar kein Postenlink (alle Posten führen auf `/pruefer`), der Name bleibt dort fett ohne Link. | Leitsatz 5 (eine Hauptaktion). Eindeutiger Linktext je Posten statt 50-mal „Geräteakte öffnen“ (Screenreader-Linkliste, WCAG 2.4.4). Eine Zeile weniger je Posten. Entspricht der App: In der Geräteliste ist der Gerätename der Zeilenlink. Der Backlog nennt „Link-Button“ je Posten, siehe §11. |
 | M-7 | **Kein eigenes Dunkel-Design.** `color-scheme: light`. Farben sind so gewählt, dass automatische Invertierung lesbar bleibt (kein reines Weiß auf Schwarz, Status immer als Text und Symbol, keine transparenten Grafiken). | Apple Mail und Gmail-Desktop ändern nichts, Outlook.com und Gmail-Android invertieren teilweise, Gmail-iOS und Outlook für Windows vollständig ([Litmus](https://www.litmus.com/blog/the-ultimate-guide-to-dark-mode-for-email-marketers)). Eigene `prefers-color-scheme`-Regeln greifen nur bei einem Teil der Clients und verdoppeln den Testaufwand. |
 | M-8 | **Digest-Aufbau:** Zählung im Betreff, Zusammenfassung oben, Gruppen nach Dringlichkeit, leere Gruppen entfallen, ohne Posten keine Mail, „alle anzeigen“ in die App. | Übliches Digest-Muster ([Knock Alert Digest](https://knock.app/template-library/workflows/alert-digest)): Zählungen in den Betreff, jeder Posten mit Direktlink, kein Digest ohne Inhalt, Versand zu Beginn des Arbeitstags. Passt zu F-36 (werktags morgens). |
 | M-9 | **Vorschauzeile** als versteckter Block direkt nach `<body>`, höchstens 110 Zeichen, danach 20 Füllzeichen. | Clients zeigen je nach Platz bis etwa 140 Zeichen, oft weniger ([Customer.io](https://docs.customer.io/messaging/channels/email/headers/custom-preheader-text/)). Das Wichtigste steht vorn. |
+| M-10 | **Obergrenze 50 Posten je Mail** (`MAIL_MAX_POSTEN` 100 → 50, neu 25.11.). Darüber: die 50 dringlichsten, danach „… und {n} weitere Prüfungen – in Readyloop ansehen“. Die Stile der Postenzeile bleiben **inline**; keine Klassen im `<style>`-Block für Posten. | Gmail-Apps unterstützen `<style>` bei Nicht-Google-Konten nicht ([caniemail html-style](https://caniemail.com/features/html-style)); viele Betriebe nutzen GMX, WEB.DE oder T-Online über die Gmail-App. Dort fielen Trennlinien, Abstände und der Plakettenkreis weg. Inline-Verschlanken bringt nur ≈ 50 Byte je Posten (M-5). 50 Posten sind mehr, als jemand aus einer Mail heraus abarbeitet; der Rest ist in der Geräteliste mit Filtern besser aufgehoben. 50 × 930 Byte ≈ 47 KB lässt Puffer für sehr lange Bezeichnungen und Fundstellen. |
 
 ---
 
@@ -29,9 +32,9 @@ Nur diese Werte verwenden. Sie stammen aus `designsystem.md` §2.2.
 |---|---|---|
 | paper | `#f5f3ee` | Hintergrund außen |
 | white | `#ffffff` | Inhaltsfläche, Text im Kopf und im Nutzungsband |
-| ink | `#1e2328` | Text |
+| ink | `#1e2328` | Text (auch Plakettenmitte, per Vererbung) |
 | steel | `#44546a` | Kopf, Button, Sekundärtext (Frist-Zeile, Fuß), Linie „Hinweis“ |
-| steel-800 | `#2c3646` | Linkfarbe im Inhalt |
+| steel-800 | `#2c3646` | Linkfarbe im Inhalt (Gerätename, Kappungszeile) |
 | steel-200 | `#c5ccd5` | Postentrenner, Rahmen der Inhaltsfläche |
 | steel-400 | `#7c8797` | Linie „Ohne Termin“, gestrichelter Rand der Plakette GBU |
 | steel-50 | `#f1f3f6` | Fläche Hinweis, Plakette „unbekannt“ |
@@ -53,6 +56,7 @@ Maße: Außenrand 16 px oben/unten, 8 px seitlich · Inhaltsfläche Innenabstand
 - Kein `<img`, `<script`, `<link`, `<svg`, kein `http://`, keine externen Ressourcen, keine Tracking-Parameter.
 - Keine Personennamen (F-38). Erlaubt: Betriebsname, Gerätename, Bereichsname, Rollenbezeichnung (`ROLLE_LABEL`).
 - `SANS` = `-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif`
+- Der `<style>`-Block im Kopf enthält **nur** `.m` (M-4). Keine weiteren Klassen, auch nicht zum Sparen von Bytes (M-10).
 
 ---
 
@@ -93,7 +97,7 @@ Maße: Außenrand 16 px oben/unten, 8 px seitlich · Inhaltsfläche Innenabstand
 {{{button}}}
 {{{rollenerklaerung}}}  <!-- nur frist_digest -->
 {{{gruppen}}}
-{{{kappung}}}           <!-- nur bei > MAIL_MAX_POSTEN -->
+{{{kappung}}}           <!-- nur bei > MAIL_MAX_POSTEN (50) -->
 {{{entwurfshinweis}}}   <!-- nur bei katalogEntwurf -->
 </td></tr>
 
@@ -109,13 +113,14 @@ Maße: Außenrand 16 px oben/unten, 8 px seitlich · Inhaltsfläche Innenabstand
 Hinweise:
 - Die `<style>`-Zeile im Kopf ist nur Verbesserung (Mono für die Inventarnummer). Fehlt sie, erscheint die Nummer in der Grundschrift. Alles andere ist inline.
 - `{{kopfzeile}}`: `frist_digest` „Fristen-Erinnerung vom {TT.MM.JJJJ}“ · `pruefer_woche` „Wochenübersicht für Prüfer · KW {ww}“ · `ma_hinweis` „Hinweis „Nicht verwenden“ vom {TT.MM.JJJJ}“. Datum = `laufDatum`.
+- Die äußere Inhaltstabelle setzt `color:#1e2328`. Darauf verlässt sich die Plakette (§5.6): Sie setzt die Textfarbe nur, wenn sie von ink abweicht.
 
 ---
 
 ## 5. Bausteine
 
 ### 5.1 Zusammenfassung (`frist_digest`, `pruefer_woche`)
-Eine Zeile je **nicht leerer** Gruppe in der Reihenfolge `DRINGLICHKEITEN`, danach Abstand 16 px.
+Eine Zeile je **nicht leerer** Gruppe in der Reihenfolge `DRINGLICHKEITEN`, danach Abstand 16 px. Zahlen = **volle** Anzahl vor Kappung.
 
 ```html
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -160,37 +165,40 @@ Rahmen-Technik: voll klickbar auch im Classic Outlook, ohne VML.
 ```html
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 <tr><td colspan="2" height="28" style="font-size:0;line-height:0">&nbsp;</td></tr>
-<tr><td colspan="2" style="border-left:4px solid {{linie}};padding:2px 0 2px 12px"><h2 style="margin:0;font-size:18px;line-height:24px;font-weight:700;color:#1e2328">{{symbol}} {{gruppenlabel}} ({{anzahl}})</h2></td></tr>
+<tr><td colspan="2" style="border-left:4px solid {{linie}};padding:2px 0 2px 12px"><h2 style="margin:0;font-size:18px;line-height:24px;font-weight:700;color:#1e2328">{{symbol}} {{gruppenlabel}} ({{anzahltext}})</h2></td></tr>
 <tr><td colspan="2" height="8" style="font-size:0;line-height:0">&nbsp;</td></tr>
 {{{posten}}}
 </table>
 ```
-`anzahl` = Posten dieser Gruppe **in der Mail** (nach Kappung).
+`anzahltext` (geändert 25.11.):
+- Gruppe vollständig in der Mail: `{gezeigt}`, z. B. „Vorlauf (12)“.
+- Gruppe durch die Kappung **teilweise** gezeigt: `{gezeigt} von {gesamt}`, z. B. „Vorlauf (7 von 19)“.
+- Gruppe durch die Kappung **gar nicht** gezeigt: Gruppe entfällt. Ihre volle Zahl steht in der Zusammenfassung (§5.1), der Rest wird über die Kappungszeile (§5.10) erreicht.
 
 ### 5.6 Text-Plakette (das Erkennungszeichen)
 Steht links in jeder Postenzeile (`frist_digest`, `pruefer_woche`). Wie in der App: rund, Statusfarbe, Monat und Jahr der Fälligkeit; die Bedeutung steht zusätzlich als Text daneben.
 
-Variante **Datum** (Status `ok`, `bald_faellig`, `ueberfaellig`):
+Variante **Datum** (Status `ok`, `bald_faellig`, `ueberfaellig`), geändert 25.11.: Höhe über Innenabstand statt `height` + `padding-top`, Textfarbe erbt ink. Außenmaß unverändert 44 × 44 px (2 × 15 px Zeilenhöhe + 2 × 5 px + 2 × 2 px Rand).
 ```html
-<div style="width:40px;height:35px;padding-top:5px;border:2px solid {{rand}};border-radius:50%;background:{{flaeche}};text-align:center;font-size:13px;line-height:15px;font-weight:700;color:#1e2328">{{MM}}<br>{{JJJJ}}</div>
+<div style="width:40px;padding:5px 0;border:2px solid {{rand}};border-radius:50%;background:{{flaeche}};text-align:center;font-size:13px;line-height:15px;font-weight:700">{{MM}}<br>{{JJJJ}}</div>
 ```
-Variante **Zeichen** (`vor_nutzung_pruefen`, `unbekannt`, `gbu`):
+Variante **Zeichen** (`vor_nutzung_pruefen`, `unbekannt`, `gbu`); `;color:{{farbe}}` steht nur bei `vor_nutzung_pruefen`:
 ```html
-<div style="width:40px;height:40px;border:2px {{linienart}} {{rand}};border-radius:50%;background:{{flaeche}};text-align:center;font-size:{{groesse}};line-height:40px;font-weight:700;color:{{farbe}}">{{zeichen}}</div>
+<div style="width:40px;height:40px;border:2px {{linienart}} {{rand}};border-radius:50%;background:{{flaeche}};text-align:center;font-size:{{groesse}};line-height:40px;font-weight:700[;color:{{farbe}}]">{{zeichen}}</div>
 ```
 
 | Status | Variante | `rand` | `linienart` | `flaeche` | Mitte | `groesse` / `farbe` |
 |---|---|---|---|---|---|---|
-| `ok` | Datum | `#5b7f3a` | solid | `#eef3e8` | MM / JJJJ von `faelligAm` | 13px / `#1e2328` |
-| `bald_faellig` | Datum | `#b07d22` | solid | `#fbf3e2` | MM / JJJJ | 13px / `#1e2328` |
-| `ueberfaellig` | Datum | `#a6452f` | solid | `#f9ece8` | MM / JJJJ | 13px / `#1e2328` |
+| `ok` | Datum | `#5b7f3a` | solid | `#eef3e8` | MM / JJJJ von `faelligAm` | 13px / erbt ink |
+| `bald_faellig` | Datum | `#b07d22` | solid | `#fbf3e2` | MM / JJJJ | 13px / erbt ink |
+| `ueberfaellig` | Datum | `#a6452f` | solid | `#f9ece8` | MM / JJJJ | 13px / erbt ink |
 | `vor_nutzung_pruefen` | Zeichen | `#a6452f` | solid | `#f9ece8` | `!` | 20px / `#a6452f` |
-| `unbekannt` | Zeichen | `#44546a` | solid | `#f1f3f6` | `?` | 20px / `#1e2328` |
-| `gbu` | Zeichen | `#7c8797` | dashed | `#ffffff` | `GBU` | 13px / `#1e2328` |
+| `unbekannt` | Zeichen | `#44546a` | solid | `#f1f3f6` | `?` | 20px / erbt ink |
+| `gbu` | Zeichen | `#7c8797` | dashed | `#ffffff` | `GBU` | 13px / erbt ink |
 
 - Ist `faelligAm` bei einem Datums-Status `null` (sollte nicht vorkommen), gilt Variante Zeichen wie `unbekannt`.
 - Classic Outlook zeigt die Plakette eckig (M-2). Das ist gewollt und braucht keinen Workaround.
-- **Don't:** Plakette nie ohne die Statuszeile daneben. Keine Plakette in der MA-Mail (dort keine Fristwerte, F-35).
+- **Don't:** Plakette nie ohne die Statuszeile daneben. Keine Plakette in der MA-Mail (dort keine Fristwerte, F-35). Plakettenstile nie in eine Klasse auslagern (M-10).
 
 ### 5.7 Statuszeile und Fälligkeit (je Posten)
 
@@ -216,27 +224,35 @@ Variante **Zeichen** (`vor_nutzung_pruefen`, `unbekannt`, `gbu`):
 - `frist = null`: „Frist über GBU festlegen“ (ohne „Frist: “ davor)
 - `katalogEntwurf = true`: Zusatz „ · Prüfkatalog: Entwurf“
 
-### 5.8 Posten `frist_digest`
+### 5.8 Posten `frist_digest` (geändert 25.11.)
+Der Gerätename ist der Link zur Geräteakte (M-6). Die frühere letzte Zeile „Geräteakte öffnen“ entfällt.
 ```html
-<tr><td width="56" valign="top" style="padding:12px 12px 12px 0;border-top:1px solid #c5ccd5">{{{plakette}}}</td><td valign="top" style="padding:12px 0;border-top:1px solid #c5ccd5"><b style="font-size:16px;line-height:24px">{{geraet}}</b><br><span class="m">{{inventarnummer}}</span> · {{bereich}} · {{pruefart}}<br><b>{{statuszeile}}</b> · {{faelligtext}}<br><span style="color:#44546a">{{fristzeile}}</span><br>{{rolle}}{{hinweise}}<br><a href="{{siteUrl}}{{pfad}}" style="color:#2c3646">Geräteakte öffnen</a></td></tr>
+<tr><td width="56" valign="top" style="padding:12px 12px 12px 0;border-top:1px solid #c5ccd5">{{{plakette}}}</td><td valign="top" style="padding:12px 0;border-top:1px solid #c5ccd5"><a href="{{siteUrl}}{{pfad}}" style="font-size:16px;line-height:24px;font-weight:700;color:#2c3646">{{geraet}}</a><br><span class="m">{{inventarnummer}}</span> · {{bereich}} · {{pruefart}}<br><b>{{statuszeile}}</b> · {{faelligtext}}<br><span style="color:#44546a">{{fristzeile}}</span><br>{{rolle}}{{hinweise}}</td></tr>
 ```
 - `inventarnummer = null` → Span und das folgende „ · “ entfallen.
 - `rolle` = `POSTEN_ROLLE_LABEL[rolle]` („Sie sind zuständig“ / „Zur Kenntnis“). Bei `zustaendig` fett: `<b>Sie sind zuständig</b>`.
 - `hinweise` = jeder Eintrag aus `posten.hinweise` mit „ · “ davor (z. B. „ · Eskaliert an Sifa“, „ · Bereich ohne Verantwortlichen“).
+- Link: Unterstreichung bleibt (Standard), kein `text-decoration:none`. Kein `display:block` (Outlook).
+- **Größe:** ≈ 930 Byte mit den Werten der Abnahme §10 Nr. 4 (davon ≈ 470 Byte Daten und URL). Vorher ≈ 980.
 
 ### 5.9 Posten `pruefer_woche`
-Wie 5.8, aber **ohne** Rollen-/Hinweiszeile und **ohne** Link (Button führt auf `/pruefer`):
+Wie 5.8, aber **ohne** Rollen-/Hinweiszeile und **ohne** Link (Button führt auf `/pruefer`); der Name ist fett ohne Link:
 ```html
 <tr><td width="56" valign="top" style="padding:12px 12px 12px 0;border-top:1px solid #c5ccd5">{{{plakette}}}</td><td valign="top" style="padding:12px 0;border-top:1px solid #c5ccd5"><b style="font-size:16px;line-height:24px">{{geraet}}</b><br><span class="m">{{inventarnummer}}</span> · {{bereich}} · {{pruefart}}<br><b>{{statuszeile}}</b> · {{faelligtext}}<br><span style="color:#44546a">{{fristzeile}}</span></td></tr>
 ```
 Hat ein Posten `hinweise`, kommt vor `</td>` eine Zeile `<br>{{hinweise, mit „ · “ verbunden}}` dazu.
+**Größe:** ≈ 760 Byte mit den Werten der Abnahme §10 Nr. 4.
 
-### 5.10 Kappung (> `MAIL_MAX_POSTEN`)
+### 5.10 Kappung (> `MAIL_MAX_POSTEN` = 50, geändert 25.11.)
 Nach der letzten Gruppe:
 ```html
-<p style="margin:20px 0 0;font-size:16px;line-height:24px"><b>… und {{n}} weitere in Readyloop.</b> <a href="{{buttonUrl}}" style="color:#2c3646">Alle anzeigen</a></p>
+<p style="margin:20px 0 0;font-size:16px;line-height:24px"><b>… und {{n}} weitere {{Prüfung|Prüfungen}}</b> – <a href="{{buttonUrl}}" style="color:#2c3646">in Readyloop ansehen</a></p>
 ```
-Gekappt wird hinten (nach Sortierung), also zuerst die am wenigsten dringlichen. Die Zusammenfassung oben zeigt die **vollen** Zahlen je Gruppe (vor Kappung), die Gruppenköpfe die Zahl in der Mail.
+- `n` = volle Anzahl − 50. `n = 1`: „… und 1 weitere Prüfung“, sonst „Prüfungen“. In `ma_hinweis` „Gerät“/„Geräte“ statt „Prüfung“/„Prüfungen“.
+- `buttonUrl` = Ziel des Hauptbuttons (§5.3).
+- Gekappt wird hinten (nach Sortierung), also zuerst die am wenigsten dringlichen. Die Zusammenfassung oben und der Betreff zeigen die **vollen** Zahlen, die Gruppenköpfe die Zahl in der Mail (§5.5).
+- Genau 50 Posten: keine Kappungszeile, kein Satz in der Einleitung.
+- **Offen für requirements-engineer (F-33):** ob gekappte Posten als „gesendet“ gebucht werden. Siehe BE-24b in `umsetzung.md`. Die Gestaltung hängt davon nicht ab.
 
 ### 5.11 Entwurfshinweis (F-38)
 Über dem Fuß, wenn mindestens ein Posten `katalogEntwurf` hat. `n` = Anzahl verschiedener Prüfarten mit Entwurf in der Mail.
@@ -301,6 +317,12 @@ Beispiele:
 | `ma_hinweis` 1 Gerät | „ein Gerät, das Sie haben, darf ab sofort nicht benutzt werden.“ |
 | `ma_hinweis` mehrere | „{n} Geräte, die Sie haben, dürfen ab sofort nicht benutzt werden.“ |
 
+**Bei Kappung (neu 25.11.)** wird ein Satz angehängt (mit Leerzeichen davor), `N` = volle Anzahl:
+- `frist_digest`, `pruefer_woche`: „Diese Mail zeigt die 50 dringlichsten von {N}.“
+- `ma_hinweis`: „Diese Mail zeigt 50 von {N}.“
+
+Die Zahl 50 kommt aus `MAIL_MAX_POSTEN`, nicht als Literal.
+
 ---
 
 ## 7. `ma_hinweis`: Nutzungsband und Gerät
@@ -310,7 +332,7 @@ Statt Zusammenfassung steht oben das **Nutzungsband** wie in der App (§6.17): v
 ```html
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#a6452f" style="background:#a6452f;border-radius:6px;padding:16px 20px;color:#ffffff"><p style="margin:0;font-size:22px;line-height:28px;font-weight:700;color:#ffffff">✕ {{bandtitel}}</p><p style="margin:4px 0 0;font-size:16px;line-height:24px;color:#ffffff">Gerät nicht benutzen. Verantwortlichen informieren.</p></td></tr><tr><td height="16" style="font-size:0;line-height:0">&nbsp;</td></tr></table>
 ```
-`bandtitel`: 1 Gerät „Nicht verwenden“; mehrere „{n} Geräte nicht verwenden“.
+`bandtitel`: 1 Gerät „Nicht verwenden“; mehrere „{n} Geräte nicht verwenden“ (`n` = volle Anzahl).
 
 Danach Button (5.3), dann je Gerät:
 ```html
@@ -324,6 +346,7 @@ Danach Button (5.3), dann je Gerät:
 - `grund` = Nutzungsgrund aus `posten.hinweise` (z. B. „Überfällig“, „Gefährlicher Mangel offen“, „Außer Betrieb“).
 - `handlung` = „Gerät nicht verwenden und den Verantwortlichen informieren.“; enthält `hinweise` „Bitte zurückgeben“: „Gerät nicht verwenden, den Verantwortlichen informieren und zurückgeben.“ (F-35 sinngemäß).
 - Schrift in der MA-Mail durchgehend 16 px (Halle-Regel §6.18: Laien, Handy).
+- Kappung wie §5.10 mit „Gerät“/„Geräte“ (praktisch nicht zu erwarten).
 
 ---
 
@@ -332,10 +355,11 @@ Danach Button (5.3), dann je Gerät:
 Regeln:
 1. UTF-8, Zeilen höchstens **72 Zeichen**, Umbruch an Wortgrenzen. Folgezeilen eines Postenfelds werden auf die Wertspalte eingerückt (12 Leerzeichen).
 2. URLs nie umbrechen, immer auf eigener Zeile oder hinter „Öffnen:“ (dürfen länger als 72 sein).
-3. Gruppenüberschrift: Zeile mit `{symbol} {label} ({anzahl})`, darunter `=` in gleicher Länge. Leerzeile vor und nach.
+3. Gruppenüberschrift: Zeile mit `{symbol} {label} ({anzahltext})` (wie §5.5), darunter `=` in gleicher Länge. Leerzeile vor und nach.
 4. Text-Plakette als eckige Klammer vor dem Gerätenamen: `[03/2027]`, `[!]`, `[?]`, `[GBU]`.
 5. Gleiche Reihenfolge und gleiche Texte wie im HTML. Kein Inhalt nur im HTML (außer Gestaltung).
 6. Zwischen Posten eine Leerzeile. Vor dem Fuß eine Linie aus 72 `-`.
+7. Die Zeile `Öffnen:` mit der URL bleibt im Textteil je Posten (`frist_digest`) erhalten; sie ist das Gegenstück zum verlinkten Gerätenamen im HTML.
 
 ### 8.1 Beispiel `frist_digest` (Demo, VER Lager, Lauf 30.11.2026)
 ```
@@ -399,7 +423,7 @@ https://app.readyloop.de/einstellungen/benachrichtigungen
 Readyloop – Prüffristen für Arbeitsmittel. Automatisch erstellt am
 30.11.2026. Den aktuellen Stand zeigt Readyloop.
 ```
-„…“ im Beispiel = gekürzt für die Doku; die echte Mail enthält die volle URL und alle Posten.
+„…“ im Beispiel = gekürzt für die Doku; die echte Mail enthält die volle URL und alle Posten bis zur Obergrenze.
 
 ### 8.2 Abweichungen `pruefer_woche`
 - Kopfzeile „Wochenübersicht für Prüfer · KW 49“.
@@ -442,6 +466,18 @@ Readyloop – Prüffristen für Arbeitsmittel. Automatisch erstellt am
 ```
 „NICHT VERWENDEN“ in Versalien ist im Textteil die **einzige** Ausnahme von der Satzschreibung: Es ersetzt die brick-Fläche, die es im Text nicht gibt.
 
+### 8.4 Kappung im Textteil (neu 25.11.)
+Einleitung mit dem Satz aus §6.3, Gruppenköpfe mit `anzahltext` (§5.5), nach der letzten Gruppe eine Leerzeile und:
+```
+… und 12 weitere Prüfungen – in Readyloop ansehen:
+https://app.readyloop.de/geraete
+```
+Beispiel Gruppenkopf bei Teilkappung:
+```
+✓ Vorlauf (7 von 19)
+====================
+```
+
 ---
 
 ## 9. Kopfzeilen und Absender
@@ -454,21 +490,28 @@ Readyloop – Prüffristen für Arbeitsmittel. Automatisch erstellt am
 1. Snapshot je Art enthält: Kopf in `#44546a`, Zusammenfassung (bzw. Nutzungsband), Button, Gruppen in Reihenfolge `DRINGLICHKEITEN`, Fuß.
 2. Jede Postenzeile enthält eine Text-Plakette (`border-radius:50%`) **und** eine Statuszeile mit Symbol und `STATUS_LABEL`. Die MA-Mail enthält keine Plakette und kein „Frist:“.
 3. Plakette `ueberfaellig` mit `faelligAm = 2025-10-26` zeigt `10<br>2025`, Rand `#a6452f`; `gbu` zeigt `GBU` mit `dashed`.
-4. **Größe:** Fixture mit 100 Posten (Bezeichnung 40 Zeichen, Prüfart 40, Fundstelle 60, Bereich 20, je ein Hinweis) → `Buffer.byteLength(html, 'utf8') < 95_000`. Schlägt das fehl: nicht still kürzen, sondern an den designer melden.
-5. Das HTML enthält keine Zeilenumbrüche (`\n`) und kein `#c8902e`.
+4. **Größe (neu 25.11., BE-24b):** Fixture „lang“ = Posten mit Bezeichnung 40 Zeichen, Prüfart 40, Fundstelle 60, Bereich 20, Inventarnummer 8, je ein Hinweis, alle `frist_digest` mit Rolle `zustaendig`.
+   - a) 100 Posten → genau **50** Postenzeilen, Kappungszeile „… und 50 weitere Prüfungen – in Readyloop ansehen“, Zusammenfassung und Betreff mit vollen Zahlen, `Buffer.byteLength(html, 'utf8') < 95_000` (erwartet ≈ 52 000, Ziel < 60 000). Der Test läuft als normales `it`, nicht mehr als `it.fails`.
+   - b) Je Postenzeile: Byte-Differenz zwischen Fixture mit 50 und mit 49 Posten derselben Gruppe ≤ 1 000 (`frist_digest`) bzw. ≤ 850 (`pruefer_woche`).
+   - c) 50 Posten → keine Kappungszeile, Einleitung ohne Zusatzsatz. 51 Posten → „… und 1 weitere Prüfung“, Einleitung „… Diese Mail zeigt die 50 dringlichsten von 51.“
+   - d) 100 Posten, davon 30 `ueberfaellig` und 70 `vorlauf` → Gruppenköpfe „Überfällig (30)“ und „Vorlauf (20 von 70)“, im Textteil gleich.
+   - Schlägt a) mit echten Daten trotzdem fehl: nicht still kürzen, sondern an den designer melden.
+5. Das HTML enthält keine Zeilenumbrüche (`\n`) und kein `#c8902e`. Der `<style>`-Block enthält außer dem MSO-Block nur `.m`.
 6. Betreff mit Eskalation: VER-Mail mit Posten `e_sifa` als `kopie` → **kein** „Eskalation – “; SIF-Mail mit `e_sifa` als `zustaendig` → mit.
 7. Betrieb mit 80 Zeichen → Betreff enthält die vollständige Zählung.
 8. Textteil: keine Zeile über 72 Zeichen außer Zeilen, die eine URL enthalten.
 9. Die Vorschauzeile ist ≤ 110 Zeichen und steht im HTML vor der ersten Tabelle.
+10. **Link (neu 25.11.):** In `frist_digest` ist je Posten genau ein `<a>`, sein Text ist der Gerätename, `href` = `siteUrl + pfad`. Der Text „Geräteakte öffnen“ kommt im HTML nicht mehr vor. In `pruefer_woche` hat keine Postenzeile ein `<a>`.
 
-Manuelle Prüfung in Gate G-6 (echter Versand an Testkonten): Classic Outlook (Windows), neues Outlook, Outlook.com, Gmail Web/Android/iOS, Apple Mail iOS, GMX, WEB.DE, Thunderbird; jeweils hell und dunkel. Kriterium: Status, Datum, Frist mit Quelle und Stufe sind überall lesbar; Button klickbar; Fuß sichtbar.
+Manuelle Prüfung in Gate G-6 (echter Versand an Testkonten): Classic Outlook (Windows), neues Outlook, Outlook.com, Gmail Web/Android/iOS, **Gmail-App Android mit GMX- oder WEB.DE-Konto**, Apple Mail iOS, GMX, WEB.DE, Thunderbird; jeweils hell und dunkel. Kriterium: Status, Datum, Frist mit Quelle und Stufe sind überall lesbar; Plakette 44 × 44 px rund (Classic Outlook eckig); Gerätename als Link erkennbar; Button klickbar; Fuß sichtbar und Mail **nicht** von Gmail gekürzt bei 50 Posten.
 
 ---
 
 ## 11. Abweichungen und Ergänzungen zum Backlog (bitte im Backlog nachziehen)
 | Punkt | Backlog | D-I3a | Grund |
 |---|---|---|---|
-| Link je Posten | „Link-Button“ | Textlink „Geräteakte öffnen“, Prüfer-Mail ohne Postenlink | M-5, M-6 |
+| Link je Posten | „Link-Button“ | Gerätename als Textlink (seit 25.11.; vorher Textlink „Geräteakte öffnen“), Prüfer-Mail ohne Postenlink | M-5, M-6 |
+| Obergrenze Posten | `MAIL_MAX_POSTEN = 100` (Vertrag `src/domain/types.ts`, Backlog §9) | **50**, Kappungszeile „… und {n} weitere Prüfungen – in Readyloop ansehen“, Gruppenkopf „({gezeigt} von {gesamt})“, Zusatzsatz in der Einleitung | M-5, M-10 (neu 25.11., BE-24b) |
 | Betreff `frist_digest` | „{n} überfällig, {m} heute fällig, {k} demnächst“ | zusätzlich „{a} nicht verwenden“ vorn und Präfix „Eskalation – “ | Die Geschäftsführung soll Eskalationen schon im Posteingang erkennen; „Nicht verwenden“ ist dringlicher als „überfällig“ |
 | Entwurfshinweis | „Prüfart(en)“ | „Prüfart“ / „Prüfarten“ nach Anzahl | Lesbarkeit; Inhalt sonst wörtlich |
 | Betriebsname im Betreff | Kürzung auf 150 gesamt | Betrieb zuerst auf 60 Zeichen kürzen | Zählung bleibt sichtbar |
